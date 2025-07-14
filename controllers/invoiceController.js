@@ -7,6 +7,7 @@ import path from "path";
 import fs from "fs";
 import { Vendor } from "../models/vendor.js";
 import { Parser as Json2CsvParser } from 'json2csv';
+import path from "path";
 
 export const createInvoice = async (req, res) => {
   try {
@@ -531,12 +532,14 @@ export const generateDellcubeInvoicePDF = async (req, res) => {
 //   return browserPromise;
 // }
 
+
 const getChromePath = () => {
   if (process.env.IS_RENDER === "true") {
-    return "/usr/bin/google-chrome";
+    return path.resolve(".cache/puppeteer/chrome/linux-*/chrome-linux64/chrome"); // wildcard safe
   }
   return "/Users/adityathakur/.cache/puppeteer/chrome/mac_arm-121.0.6167.85/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing";
 };
+
 
 let browserPromise = null;
 
