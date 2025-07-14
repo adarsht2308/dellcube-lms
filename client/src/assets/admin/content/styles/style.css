@@ -1,0 +1,10 @@
+.content-nav-logo  figure{
+    height: 50px;
+    width: 140px
+}
+@media (min-width:992px){
+    .content-nav-logo  figure{
+        height: 60px;
+        width: 180px
+    }
+}
