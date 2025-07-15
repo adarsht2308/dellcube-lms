@@ -595,44 +595,28 @@ export const generateDellcubeInvoicePDF = async (req, res) => {
   
 //   return browserPromise;
 // }
-
-
 const getChromePath = () => {
   if (process.env.NODE_ENV === 'production') {
-    // Try multiple possible Chrome locations on Render
-    const chromePaths = [
-      process.env.PUPPETEER_EXECUTABLE_PATH,
-      '/usr/bin/google-chrome',
-      '/usr/bin/google-chrome-stable',
-      '/usr/bin/chromium',
-      '/usr/bin/chromium-browser',
-      '/opt/google/chrome/chrome',
-      '/app/.chrome-for-testing/chrome-linux64/chrome'
-    ];
-    
-    for (const path of chromePaths) {
-      if (path && require('fs').existsSync(path)) {
-        console.log(`Found Chrome at: ${path}`);
-        return path;
-      }
+    // In production, try system Chrome first
+    const systemChrome = '/usr/bin/google-chrome-stable';
+    if (fs.existsSync(systemChrome)) {
+      console.log(`Using system Chrome: ${systemChrome}`);
+      return systemChrome;
     }
     
-    // If no Chrome found, try to use Puppeteer's bundled Chromium
-    try {
-      const executablePath = puppeteer.executablePath();
-      if (require('fs').existsSync(executablePath)) {
-        console.log(`Using Puppeteer's bundled Chromium at: ${executablePath}`);
-        return executablePath;
-      }
-    } catch (e) {
-      console.warn('Puppeteer executablePath() failed:', e.message);
+    // Try alternative paths
+    const altChrome = '/usr/bin/google-chrome';
+    if (fs.existsSync(altChrome)) {
+      console.log(`Using alternative Chrome: ${altChrome}`);
+      return altChrome;
     }
     
-    console.error('No Chrome executable found! Available paths checked:', chromePaths);
-    throw new Error('Chrome executable not found');
+    // Fallback to Puppeteer's bundled Chromium
+    console.log('System Chrome not found, using Puppeteer bundled Chromium');
+    return undefined; // Let Puppeteer use its default
   } else {
-    // For local development, let Puppeteer find Chrome
-    return puppeteer.executablePath();
+    // For local development
+    return undefined; // Let Puppeteer find Chrome automatically
   }
 };
 
@@ -646,11 +630,10 @@ async function getBrowser() {
   browserPromise = (async () => {
     try {
       const executablePath = getChromePath();
-      console.log(`Attempting to launch browser with executable: ${executablePath}`);
+      console.log('Launching browser...');
       
-      const browser = await puppeteer.launch({
+      const launchOptions = {
         headless: true,
-        executablePath: executablePath,
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
@@ -665,11 +648,16 @@ async function getBrowser() {
           '--disable-extensions',
           '--disable-plugins',
           '--disable-images',
-          '--disable-javascript',
           '--virtual-time-budget=5000'
         ]
-      });
+      };
       
+      // Only set executablePath if we found a specific Chrome installation
+      if (executablePath) {
+        launchOptions.executablePath = executablePath;
+      }
+      
+      const browser = await puppeteer.launch(launchOptions);
       console.log('Browser launched successfully');
       return browser;
     } catch (error) {
@@ -682,11 +670,9 @@ async function getBrowser() {
   return browserPromise;
 }
 
+
 export const generateInvoicePDF = async (req, res) => {
-   let browser = null;
   try {
-    
-    
     const { invoiceId } = req.params;
     if (!invoiceId || !mongoose.Types.ObjectId.isValid(invoiceId)) {
       return res.status(400).json({ success: false, message: "Valid invoice ID is required" });
@@ -1101,7 +1087,8 @@ export const generateInvoicePDF = async (req, res) => {
 
     // Puppeteer PDF generation with error handling
     let pdfBuffer;
-    let page;
+    let browser = null;
+    let page = null;
     try {
       const browser = await getBrowser();
       page = await browser.newPage();
