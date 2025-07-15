@@ -685,8 +685,7 @@ async function getBrowser() {
 export const generateInvoicePDF = async (req, res) => {
    let browser = null;
   try {
-      browser = await getBrowser();
-    const page = await browser.newPage();
+    
     
     const { invoiceId } = req.params;
     if (!invoiceId || !mongoose.Types.ObjectId.isValid(invoiceId)) {
