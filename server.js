@@ -19,6 +19,7 @@ app.use(
       "http://localhost:5173",
       "https://dellcube-lms.onrender.com",
       "https://dellcube-lms-1.onrender.com",
+      "https://dellcube-lms-nucw.onrender.com",
     ],
     credentials: true,
   })

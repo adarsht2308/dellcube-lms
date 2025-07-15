@@ -7,7 +7,6 @@ import path from "path";
 import fs from "fs";
 import { Vendor } from "../models/vendor.js";
 import { Parser as Json2CsvParser } from 'json2csv';
-import path from "path";
 
 export const createInvoice = async (req, res) => {
   try {
