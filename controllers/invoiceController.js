@@ -597,22 +597,52 @@ export const generateDellcubeInvoicePDF = async (req, res) => {
 // }
 const getChromePath = () => {
   if (process.env.NODE_ENV === 'production') {
-    // In production, try system Chrome first
-    const systemChrome = '/usr/bin/google-chrome-stable';
-    if (fs.existsSync(systemChrome)) {
-      console.log(`Using system Chrome: ${systemChrome}`);
-      return systemChrome;
+    // List of possible Chrome paths in order of preference
+    const chromePaths = [
+      '/usr/bin/google-chrome-stable',
+      '/usr/bin/google-chrome',
+      '/usr/bin/chromium-browser',
+      '/usr/bin/chromium',
+      '/opt/google/chrome/google-chrome',
+      '/opt/google/chrome/chrome',
+      '/snap/bin/chromium'
+    ];
+    
+    console.log('🔍 Searching for Chrome executable...');
+    
+    for (const chromePath of chromePaths) {
+      if (fs.existsSync(chromePath)) {
+        console.log(`✅ Found Chrome at: ${chromePath}`);
+        return chromePath;
+      } else {
+        console.log(`❌ Chrome not found at: ${chromePath}`);
+      }
     }
     
-    // Try alternative paths
-    const altChrome = '/usr/bin/google-chrome';
-    if (fs.existsSync(altChrome)) {
-      console.log(`Using alternative Chrome: ${altChrome}`);
-      return altChrome;
+    // Try to find Chrome using 'which' command
+    try {
+      const { execSync } = require('child_process');
+      const whichChrome = execSync('which google-chrome-stable || which google-chrome || which chromium-browser || which chromium', { encoding: 'utf8' }).trim();
+      if (whichChrome) {
+        console.log(`✅ Found Chrome via 'which': ${whichChrome}`);
+        return whichChrome;
+      }
+    } catch (error) {
+      console.log('❌ Could not find Chrome via "which" command');
     }
     
-    // Fallback to Puppeteer's bundled Chromium
-    console.log('System Chrome not found, using Puppeteer bundled Chromium');
+    // Check if Chrome is installed but not in expected location
+    try {
+      const { execSync } = require('child_process');
+      const chromeVersion = execSync('google-chrome-stable --version', { encoding: 'utf8' });
+      console.log(`✅ Chrome is installed: ${chromeVersion.trim()}`);
+      // If Chrome responds but we can't find the path, let Puppeteer handle it
+      return undefined;
+    } catch (error) {
+      console.log('❌ Chrome command not available');
+    }
+    
+    console.log('⚠️ Chrome not found, using Puppeteer bundled Chromium');
     return undefined; // Let Puppeteer use its default
   } else {
     // For local development
@@ -630,7 +660,7 @@ async function getBrowser() {
   browserPromise = (async () => {
     try {
       const executablePath = getChromePath();
-      console.log('Launching browser...');
+      console.log('🚀 Launching browser...');
       
       const launchOptions = {
         headless: true,
@@ -648,21 +678,59 @@ async function getBrowser() {
           '--disable-extensions',
           '--disable-plugins',
           '--disable-images',
-          '--virtual-time-budget=5000'
+          '--virtual-time-budget=5000',
+          '--disable-background-timer-throttling',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-renderer-backgrounding'
         ]
       };
       
       // Only set executablePath if we found a specific Chrome installation
       if (executablePath) {
         launchOptions.executablePath = executablePath;
+        console.log(`🎯 Using Chrome at: ${executablePath}`);
+      } else {
+        console.log('🤖 Using Puppeteer bundled Chromium');
       }
       
       const browser = await puppeteer.launch(launchOptions);
-      console.log('Browser launched successfully');
+      console.log('✅ Browser launched successfully');
       return browser;
     } catch (error) {
-      console.error('Failed to launch browser:', error);
+      console.error('❌ Failed to launch browser:', error);
       browserPromise = null; // Reset promise on failure
+      
+      // If Chrome-specific path failed, try with Puppeteer's bundled Chromium
+      if (error.message.includes('no executable was found')) {
+        console.log('🔄 Retrying with Puppeteer bundled Chromium...');
+        try {
+          const browser = await puppeteer.launch({
+            headless: true,
+            args: [
+              '--no-sandbox',
+              '--disable-setuid-sandbox',
+              '--disable-dev-shm-usage',
+              '--disable-accelerated-2d-canvas',
+              '--no-first-run',
+              '--no-zygote',
+              '--single-process',
+              '--disable-gpu',
+              '--disable-web-security',
+              '--disable-features=VizDisplayCompositor',
+              '--disable-extensions',
+              '--disable-plugins',
+              '--disable-images',
+              '--virtual-time-budget=5000'
+            ]
+          });
+          console.log('✅ Browser launched with bundled Chromium');
+          return browser;
+        } catch (retryError) {
+          console.error('❌ Failed to launch with bundled Chromium:', retryError);
+          throw retryError;
+        }
+      }
+      
       throw error;
     }
   })();

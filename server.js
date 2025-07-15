@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import path from "path";
 import { fileURLToPath } from "url";
 import connectDB from "./config/dbConfig.js";
+import fs from "fs";    
 
 dotenv.config();
 connectDB();

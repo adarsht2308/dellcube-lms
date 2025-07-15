@@ -7,10 +7,12 @@
     "dev": "nodemon server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js",
-    "build": "echo 'Build complete'"
+    "build": "echo 'Build complete'",
+    "postinstall": "node -e \"console.log('Puppeteer setup complete');\""
   },
   "puppeteer": {
-    "skip_chromium_download": false
+    "skip_chromium_download": false,
+    "skip_download": false
   },
   "keywords": [],
   "author": "",
