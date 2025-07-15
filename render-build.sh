@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 
-echo "Installing Chromium in .cache/puppeteer..."
+echo "📦 Installing Chromium manually..."
 
-mkdir -p .cache/puppeteer
+apt-get update && apt-get install -y wget gnupg unzip curl gnupg2
 
-# Skip default Chromium install and install it manually into a known path
-PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true npx puppeteer install --path .cache/puppeteer
+# Add Chrome repo
+wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
+echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" \
+  > /etc/apt/sources.list.d/google-chrome.list
 
-echo "Chromium installed in .cache/puppeteer"
+apt-get update && apt-get install -y google-chrome-stable
+
+echo "✅ Chrome installed at /usr/bin/google-chrome"
