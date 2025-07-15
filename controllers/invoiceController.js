@@ -559,10 +559,77 @@ export const generateDellcubeInvoicePDF = async (req, res) => {
 // }
 
 
+// const getChromePath = () => {
+//   if (process.env.NODE_ENV === 'production') {
+//     // For Render and other cloud platforms
+//     return process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome';
+//   } else {
+//     // For local development, let Puppeteer find Chrome
+//     return puppeteer.executablePath();
+//   }
+// };
+
+// let browserPromise = null;
+
+// async function getBrowser() {
+//   if (browserPromise) {
+//     return browserPromise;
+//   }
+  
+//   browserPromise = puppeteer.launch({
+//     headless: true,
+//     executablePath: getChromePath(),
+//     args: [
+//       '--no-sandbox',
+//       '--disable-setuid-sandbox',
+//       '--disable-dev-shm-usage',
+//       '--disable-accelerated-2d-canvas',
+//       '--no-first-run',
+//       '--no-zygote',
+//       '--single-process',
+//       '--disable-gpu',
+//       '--disable-web-security',
+//       '--disable-features=VizDisplayCompositor'
+//     ]
+//   });
+  
+//   return browserPromise;
+// }
+
+
 const getChromePath = () => {
   if (process.env.NODE_ENV === 'production') {
-    // For Render and other cloud platforms
-    return process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome';
+    // Try multiple possible Chrome locations on Render
+    const chromePaths = [
+      process.env.PUPPETEER_EXECUTABLE_PATH,
+      '/usr/bin/google-chrome',
+      '/usr/bin/google-chrome-stable',
+      '/usr/bin/chromium',
+      '/usr/bin/chromium-browser',
+      '/opt/google/chrome/chrome',
+      '/app/.chrome-for-testing/chrome-linux64/chrome'
+    ];
+    
+    for (const path of chromePaths) {
+      if (path && require('fs').existsSync(path)) {
+        console.log(`Found Chrome at: ${path}`);
+        return path;
+      }
+    }
+    
+    // If no Chrome found, try to use Puppeteer's bundled Chromium
+    try {
+      const executablePath = puppeteer.executablePath();
+      if (require('fs').existsSync(executablePath)) {
+        console.log(`Using Puppeteer's bundled Chromium at: ${executablePath}`);
+        return executablePath;
+      }
+    } catch (e) {
+      console.warn('Puppeteer executablePath() failed:', e.message);
+    }
+    
+    console.error('No Chrome executable found! Available paths checked:', chromePaths);
+    throw new Error('Chrome executable not found');
   } else {
     // For local development, let Puppeteer find Chrome
     return puppeteer.executablePath();
@@ -576,28 +643,51 @@ async function getBrowser() {
     return browserPromise;
   }
   
-  browserPromise = puppeteer.launch({
-    headless: true,
-    executablePath: getChromePath(),
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-accelerated-2d-canvas',
-      '--no-first-run',
-      '--no-zygote',
-      '--single-process',
-      '--disable-gpu',
-      '--disable-web-security',
-      '--disable-features=VizDisplayCompositor'
-    ]
-  });
+  browserPromise = (async () => {
+    try {
+      const executablePath = getChromePath();
+      console.log(`Attempting to launch browser with executable: ${executablePath}`);
+      
+      const browser = await puppeteer.launch({
+        headless: true,
+        executablePath: executablePath,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--no-first-run',
+          '--no-zygote',
+          '--single-process',
+          '--disable-gpu',
+          '--disable-web-security',
+          '--disable-features=VizDisplayCompositor',
+          '--disable-extensions',
+          '--disable-plugins',
+          '--disable-images',
+          '--disable-javascript',
+          '--virtual-time-budget=5000'
+        ]
+      });
+      
+      console.log('Browser launched successfully');
+      return browser;
+    } catch (error) {
+      console.error('Failed to launch browser:', error);
+      browserPromise = null; // Reset promise on failure
+      throw error;
+    }
+  })();
   
   return browserPromise;
 }
 
 export const generateInvoicePDF = async (req, res) => {
+   let browser = null;
   try {
+      browser = await getBrowser();
+    const page = await browser.newPage();
+    
     const { invoiceId } = req.params;
     if (!invoiceId || !mongoose.Types.ObjectId.isValid(invoiceId)) {
       return res.status(400).json({ success: false, message: "Valid invoice ID is required" });
