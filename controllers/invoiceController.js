@@ -532,29 +532,67 @@ export const generateDellcubeInvoicePDF = async (req, res) => {
 // }
 
 
-const getChromePath = () => {
-  if (process.env.IS_RENDER === "true") {
-    return path.resolve(".cache/puppeteer/chrome/linux-*/chrome-linux64/chrome"); // wildcard safe
-  }
-  return "/Users/adityathakur/.cache/puppeteer/chrome/mac_arm-121.0.6167.85/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing";
-};
+// const getChromePath = () => {
+//   if (process.env.IS_RENDER === "true") {
+//     return path.resolve(".cache/puppeteer/chrome/linux-*/chrome-linux64/chrome"); // wildcard safe
+//   }
+//   return "/Users/adityathakur/.cache/puppeteer/chrome/mac_arm-121.0.6167.85/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing";
+// };
 
+
+// let browserPromise = null;
+
+// async function getBrowser() {
+//   if (!browserPromise) {
+//     browserPromise = puppeteer.launch({
+//       headless: true,
+//       executablePath: getChromePath(),
+//       args: [
+//         '--no-sandbox',
+//         '--disable-setuid-sandbox',
+//         '--disable-dev-shm-usage',
+//         '--disable-gpu',
+//       ],
+//     });
+//   }
+//   return browserPromise;
+// }
+
+
+const getChromePath = () => {
+  if (process.env.NODE_ENV === 'production') {
+    // For Render and other cloud platforms
+    return process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome';
+  } else {
+    // For local development, let Puppeteer find Chrome
+    return puppeteer.executablePath();
+  }
+};
 
 let browserPromise = null;
 
 async function getBrowser() {
-  if (!browserPromise) {
-    browserPromise = puppeteer.launch({
-      headless: true,
-      executablePath: getChromePath(),
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-      ],
-    });
+  if (browserPromise) {
+    return browserPromise;
   }
+  
+  browserPromise = puppeteer.launch({
+    headless: true,
+    executablePath: getChromePath(),
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--no-first-run',
+      '--no-zygote',
+      '--single-process',
+      '--disable-gpu',
+      '--disable-web-security',
+      '--disable-features=VizDisplayCompositor'
+    ]
+  });
+  
   return browserPromise;
 }
 
