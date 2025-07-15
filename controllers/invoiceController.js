@@ -611,39 +611,55 @@ const getChromePath = () => {
     console.log('🔍 Searching for Chrome executable...');
     
     for (const chromePath of chromePaths) {
-      if (fs.existsSync(chromePath)) {
-        console.log(`✅ Found Chrome at: ${chromePath}`);
-        return chromePath;
-      } else {
-        console.log(`❌ Chrome not found at: ${chromePath}`);
+      try {
+        if (fs.existsSync(chromePath)) {
+          // Check if the file is executable
+          const stats = fs.statSync(chromePath);
+          if (stats.mode & fs.constants.S_IXUSR) {
+            console.log(`✅ Found executable Chrome at: ${chromePath}`);
+            return chromePath;
+          } else {
+            console.log(`⚠️ Chrome found but not executable at: ${chromePath}`);
+          }
+        } else {
+          console.log(`❌ Chrome not found at: ${chromePath}`);
+        }
+      } catch (error) {
+        console.log(`❌ Error checking Chrome at ${chromePath}:`, error.message);
       }
     }
     
     // Try to find Chrome using 'which' command
     try {
-      const { execSync } = require('child_process');
       const whichChrome = execSync('which google-chrome-stable || which google-chrome || which chromium-browser || which chromium', { encoding: 'utf8' }).trim();
       if (whichChrome) {
         console.log(`✅ Found Chrome via 'which': ${whichChrome}`);
         return whichChrome;
       }
     } catch (error) {
-      console.log('❌ Could not find Chrome via "which" command');
+      console.log('❌ Could not find Chrome via "which" command:', error.message);
     }
     
-    // Check if Chrome is installed but not in expected location
+    // Check if Chrome is installed and accessible
     try {
-      const { execSync } = require('child_process');
       const chromeVersion = execSync('google-chrome-stable --version', { encoding: 'utf8' });
       console.log(`✅ Chrome is installed: ${chromeVersion.trim()}`);
-      // If Chrome responds but we can't find the path, let Puppeteer handle it
-      return undefined;
+      // Try to find where it's installed
+      try {
+        const chromePath = execSync('which google-chrome-stable', { encoding: 'utf8' }).trim();
+        if (chromePath) {
+          console.log(`✅ Chrome path found: ${chromePath}`);
+          return chromePath;
+        }
+      } catch (e) {
+        console.log('⚠️ Chrome responds but path not found, using default');
+      }
     } catch (error) {
-      console.log('❌ Chrome command not available');
+      console.log('❌ Chrome command not available:', error.message);
     }
     
-    console.log('⚠️ Chrome not found, using Puppeteer bundled Chromium');
-    return undefined; // Let Puppeteer use its default
+    console.log('⚠️ Chrome not found, will use Puppeteer bundled Chromium');
+    return undefined;
   } else {
     // For local development
     return undefined; // Let Puppeteer find Chrome automatically
@@ -664,6 +680,7 @@ async function getBrowser() {
       
       const launchOptions = {
         headless: true,
+        timeout: 30000, // 30 second timeout
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
@@ -681,7 +698,17 @@ async function getBrowser() {
           '--virtual-time-budget=5000',
           '--disable-background-timer-throttling',
           '--disable-backgrounding-occluded-windows',
-          '--disable-renderer-backgrounding'
+          '--disable-renderer-backgrounding',
+          '--disable-default-apps',
+          '--disable-sync',
+          '--disable-translate',
+          '--hide-scrollbars',
+          '--metrics-recording-only',
+          '--mute-audio',
+          '--no-default-browser-check',
+          '--no-first-run',
+          '--safebrowsing-disable-auto-update',
+          '--disable-ipc-flooding-protection'
         ]
       };
       
@@ -695,17 +722,25 @@ async function getBrowser() {
       
       const browser = await puppeteer.launch(launchOptions);
       console.log('✅ Browser launched successfully');
+      
+      // Test the browser
+      const page = await browser.newPage();
+      await page.goto('data:text/html,<h1>Test</h1>');
+      await page.close();
+      console.log('✅ Browser test successful');
+      
       return browser;
     } catch (error) {
       console.error('❌ Failed to launch browser:', error);
       browserPromise = null; // Reset promise on failure
       
       // If Chrome-specific path failed, try with Puppeteer's bundled Chromium
-      if (error.message.includes('no executable was found')) {
+      if (error.message.includes('no executable was found') || error.message.includes('Failed to launch')) {
         console.log('🔄 Retrying with Puppeteer bundled Chromium...');
         try {
           const browser = await puppeteer.launch({
             headless: true,
+            timeout: 30000,
             args: [
               '--no-sandbox',
               '--disable-setuid-sandbox',
@@ -720,10 +755,20 @@ async function getBrowser() {
               '--disable-extensions',
               '--disable-plugins',
               '--disable-images',
-              '--virtual-time-budget=5000'
+              '--virtual-time-budget=5000',
+              '--disable-background-timer-throttling',
+              '--disable-backgrounding-occluded-windows',
+              '--disable-renderer-backgrounding'
             ]
           });
           console.log('✅ Browser launched with bundled Chromium');
+          
+          // Test the browser
+          const page = await browser.newPage();
+          await page.goto('data:text/html,<h1>Test</h1>');
+          await page.close();
+          console.log('✅ Bundled Chromium test successful');
+          
           return browser;
         } catch (retryError) {
           console.error('❌ Failed to launch with bundled Chromium:', retryError);
@@ -737,6 +782,36 @@ async function getBrowser() {
   
   return browserPromise;
 }
+
+// Graceful shutdown
+process.on('exit', async () => {
+  if (browserPromise) {
+    try {
+      const browser = await browserPromise;
+      await browser.close();
+      console.log('✅ Browser closed on exit');
+    } catch (error) {
+      console.error('❌ Error closing browser:', error);
+    }
+  }
+});
+
+// Handle process termination
+process.on('SIGINT', async () => {
+  console.log('🛑 Received SIGINT, closing browser...');
+  if (browserPromise) {
+    try {
+      const browser = await browserPromise;
+      await browser.close();
+      console.log('✅ Browser closed on SIGINT');
+    } catch (error) {
+      console.error('❌ Error closing browser:', error);
+    }
+  }
+  process.exit(0);
+});
+
+export { getBrowser };
 
 
 export const generateInvoicePDF = async (req, res) => {
