@@ -591,7 +591,7 @@ export const generateDellcubeInvoicePDF = async (req, res) => {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const getChromePath =async() => {
+const getChromePath = () => {
   if (process.env.IS_RENDER === "true") {
     // Try system Chrome first
     const systemChrome = '/usr/bin/google-chrome-stable';
@@ -600,28 +600,42 @@ const getChromePath =async() => {
       return systemChrome;
     }
     
-    // Try different potential paths
+    // Try other common system paths
     const potentialPaths = [
       '/usr/bin/google-chrome',
       '/usr/bin/chromium-browser',
-      '/usr/bin/chromium',
-      '/opt/render/project/puppeteer/chrome/linux-*/chrome-linux64/chrome',
-      path.join(__dirname, '.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome'),
-      path.join(process.cwd(), '.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome')
+      '/usr/bin/chromium'
     ];
     
     for (const chromePath of potentialPaths) {
-      if (chromePath.includes('*')) {
-        // Handle glob patterns
-        const { glob } = await import('glob');
-        const matches = glob.sync(chromePath);
-        if (matches.length > 0) {
-          console.log('Using Chrome from glob:', matches[0]);
-          return matches[0];
-        }
-      } else if (fs.existsSync(chromePath)) {
+      if (fs.existsSync(chromePath)) {
         console.log('Using Chrome from path:', chromePath);
         return chromePath;
+      }
+    }
+    
+    // Try to find Puppeteer's bundled Chrome manually
+    const puppeteerCachePaths = [
+      '/opt/render/project/puppeteer/chrome',
+      path.join(__dirname, '.cache/puppeteer/chrome'),
+      path.join(process.cwd(), '.cache/puppeteer/chrome')
+    ];
+    
+    for (const cachePath of puppeteerCachePaths) {
+      if (fs.existsSync(cachePath)) {
+        try {
+          // Look for Chrome executable in subdirectories
+          const subdirs = fs.readdirSync(cachePath);
+          for (const subdir of subdirs) {
+            const chromePath = path.join(cachePath, subdir, 'chrome-linux64/chrome');
+            if (fs.existsSync(chromePath)) {
+              console.log('Using cached Chrome:', chromePath);
+              return chromePath;
+            }
+          }
+        } catch (error) {
+          console.log('Error searching cache:', error.message);
+        }
       }
     }
     
@@ -644,7 +658,7 @@ let browserPromise = null;
 
 async function getBrowser() {
   if (!browserPromise) {
-    const executablePath = await getChromePath();
+    const executablePath = getChromePath();
     
     browserPromise = puppeteer.launch({
       headless: true,
