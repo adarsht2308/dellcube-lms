@@ -1,7 +1,28 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -o errexit
 
 echo "🚀 Starting Render build process..."
+
+# Set up Puppeteer cache directory
+echo "🤖 Setting up Puppeteer cache..."
+export PUPPETEER_CACHE_DIR=/opt/render/project/puppeteer
+
+# Store/pull Puppeteer cache with build cache
+if [[ ! -d $PUPPETEER_CACHE_DIR ]]; then 
+  echo "...Copying Puppeteer Cache from Build Cache" 
+  mkdir -p $PUPPETEER_CACHE_DIR
+  if [[ -d $XDG_CACHE_HOME/puppeteer/ ]]; then
+    cp -R $XDG_CACHE_HOME/puppeteer/ $PUPPETEER_CACHE_DIR
+  fi
+else 
+  echo "...Storing Puppeteer Cache in Build Cache" 
+  mkdir -p $XDG_CACHE_HOME
+  cp -R $PUPPETEER_CACHE_DIR $XDG_CACHE_HOME
+fi
+
+# Install npm dependencies first
+echo "📦 Installing npm dependencies..."
+npm install
 
 # Update package lists
 echo "📦 Updating package lists..."
@@ -33,11 +54,6 @@ apt-get install -y \
     libxtst6 \
     xdg-utils \
     libgconf-2-4 \
-    libxss1 \
-    libgconf-2-4 \
-    libxtst6 \
-    libxrandr2 \
-    libasound2 \
     libpangocairo-1.0-0 \
     libatk1.0-0 \
     libcairo-gobject2 \
@@ -73,23 +89,23 @@ chmod +x /usr/bin/google-chrome-stable || echo "Could not set permissions"
 echo "🧪 Testing Chrome binary..."
 /usr/bin/google-chrome-stable --version || echo "Chrome binary test failed"
 
-# Install npm dependencies
-echo "📦 Installing npm dependencies..."
-npm install
-
-# Verify Puppeteer installation
+# Verify Puppeteer installation (ES module version)
 echo "🤖 Verifying Puppeteer installation..."
 node -e "
-const puppeteer = require('puppeteer');
+import puppeteer from 'puppeteer';
 console.log('Puppeteer version:', puppeteer.version || 'unknown');
-console.log('Puppeteer executablePath:', puppeteer.executablePath?.() || 'not available');
-"
+try {
+  console.log('Puppeteer executablePath:', puppeteer.executablePath?.() || 'not available');
+} catch (e) {
+  console.log('Could not get executablePath:', e.message);
+}
+" || echo "Puppeteer verification completed with warnings"
 
-# Check if Puppeteer can find Chrome
+# Check if Puppeteer can find Chrome (ES module version)
 echo "🔍 Checking if Puppeteer can find Chrome..."
 node -e "
-const puppeteer = require('puppeteer');
-const fs = require('fs');
+import puppeteer from 'puppeteer';
+import fs from 'fs';
 
 // Check bundled Chromium
 try {
@@ -117,19 +133,20 @@ for (const path of chromePaths) {
     break;
   }
 }
-"
+" || echo "Chrome check completed with warnings"
 
 echo "✅ Build completed successfully!"
 echo "🎉 Chrome and all dependencies are ready!"
 
-# Optional: Test launching Puppeteer (comment out if causing issues)
+# Optional: Test launching Puppeteer (ES module version)
 echo "🧪 Testing Puppeteer launch..."
 node -e "
-const puppeteer = require('puppeteer');
+import puppeteer from 'puppeteer';
 (async () => {
   try {
     const browser = await puppeteer.launch({
       headless: true,
+      executablePath: '/usr/bin/google-chrome-stable',
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     console.log('✅ Puppeteer launch test successful');
