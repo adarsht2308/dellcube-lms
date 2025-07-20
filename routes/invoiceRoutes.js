@@ -29,6 +29,7 @@ router.put("/update", isAuthenticated, updateInvoice);
 router.delete("/delete", isAuthenticated, deleteInvoice);
 
 router.get("/:invoiceId/pdf-dellcube", generateDellcubeInvoicePDF);
+
 router.get("/:invoiceId/pdf", generateInvoicePDF);
 
 // Export invoices as CSV

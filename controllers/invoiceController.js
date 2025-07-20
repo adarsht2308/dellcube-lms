@@ -8,6 +8,7 @@ import fs from "fs";
 import { Vendor } from "../models/vendor.js";
 import { Parser as Json2CsvParser } from 'json2csv';
 import { fileURLToPath } from 'url';
+import os from "os";
 
 export const createInvoice = async (req, res) => {
   try {
@@ -524,181 +525,129 @@ export const generateDellcubeInvoicePDF = async (req, res) => {
 };
 
 
-// const getChromePath = () => {
-//   if (process.env.IS_RENDER === "true") {
-//     return path.resolve(".cache/puppeteer/chrome/linux-*/chrome-linux64/chrome"); // wildcard safe
-//   }
-//   return "/Users/adityathakur/.cache/puppeteer/chrome/mac_arm-121.0.6167.85/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing";
-// };
-
-
-// let browserPromise = null;
-
-// async function getBrowser() {
-//   if (!browserPromise) {
-//     browserPromise = puppeteer.launch({
-//       headless: true,
-//       executablePath: getChromePath(),
-//       args: [
-//         '--no-sandbox',
-//         '--disable-setuid-sandbox',
-//         '--disable-dev-shm-usage',
-//         '--disable-gpu',
-//       ],
-//     });
-//   }
-//   return browserPromise;
-// }
-
-
-// const getChromePath = () => {
-//   if (process.env.NODE_ENV === 'production') {
-//     // For Render and other cloud platforms
-//     return process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome';
-//   } else {
-//     // For local development, let Puppeteer find Chrome
-//     return puppeteer.executablePath();
-//   }
-// };
-
-// let browserPromise = null;
-
-// async function getBrowser() {
-//   if (browserPromise) {
-//     return browserPromise;
-//   }
-  
-//   browserPromise = puppeteer.launch({
-//     headless: true,
-//     executablePath: getChromePath(),
-//     args: [
-//       '--no-sandbox',
-//       '--disable-setuid-sandbox',
-//       '--disable-dev-shm-usage',
-//       '--disable-accelerated-2d-canvas',
-//       '--no-first-run',
-//       '--no-zygote',
-//       '--single-process',
-//       '--disable-gpu',
-//       '--disable-web-security',
-//       '--disable-features=VizDisplayCompositor'
-//     ]
-//   });
-  
-//   return browserPromise;
-// }
- 
-
+// --- Chrome Path Detection (ESM, Render, Local) ---
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const getChromePath = () => {
-  if (process.env.IS_RENDER === "true") {
-    // Try system Chrome first
-    const systemChrome = '/usr/bin/google-chrome-stable';
-    if (fs.existsSync(systemChrome)) {
-      console.log('Using system Chrome:', systemChrome);
-      return systemChrome;
-    }
-    
-    // Try other common system paths
-    const potentialPaths = [
-      '/usr/bin/google-chrome',
-      '/usr/bin/chromium-browser',
-      '/usr/bin/chromium'
-    ];
-    
-    for (const chromePath of potentialPaths) {
-      if (fs.existsSync(chromePath)) {
-        console.log('Using Chrome from path:', chromePath);
-        return chromePath;
-      }
-    }
-    
-    // Try to find Puppeteer's bundled Chrome manually
-    const puppeteerCachePaths = [
-      '/opt/render/project/puppeteer/chrome',
-      path.join(__dirname, '.cache/puppeteer/chrome'),
-      path.join(process.cwd(), '.cache/puppeteer/chrome')
-    ];
-    
-    for (const cachePath of puppeteerCachePaths) {
-      if (fs.existsSync(cachePath)) {
-        try {
-          // Look for Chrome executable in subdirectories
-          const subdirs = fs.readdirSync(cachePath);
-          for (const subdir of subdirs) {
-            const chromePath = path.join(cachePath, subdir, 'chrome-linux64/chrome');
-            if (fs.existsSync(chromePath)) {
-              console.log('Using cached Chrome:', chromePath);
-              return chromePath;
-            }
-          }
-        } catch (error) {
-          console.log('Error searching cache:', error.message);
-        }
-      }
-    }
-    
-    // Final fallback - let Puppeteer decide
-    try {
-      const executablePath = puppeteer.executablePath();
-      console.log('Using Puppeteer default:', executablePath);
-      return executablePath;
-    } catch (error) {
-      console.error('Could not find Chrome executable:', error);
-      throw new Error('Chrome executable not found');
+const systemChromePaths = [
+  "/usr/bin/google-chrome-stable",
+  "/usr/bin/google-chrome",
+  "/usr/bin/chromium-browser",
+  "/usr/bin/chromium",
+];
+
+const renderCacheGlobs = [
+  "/opt/render/project/puppeteer/**/chrome-linux64/chrome",
+];
+
+const localCacheGlobs = [
+  path.join(os.homedir(), ".cache/puppeteer/**/chrome-mac*/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"),
+];
+
+
+async function getChromePath() {
+  console.log("[ChromePath] getChromePath called");
+  // 1. System Chrome
+  for (const chromePath of systemChromePaths) {
+    console.log(`[ChromePath] Checking system path: ${chromePath}`);
+    if (fs.existsSync(chromePath)) {
+      console.log(`[ChromePath] Using system Chrome: ${chromePath}`);
+      return chromePath;
     }
   }
-  
-  // Local development path
-  return "/Users/adityathakur/.cache/puppeteer/chrome/mac_arm-121.0.6167.85/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing";
-};
+
+  // 2. Render.com Puppeteer cache
+  if (process.env.IS_RENDER === "true") {
+    for (const globPath of renderCacheGlobs) {
+      const { glob } = await import("glob");
+      const matches = glob.sync(globPath);
+      console.log(`[ChromePath] Render glob: ${globPath} => ${JSON.stringify(matches)}`);
+      if (matches.length > 0) {
+        console.log(`[ChromePath] Using Render Puppeteer cache: ${matches[0]}`);
+        return matches[0];
+      }
+    }
+  }
+
+  // 3. Local Puppeteer cache
+  for (const globPath of localCacheGlobs) {
+    const { glob } = await import("glob");
+    const matches = glob.sync(globPath);
+    console.log(`[ChromePath] Local glob: ${globPath} => ${JSON.stringify(matches)}`);
+    if (matches.length > 0) {
+      console.log(`[ChromePath] Using local Puppeteer cache: ${matches[0]}`);
+      return matches[0];
+    }
+  }
+
+  // 4. Puppeteer default
+  try {
+    const executablePath = puppeteer.executablePath();
+    console.log(`[ChromePath] Puppeteer default: ${executablePath}`);
+    if (executablePath && fs.existsSync(executablePath)) {
+      console.log(`[ChromePath] Using Puppeteer default: ${executablePath}`);
+      return executablePath;
+    }
+  } catch (err) {
+    console.log(`[ChromePath] Puppeteer.executablePath() failed: ${err}`);
+  }
+
+  throw new Error("Chrome executable not found");
+}
 
 let browserPromise = null;
 
-async function getBrowser() {
+export async function getBrowser() {
+  console.log("[Puppeteer] getBrowser called");
   if (!browserPromise) {
-    const executablePath = getChromePath();
-    
+    let executablePath;
+    try {
+      executablePath = await getChromePath();
+      console.log("[Puppeteer] Chrome path resolved:", executablePath);
+    } catch (err) {
+      console.error("[Puppeteer] Error resolving Chrome path:", err);
+      throw err;
+    }
+    console.log("[Puppeteer] About to launch browser");
     browserPromise = puppeteer.launch({
       headless: true,
       executablePath,
       args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--disable-extensions',
-        '--disable-default-apps',
-        '--disable-sync',
-        '--disable-translate',
-        '--hide-scrollbars',
-        '--metrics-recording-only',
-        '--mute-audio',
-        '--no-first-run',
-        '--safebrowsing-disable-auto-update',
-        '--ignore-certificate-errors',
-        '--ignore-ssl-errors',
-        '--ignore-certificate-errors-spki-list',
-        '--ignore-ssl-errors-spki-list',
-        '--disable-web-security',
-        '--disable-features=VizDisplayCompositor'
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--disable-extensions",
+        "--disable-default-apps",
+        "--disable-sync",
+        "--disable-translate",
+        "--hide-scrollbars",
+        "--metrics-recording-only",
+        "--mute-audio",
+        "--no-first-run",
+        "--safebrowsing-disable-auto-update",
+        "--ignore-certificate-errors",
+        "--ignore-ssl-errors",
+        "--ignore-certificate-errors-spki-list",
+        "--ignore-ssl-errors-spki-list",
+        "--disable-web-security",
+        "--disable-features=VizDisplayCompositor",
       ],
     });
   }
   return browserPromise;
 }
 
-// Graceful shutdown
-process.on('exit', async () => {
+process.on("exit", async () => {
   if (browserPromise) {
-    const browser = await browserPromise;
-    await browser.close();
+    try {
+      const browser = await browserPromise;
+      await browser.close();
+      console.log("[Puppeteer] Browser closed on process exit.");
+    } catch (e) {
+      // ignore
+    }
   }
 });
-
-export { getBrowser, getChromePath };
-
 
 export const generateInvoicePDF = async (req, res) => {
   try {
@@ -1116,7 +1065,6 @@ export const generateInvoicePDF = async (req, res) => {
 
     // Puppeteer PDF generation with error handling
     let pdfBuffer;
-    let browser = null;
     let page = null;
     try {
       const browser = await getBrowser();
@@ -1141,12 +1089,12 @@ export const generateInvoicePDF = async (req, res) => {
 
     res.set({
       "Content-Type": "application/pdf",
-      "Content-disposition": `attachment; filename=invoice_${invoice.docketNumber}.pdf`,
+      "Content-Disposition": `attachment; filename=invoice_${invoice.docketNumber}.pdf`,
     });
     res.send(pdfBuffer);
-  } catch (error) {
-    console.error("Error generating invoice PDF:", error);
-    res.status(500).json({ success: false, message: "Failed to generate PDF", error: error.message });
+  } catch (err) {
+    console.error("Unexpected error in PDF generation:", err);
+    res.status(500).json({ success: false, message: "Server error", error: err.message });
   }
 };
 
