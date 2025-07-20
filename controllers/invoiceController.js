@@ -536,10 +536,11 @@ const systemChromePaths = [
 ];
 
 const renderCacheGlobs = [
+  "/opt/render/.cache/puppeteer/chrome/linux-121.0.6167.85/chrome-linux64/chrome",
   "/opt/render/project/.render/chromium/**/chrome",
   "/opt/render/project/.render/chromium/chrome-linux/chrome",
   "/opt/render/project/.cache/puppeteer/**/chrome-linux64/chrome",
-  "/opt/render/project/puppeteer/**/chrome-linux64/chrome"
+  "/opt/render/project/puppeteer/**/chrome-linux64/chrome",
 ];
 
 const localCacheGlobs = [
