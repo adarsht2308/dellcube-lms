@@ -3,8 +3,8 @@ set -o errexit
 
 npm install
 
-# Force Puppeteer to download Chromium and show output
-npx puppeteer install --loglevel verbose
+# Explicitly install the browser for Puppeteer v21+
+npx puppeteer browsers install chrome
 
 # List all chrome binaries after install for debugging
 echo "Listing Puppeteer cache after install:"
