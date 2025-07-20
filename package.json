@@ -8,11 +8,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js",
     "build": "echo 'Build complete'",
-    "postinstall": "echo 'Installation complete'"
-  },
-  "puppeteer": {
-    "skip_chromium_download": false,
-    "skip_download": false
+   "postinstall": "npx puppeteer install"
   },
   "keywords": [],
   "author": "",
