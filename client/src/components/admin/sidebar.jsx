@@ -253,7 +253,7 @@ const Sidebar = () => {
                 </p>
               </div>
               <div className="flex flex-col gap-1">
-                <div className={`w-2 h-2 rounded-full ${user?.status === 'active' ? 'bg-green-400' : 'bg-gray-400'}`} />
+                <div className={`w-2 h-2 rounded-full ${user?.status === true ? 'bg-green-400' : 'bg-gray-400'}`} />
               </div>
             </div>
           </div>

@@ -78,6 +78,15 @@ export const vehicleApi = createApi({
   invalidatesTags: ["Vehicle"],
 }),
 
+    getVehiclesByBranch: builder.query({
+        query: (branchId) => `branch/${branchId}`,
+    }),
+    searchVehicles: builder.mutation({
+        query: ({ vehicleNumber, branchId }) => ({
+          url: `/search?vehicleNumber=${vehicleNumber}&branchId=${branchId}`,
+          method: 'GET',
+        }),
+      }),
   }),
 });
 
@@ -88,4 +97,7 @@ export const {
   useUpdateVehicleMutation,
   useDeleteVehicleMutation,
   useAddMaintenanceMutation,
+  useGetVehiclesByCompanyQuery,
+  useGetVehiclesByBranchQuery,
+  useSearchVehiclesMutation,
 } = vehicleApi;

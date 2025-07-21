@@ -9,6 +9,7 @@ import {
   addMaintenanceController,
   // getVehiclesByCompany,
   // getVehiclesByBranch,
+  searchVehicles,
 } from "../controllers/vehicleController.js";
 import upload from "../utils/common/Uploads.js";
 
@@ -19,6 +20,9 @@ router.post("/create", isAuthenticated, upload, createVehicle);
 
 // Get all vehicles with optional pagination, filters, etc.
 router.get("/all", isAuthenticated, getAllVehicles);
+
+// Search for a vehicle by number
+router.get("/search", isAuthenticated, searchVehicles);
 
 // Get a single vehicle by ID
 router.post("/view", isAuthenticated, getVehicleById);

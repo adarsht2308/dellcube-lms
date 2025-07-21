@@ -11,6 +11,7 @@ import os from "os";
 import { renderToStream } from '@react-pdf/renderer';
 // import { InvoicePDFDocument } from './InvoicePDFDocument.js';
 import React from 'react';
+import { Vehicle } from "../models/vehicle.js";
 
 export const createInvoice = async (req, res) => {
   try {
@@ -79,42 +80,58 @@ export const createInvoice = async (req, res) => {
     const runningCounter = String(dailyCount + 1).padStart(4, "0");
     const docketNumber = `DLC-${companyCode}-${branchCode}-${dateStr}-${runningCounter}`;
 
-    if (req.body.vehicleType === "Vendor") {
-      const vendor = await Vendor.findById(req.body.vendor);
-      if (!vendor) {
-        return res.status(400).json({ success: false, message: "Invalid vendor selected" });
-      }
+    const { vehicleNumber } = req.body;
+    let vehicleData = null;
+    let ownerType = '';
 
-      const selectedVendorVehicle = vendor.availableVehicles.find(
-        (v) => v.vehicleNumber === req.body.vendorVehicleNumber
-      );
-
-      if (!selectedVendorVehicle) {
-        return res.status(400).json({
-          success: false,
-          message: "Selected vendor vehicle not found",
-        });
-      }
-
-      req.body.vendorVehicle = selectedVendorVehicle;
-    } else if (req.body.vehicleType === "Dellcube") {
-      if (!req.body.vehicle) {
-        return res.status(400).json({
-          success: false,
-          message: "Vehicle is required for Dellcube type",
-        });
+    if (vehicleNumber) {
+      // Search in Dellcube's vehicles
+      const vehicle = await Vehicle.findOne({ vehicleNumber }).populate("currentDriver");
+      if (vehicle) {
+        vehicleData = vehicle;
+        ownerType = "Dellcube";
+      } else {
+        // Search in vendors' vehicles
+        const vendor = await Vendor.findOne({ "availableVehicles.vehicleNumber": vehicleNumber });
+        if (vendor) {
+          const vendorVehicle = vendor.availableVehicles.find(v => v.vehicleNumber === vehicleNumber);
+          vehicleData = { ...vendorVehicle, vendor: vendor._id };
+          ownerType = "Vendor";
+        }
       }
     }
 
+    if (vehicleNumber && !vehicleData) {
+      return res.status(404).json({ success: false, message: "Vehicle not found." });
+    }
+    
     // The following fields are now supported: pickupAddress, deliveryAddress, consignor, consignee, address, invoiceNumber, invoiceBill, ewayBillNo, driverContactNumber, siteId, sealNo, vehicleSize, orderNumber, transportMode
-    const invoice = await Invoice.create({
+    const invoicePayload = {
       ...req.body,
       company: companyId,
       branch: branchId,
       docketNumber,
       orderNumber: req.body.orderNumber || "",
       transportMode: req.body.transportMode,
-    });
+    };
+
+    if (vehicleData) {
+      invoicePayload.vehicleType = ownerType;
+      if (ownerType === 'Dellcube') {
+        invoicePayload.vehicle = vehicleData._id;
+        invoicePayload.driver = vehicleData.currentDriver?._id;
+        invoicePayload.vehicleSize = vehicleData.type;
+        delete invoicePayload.vendor;
+        delete invoicePayload.vendorVehicle;
+      } else if (ownerType === 'Vendor') {
+        invoicePayload.vendor = vehicleData.vendor;
+        invoicePayload.vendorVehicle = vehicleData;
+        delete invoicePayload.vehicle;
+      }
+    }
+
+
+    const invoice = await Invoice.create(invoicePayload);
 
     return res.status(201).json({
       success: true,

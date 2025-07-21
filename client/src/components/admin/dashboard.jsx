@@ -38,6 +38,12 @@ import {
 
 const SuperAdminDashboard = () => {
   const { user } = useSelector((store) => store.auth);
+  
+  // Get current month's date range
+  const now = new Date();
+  const fromDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  const toDate = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+
   const { data: branchData, isLoading: loadingBranches } =
     useGetAllBranchesQuery({ page: 1, limit: "", search: "" });
   const { data: companyData, isLoading: loadingCompanies } =
@@ -48,9 +54,9 @@ const SuperAdminDashboard = () => {
   const { data: vehiclesData, isLoading: loadingVehicles } =
     useGetAllVehiclesQuery({ page: 1, limit: 100, search: "" });
   const { data: invoicesData, isLoading: loadingInvoices } =
-    useGetAllInvoicesQuery({ page: 1, limit: 100, search: "" });
+    useGetAllInvoicesQuery({ page: 1, limit: 100, search: "", fromDate, toDate });
 
-  // Business stats calculations
+  // Business stats calculations for the current month
   const totalRevenue =
     invoicesData?.invoices?.reduce(
       (sum, inv) => sum + (inv.freightCharges || 0),
@@ -151,7 +157,7 @@ const SuperAdminDashboard = () => {
             <div className="flex justify-between items-center">
               <div>
                 <p className="text-gray-500 text-sm font-medium uppercase">
-                  Total Freight Charges
+                  This Month's Freight
                 </p>
                 <h4 className="font-bold text-3xl mt-1 text-gray-800">
                   ₹{totalRevenue.toLocaleString()}
@@ -166,7 +172,7 @@ const SuperAdminDashboard = () => {
             <div className="flex justify-between items-center">
               <div>
                 <p className="text-gray-500 text-sm font-medium uppercase">
-                  Total Weight
+                  This Month's Weight
                 </p>
                 <h4 className="font-bold text-3xl mt-1 text-gray-800">
                   {totalWeight} kg

@@ -1,6 +1,7 @@
 import { Vehicle } from "../models/vehicle.js";
 import mongoose from "mongoose";
 import { v2 as cloudinary } from "cloudinary";
+import { Vendor } from "../models/vendor.js"; // Added import for Vendor
 
 // Create a new vehicle
 export const createVehicle = async (req, res) => {
@@ -371,5 +372,64 @@ export const addMaintenanceController = async (req, res) => {
       message: "Internal server error while adding maintenance record",
       error: error.message,
     });
+  }
+};
+
+export const searchVehicles = async (req, res) => {
+  try {
+    const { vehicleNumber, branchId } = req.query;
+
+    if (!vehicleNumber) {
+      return res.status(400).json({ success: false, message: "Vehicle number is required" });
+    }
+
+    if (!branchId) {
+      return res.status(400).json({ success: false, message: "Branch ID is required" });
+    }
+
+    const sanitizedSearchTerm = vehicleNumber.replace(/\s+/g, "").toUpperCase();
+
+    // Fetch all vehicles and vendors for the branch
+    const allDellcubeVehicles = await Vehicle.find({ branch: branchId }).populate("currentDriver", "name mobile");
+    const allVendors = await Vendor.find({ branch: branchId });
+
+    // Filter Dellcube vehicles in code for flexibility
+    const filteredDellcube = allDellcubeVehicles.filter(v =>
+      v.vehicleNumber.replace(/\s+/g, "").toUpperCase().startsWith(sanitizedSearchTerm)
+    );
+
+    // Filter vendor vehicles in code
+    const filteredVendorVehicles = allVendors.flatMap(vendor =>
+      vendor.availableVehicles
+        .filter(v => v.vehicleNumber && v.vehicleNumber.replace(/\s+/g, "").toUpperCase().startsWith(sanitizedSearchTerm))
+        .map(v => ({
+          ...v.toObject(),
+          ownerType: "Vendor",
+          vendor: {
+            _id: vendor._id,
+            name: vendor.name,
+          },
+        }))
+    );
+    
+    const combinedResults = [
+      ...filteredDellcube.map(v => ({
+        ...v.toObject(),
+        ownerType: "Dellcube",
+      })),
+      ...filteredVendorVehicles,
+    ];
+
+    if (combinedResults.length === 0) {
+      return res.status(404).json({ success: false, message: "No vehicles found" });
+    }
+
+    return res.status(200).json({
+      success: true,
+      vehicles: combinedResults,
+    });
+  } catch (error) {
+    console.error("Error searching vehicle:", error);
+    return res.status(500).json({ success: false, message: "Server error while searching vehicle", error: error.message });
   }
 };
