@@ -61,6 +61,7 @@ app.use("/api/transport-modes", transportModeRoutes);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
 // Static file serving and catch-all route (should be last)
 app.use(express.static(path.join(__dirname, "./client/dist")));
 app.get("*", (req, res) => {
