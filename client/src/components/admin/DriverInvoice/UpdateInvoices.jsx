@@ -15,6 +15,11 @@ import {
 import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import SignatureCanvas from "react-signature-canvas";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { FaSignature, FaCamera, FaClipboardList, FaRegEdit } from "react-icons/fa";
+import { MdLocationOn, MdCalendarToday, MdPerson, MdPhone, MdEditNote } from "react-icons/md";
+
 
 import {
   useGetDriverInvoicesQuery,
@@ -69,6 +74,7 @@ const UpdateInvoice = () => {
   const [signatureUrl, setSignatureUrl] = useState(""); // preview URL
   const [signatureFile, setSignatureFile] = useState(null); // file to upload
   const [invoice, setInvoice] = useState(null);
+  const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
 
   // 🔁 Fetch invoice data on mount or when invoiceId changes
   useEffect(() => {
@@ -265,6 +271,33 @@ const UpdateInvoice = () => {
     }
   };
 
+  const handleSaveSignature = () => {
+    if (signaturePadRef.current.isEmpty()) {
+      toast.error("Please provide a signature first.");
+      return;
+    }
+    const dataUrl = signaturePadRef.current.toDataURL("image/png");
+    setSignatureUrl(dataUrl);
+
+    fetch(dataUrl)
+      .then((res) => res.blob())
+      .then((blob) => {
+        const file = new File([blob], "signature.png", { type: "image/png" });
+        setSignatureFile(file);
+        setIsSignatureModalOpen(false);
+        toast.success("Signature saved.");
+      });
+  };
+
+  const handleClearSignature = () => {
+    setSignatureUrl("");
+    setSignatureFile(null);
+    if(signaturePadRef.current){
+        signaturePadRef.current.clear();
+    }
+  };
+
+
   // Render loading state
   if (loading) {
     return (
@@ -278,10 +311,11 @@ const UpdateInvoice = () => {
   }
 
   return (
-    <section className="max-w-3xl mx-auto p-6 bg-white dark:bg-gray-900 rounded shadow">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 sm:p-6 lg:p-8">
+    <section className="max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
-          Update Invoice Details
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+          Update Invoice
         </h2>
         <Button
           variant="outline"
@@ -293,220 +327,191 @@ const UpdateInvoice = () => {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Status */}
-        <div>
-          <Label>Status</Label>
-          <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select Status" />
-            </SelectTrigger>
-            <SelectContent>
-              {statusOptions.map((option) => (
-                <SelectItem key={option} value={option}>
-                  {option}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
 
-        {/* Location */}
-        {/* <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label>Latitude</Label>
-            <Input
-              type="number"
-              value={lat}
-              onChange={(e) => setLat(e.target.value)}
-              placeholder="Latitude"
-            />
-          </div>
-          <div>
-            <Label>Longitude</Label>
-            <Input
-              type="number"
-              value={lng}
-              onChange={(e) => setLng(e.target.value)}
-              placeholder="Longitude"
-            />
-          </div>
-        </div> */}
-        <div>
-          <Label>Destination Address</Label>
-          <Input
-            value={fullDestinationAddress}
-            readOnly
-            className="cursor-not-allowed bg-gray-100 dark:bg-gray-800"
-          />
-        </div>
-
-        {/* Order Photo */}
-        <div>
-          <Label>Order Photo</Label>
-          <div className="flex gap-2 items-center">
-            <Input
-              type="file"
-              accept="image/*"
-              onChange={(e) => {
-                const file = e.target.files[0];
-                console.log("File selected:", file);
-                setOrderPhoto(file);
-              }}
-            />
-            {orderPhoto && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setOrderPhoto(null);
-                  setPreviewUrl(existingOrderPhotoUrl || "");
-                }}
-                className="text-red-600 hover:text-red-700"
-              >
-                Clear New
-              </Button>
-            )}
-          </div>
-          {previewUrl && (
-            <div className="mt-2">
-              <img
-                src={previewUrl}
-                alt="Preview"
-                className="w-48 h-48 object-contain border border-gray-300 rounded-lg shadow-sm"
-                onLoad={() => console.log("Image loaded successfully")}
-                onError={(e) => console.error("Image failed to load:", e)}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                {orderPhoto ? "New photo selected" : "Existing photo"}
-              </p>
+         {/* Invoice Info Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <FaClipboardList className="text-[#FFD249]" />
+              Invoice Info
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-md">
+              <Label className="text-xs font-semibold text-gray-500">Docket Number</Label>
+              <p className="font-bold text-gray-800 dark:text-gray-200">{invoice?.docketNumber}</p>
             </div>
-          )}
-        </div>
-
-        {/* Delivered At */}
-        <div>
-          <Label>Delivered At</Label>
-          <Input
-            type="datetime-local"
-            value={deliveredAt}
-            onChange={(e) => setDeliveredAt(e.target.value)}
-          />
-        </div>
-
-        {/* Delivery Proof */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label>Receiver Name</Label>
-            <Input
-              value={receiverName}
-              onChange={(e) => setReceiverName(e.target.value)}
-              placeholder="Receiver Name"
-            />
-          </div>
-          <div>
-            <Label>Receiver Mobile</Label>
-            <Input
-              value={receiverMobile}
-              onChange={(e) => setReceiverMobile(e.target.value)}
-              placeholder="Mobile No."
-            />
-          </div>
-
-          {/* Note */}
-          <div>
-            <Label>Note</Label>
-            <Textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Any update notes..."
-            />
-          </div>
-          <div>
-            <Label>Receiver Signature</Label>
-
-            {/* Show saved signature if present and no new one drawn yet */}
-            {!signatureUrl && invoice?.deliveryProof?.signature && (
-              <img
-                src={invoice.deliveryProof.signature}
-                alt="Saved Signature"
-                className="mt-2 h-24 w-60 object-contain border"
-              />
-            )}
-
-            {/* Signature pad to draw new one */}
-            <SignatureCanvas
-              ref={signaturePadRef}
-              penColor="black"
-              canvasProps={{
-                width: 300,
-                height: 100,
-                className: "border rounded bg-white mt-4",
-              }}
-            />
-
-            <div className="flex gap-4 mt-2">
-              <Button
-                type="button"
-                onClick={() => {
-                  const canvas = signaturePadRef.current.getCanvas();
-                  const dataUrl = canvas.toDataURL("image/png");
-
-                  setSignatureUrl(dataUrl);
-
-                  // Convert base64 to file for backend upload
-                  fetch(dataUrl)
-                    .then((res) => res.blob())
-                    .then((blob) => {
-                      const file = new File([blob], "signature.png", {
-                        type: "image/png",
-                      });
-                      setSignatureFile(file);
-                      signaturePadRef.current.clear();
-                    });
-                }}
-              >
-                Save Signature
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => {
-                  signaturePadRef.current.clear();
-                  setSignatureUrl("");
-                  setSignatureFile(null);
-                }}
-              >
-                Clear
-              </Button>
+            <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-md">
+              <Label className="text-xs font-semibold text-gray-500">Destination Address</Label>
+               <p className="font-medium text-gray-800 dark:text-gray-200">{fullDestinationAddress}</p>
             </div>
+          </CardContent>
+        </Card>
 
-            {/* New drawn signature preview */}
-            {signatureUrl && (
-              <img
-                src={signatureUrl}
-                alt="Preview Signature"
-                className="mt-2 h-24 w-60 object-contain border"
+
+        {/* Status Update Card */}
+        <Card>
+           <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+                <FaRegEdit className="text-[#FFD249]" />
+                Status & Note
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+             <div>
+              <Label>Status</Label>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {statusOptions.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Update Note</Label>
+              <Textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Any update notes..."
               />
-            )}
-          </div>
+            </div>
+            <div>
+              <Label>Order Photo</Label>
+              <div className="flex gap-2 items-center">
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setOrderPhoto(e.target.files[0])}
+                />
+              </div>
+              {previewUrl && (
+                <div className="mt-4 relative w-48 h-48">
+                  <img
+                    src={previewUrl}
+                    alt="Preview"
+                    className="w-full h-full object-contain border border-gray-300 rounded-lg shadow-sm"
+                  />
+                   {orderPhoto && (
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => {
+                          setOrderPhoto(null);
+                          setPreviewUrl(existingOrderPhotoUrl || "");
+                        }}
+                        className="absolute -top-2 -right-2 rounded-full h-8 w-8 p-0"
+                      >
+                        X
+                      </Button>
+                    )}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
-          <div>
-            <Label>Remarks</Label>
-            <Input
-              value={remarks}
-              onChange={(e) => setRemarks(e.target.value)}
-              placeholder="Remarks"
-            />
-          </div>
-          <div className="flex justify-center my-6"></div>
-        </div>
 
-        <Button type="submit" disabled={isLoading}>
-          {isLoading ? "Updating..." : "Update Invoice"}
+        {/* Delivery Proof Card */}
+        <Card>
+          <CardHeader>
+             <CardTitle className="flex items-center gap-2 text-lg">
+                <FaSignature className="text-[#FFD249]" />
+                Delivery Proof
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+             <div>
+                <Label>Delivered At</Label>
+                <Input
+                  type="datetime-local"
+                  value={deliveredAt}
+                  onChange={(e) => setDeliveredAt(e.target.value)}
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div>
+                  <Label>Receiver Name</Label>
+                  <Input
+                    value={receiverName}
+                    onChange={(e) => setReceiverName(e.target.value)}
+                    placeholder="Receiver Name"
+                  />
+                </div>
+                <div>
+                  <Label>Receiver Mobile</Label>
+                  <Input
+                    value={receiverMobile}
+                    onChange={(e) => setReceiverMobile(e.target.value)}
+                    placeholder="Mobile No."
+                  />
+                </div>
+              </div>
+              <div>
+                <Label>Delivery Remarks</Label>
+                <Textarea
+                  value={remarks}
+                  onChange={(e) => setRemarks(e.target.value)}
+                  placeholder="Remarks"
+                />
+              </div>
+
+               <div>
+                <Label>Receiver Signature</Label>
+                <div className="mt-2 p-4 border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-center">
+                  {signatureUrl ? (
+                    <div className="relative">
+                      <img src={signatureUrl} alt="Signature Preview" className="h-24 object-contain border rounded-md" />
+                       <Button type="button" variant="destructive" size="sm" onClick={handleClearSignature} className="absolute -top-2 -right-2 rounded-full h-8 w-8 p-0">X</Button>
+                    </div>
+                  ) : (
+                     <p className="text-gray-500 mb-2">No signature captured.</p>
+                  )}
+                  <Button type="button" onClick={() => setIsSignatureModalOpen(true)}>
+                    {signatureUrl ? "Change Signature" : "Capture Signature"}
+                  </Button>
+                </div>
+              </div>
+
+          </CardContent>
+        </Card>
+
+        <Button type="submit" disabled={isLoading} className="w-full bg-[#FFD249] hover:bg-[#FFD249]/90 text-black font-bold py-3 text-lg">
+          {isLoading ? "Updating..." : "Submit Update"}
         </Button>
       </form>
+
+      <Dialog open={isSignatureModalOpen} onOpenChange={setIsSignatureModalOpen}>
+        <DialogContent className="max-w-3xl w-full h-[80vh] flex flex-col p-2 sm:p-6">
+            <DialogHeader>
+                <DialogTitle>Draw Signature</DialogTitle>
+            </DialogHeader>
+            <div className="flex-grow border rounded-md bg-white my-4 relative">
+                 <SignatureCanvas
+                    ref={signaturePadRef}
+                    penColor="black"
+                    canvasProps={{ className: "w-full h-full" }}
+                />
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+                 <Button type="button" variant="outline" onClick={() => signaturePadRef.current.clear()}>
+                    Clear
+                 </Button>
+                 <Button type="button" onClick={handleSaveSignature}>
+                    Save Signature
+                 </Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </section>
+    </div>
   );
 };
 

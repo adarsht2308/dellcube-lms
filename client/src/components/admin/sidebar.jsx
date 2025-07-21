@@ -347,7 +347,7 @@ const Sidebar = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 min-h-screen bg-gradient-to-br from-gray-50 to-white lg:ml-[260px]">
+      <div className="flex-1 min-h-screen bg-gradient-to-br from-gray-50 to-white lg:ml-[260px] pt-16">
         <div className="w-full px-4 lg:px-8 ">
           <Outlet />
         </div>

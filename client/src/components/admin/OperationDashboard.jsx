@@ -62,7 +62,7 @@ const OperationDashboard = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-white mt-16">
+    <div className="min-h-screen bg-white">
       <main className="container mx-auto md:px-4">
         <div className="mb-8">
           <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-xl shadow-lg overflow-hidden">

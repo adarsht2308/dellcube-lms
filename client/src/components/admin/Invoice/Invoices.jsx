@@ -87,6 +87,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { PDFDownloadLink, PDFViewer, pdf } from '@react-pdf/renderer';
+import InvoicePDFDocument from './InvoicePDFDocument';
+import logoUrl from '/images/dellcube_logo-og.png';
+import { imageUrlToBase64 } from '@/utils/imageUrlToBase64.js';
 
 // Adjust path as needed
 
@@ -223,6 +227,9 @@ const Invoices = () => {
   const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
   const [pdfBlobUrl, setPdfBlobUrl] = useState("");
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [logoBase64, setLogoBase64] = useState('');
+  const [invoiceForPdf, setInvoiceForPdf] = useState(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(null);
 
   // CSV Export Modal State
   const [csvModalOpen, setCsvModalOpen] = useState(false);
@@ -231,6 +238,22 @@ const Invoices = () => {
   );
   const [exportInvoicesCSV, { isLoading: isExporting }] =
     useExportInvoicesCSVMutation();
+
+  useEffect(() => {
+    fetch(logoUrl)
+      .then(response => response.blob())
+      .then(blob => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setLogoBase64(reader.result);
+        };
+        reader.readAsDataURL(blob);
+      })
+      .catch(error => {
+        console.error("Error loading logo:", error);
+        toast.error("Could not load company logo for PDF.");
+      });
+  }, []);
 
   const filters = {
     page,
@@ -307,41 +330,90 @@ const Invoices = () => {
     setLimit(5);
   };
 
-  const handleDownloadPDF = async (invoice) => {
+  const handleViewPDF = async (invoice) => {
+    setIsGeneratingPdf({ id: invoice._id, type: 'view' });
+    
+    // Create a deep, mutable copy of the invoice object to avoid read-only errors.
+    let processedInvoice = JSON.parse(JSON.stringify(invoice));
+
+    if (processedInvoice.deliveryProof?.signature) {
+      try {
+        const signatureBase64 = await imageUrlToBase64(processedInvoice.deliveryProof.signature);
+        if (signatureBase64) {
+          processedInvoice.deliveryProof.signature = signatureBase64;
+        } else {
+           toast.error("Could not convert signature for PDF.");
+        }
+      } catch (error) {
+        toast.error("Failed to process signature image.");
+        console.error("Signature conversion error:", error);
+      }
+    }
+    
+    setInvoiceForPdf(processedInvoice);
+    setPdfDialogOpen(true);
+    // Add a small delay to ensure the PDF viewer has the data before the drawer closes.
+    setTimeout(() => {
+      setOpenDrawer(false); // Close the drawer
+    }, 100);
+    setIsGeneratingPdf(null);
+  };
+  
+  const handleDownloadPdf = async (invoice) => {
+    setIsGeneratingPdf({ id: invoice._id, type: 'download' });
     try {
-      const blob = await getInvoicePdf(invoice._id).unwrap();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${invoice.docketNumber}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-      toast.success("PDF downloaded successfully!");
+      if (!logoBase64) {
+        toast.error("Logo not loaded yet. Please wait a moment.");
+        throw new Error("Logo not loaded");
+      }
+
+      // Create a deep, mutable copy of the invoice object to avoid read-only errors.
+      let processedInvoice = JSON.parse(JSON.stringify(invoice));
+      
+      if (processedInvoice.deliveryProof?.signature) {
+        const signatureBase64 = await imageUrlToBase64(processedInvoice.deliveryProof.signature);
+        if (signatureBase64) {
+          processedInvoice.deliveryProof.signature = signatureBase64;
+        } else {
+          toast.error("Could not convert signature image. PDF will be generated without it.");
+        }
+      }
+      
+      const doc = <InvoicePDFDocument invoice={processedInvoice} logoBase64={logoBase64} />;
+      const blob = await pdf(doc).toBlob();
+      
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `invoice_${invoice.docketNumber}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      
+      link.parentNode.removeChild(link);
+      URL.revokeObjectURL(url);
+
     } catch (error) {
-      toast.error("Failed to download PDF.");
-      console.error(error);
+      console.error("Failed to generate PDF for download:", error);
+      toast.error("An error occurred while generating the PDF.");
+    } finally {
+      setIsGeneratingPdf(null);
     }
   };
 
-  const handleViewPDF = async (invoice) => {
-    setOpenDrawer(false);
-    setPdfLoading(true);
-    setPdfDialogOpen(true);
-    try {
-      const blob = await getInvoicePdf(invoice._id).unwrap();
-      const url = window.URL.createObjectURL(blob);
-      setPdfBlobUrl(url);
-    } catch (error) {
-      toast.error("Failed to open PDF.");
-      setPdfDialogOpen(false);
-      setPdfBlobUrl("");
-      console.error(error);
-    } finally {
-      setPdfLoading(false);
+  useEffect(() => {
+    // When invoiceForPdf is updated and the type was 'download', we can reset the state
+    // The actual download will be handled by the PDFDownloadLink component
+    if (invoiceForPdf && isGeneratingPdf?.type === 'download') {
+      // The state is ready for the link to be clicked. We can reset the loading state.
+      // A short timeout can help ensure the link has time to re-render.
+      setTimeout(() => {
+        setIsGeneratingPdf(null);
+      }, 500);
+    } else if (invoiceForPdf && isGeneratingPdf?.type === 'view') {
+       setIsGeneratingPdf(null); // It's ready for viewing
     }
-  };
+  }, [invoiceForPdf, isGeneratingPdf]);
+
 
   // Handle column checkbox toggle
   const handleColumnToggle = (idx) => {
@@ -957,15 +1029,29 @@ const Invoices = () => {
                           </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDownloadPDF(inv)}
-                        className="text-[#202020] hover:text-[#FFD249] rounded-full p-2 border border-[#FFD249]/40 hover:bg-[#FFD249]/20"
-                        title="Download PDF"
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
+
+                      {isGeneratingPdf?.id === inv._id && isGeneratingPdf?.type === 'download' ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-[#202020] hover:text-[#FFD249] rounded-full p-2 border border-[#FFD249]/40 hover:bg-[#FFD249]/20"
+                          title="Downloading..."
+                          disabled
+                        >
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDownloadPdf(inv)}
+                          className="text-[#202020] hover:text-[#FFD249] rounded-full p-2 border border-[#FFD249]/40 hover:bg-[#FFD249]/20"
+                          title="Download PDF"
+                          disabled={!logoBase64}
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -1604,9 +1690,8 @@ const Invoices = () => {
           open={pdfDialogOpen}
           onOpenChange={(open) => {
             setPdfDialogOpen(open);
-            if (!open && pdfBlobUrl) {
-              window.URL.revokeObjectURL(pdfBlobUrl);
-              setPdfBlobUrl("");
+            if (!open) {
+              setInvoiceForPdf(null); // Clear data when closing dialog
             }
           }}
         >
@@ -1614,17 +1699,21 @@ const Invoices = () => {
             <DialogHeader>
               <DialogTitle>Invoice PDF Preview</DialogTitle>
             </DialogHeader>
-            {pdfLoading ? (
+            {isGeneratingPdf?.id === invoiceForPdf?._id ? (
+                 <div className="flex-1 flex items-center justify-center text-lg">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600 mr-2" />
+                Processing images...
+              </div>
+            ) : invoiceForPdf && logoBase64 ? (
+              <PDFViewer style={{ flex: 1, width: '100%', height: '100%', border: 'none' }}>
+                <InvoicePDFDocument invoice={invoiceForPdf} logoBase64={logoBase64} />
+              </PDFViewer>
+            ) : (
               <div className="flex-1 flex items-center justify-center text-lg">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600 mr-2" />
                 Loading PDF...
               </div>
-            ) : pdfBlobUrl ? (
-              <iframe
-                src={pdfBlobUrl}
-                title="Invoice PDF"
-                className="flex-1 w-full h-full border-none rounded-lg shadow"
-              />
-            ) : null}
+            )}
           </DialogContent>
         </Dialog>
 

@@ -107,14 +107,14 @@ function Login() {
         />
       </div>
       {/* Login Content */}
-      <section className="relative z-10 flex items-center w-full justify-center my-24 md:px-10 px-4 min-h-[70vh]">
+      <section className="relative z-10 w-full px-4 sm:px-6 lg:px-8">
       {/* Background decorative elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-[#FFD249]/10 rounded-full blur-3xl"></div>
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-[#FFD249]/5 rounded-full blur-3xl"></div>
       </div>
 
-      <div className="relative z-10 w-full max-w-md">
+      <div className="relative z-10 w-full max-w-md mx-auto">
         {/* Logo and Branding */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">

@@ -44,6 +44,7 @@ import invoiceRoutes from "./routes/invoiceRoutes.js";
 import driverRoutes from "./routes/driverRoutes.js";
 import siteTypeRoutes from "./routes/siteType.js";
 import transportModeRoutes from "./routes/transportMode.js";
+import imageProxyRoutes from './routes/imageProxyRoutes.js';
 
 // Register all API routes BEFORE static file serving
 app.use("/api/user", userRoutes);
@@ -58,6 +59,7 @@ app.use("/api/invoices", invoiceRoutes);
 app.use("/api/driver", driverRoutes);
 app.use("/api/site-types", siteTypeRoutes);
 app.use("/api/transport-modes", transportModeRoutes);
+app.use('/api/v1/image-proxy', imageProxyRoutes);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

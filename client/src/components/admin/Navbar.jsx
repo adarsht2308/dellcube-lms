@@ -235,7 +235,7 @@ const Navbar = () => {
             </div>
           )}
           
-          <DarkMode />
+          {/* <DarkMode /> */}
         </div>
       </div>
 
@@ -304,21 +304,20 @@ const MobileNavbar = () => {
       <SheetContent className="flex flex-col bg-gradient-to-br from-white via-[#FFF8E1]/30 to-[#FFD249]/5 w-80">
         <SheetHeader className="flex flex-row items-center justify-between mt-2 pb-4">
           <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-[#FFD249] to-[#FFCA00] rounded-lg flex items-center justify-center">
-              <Package size={16} className="text-[#202020]" />
-            </div>
+            <div className="flex items-center justify-center">
+            <img src="/images/dellcube-favicon.png" alt="DellCube" className="w-10 h-10" />            </div>
             <div>
               <h2 className="font-bold text-[#202020]">DellCube</h2>
-              <p className="text-xs text-[#828083]">Command Center</p>
+              <p className="text-xs text-[#828083]">Operation Hub</p>
             </div>
           </Link>
           <div className="flex items-center gap-2">
-            <DarkMode />
+            {/* <DarkMode />
             <SheetClose asChild>
               <Button variant="ghost" size="icon" className="h-8 w-8">
                 <X size={16} />
               </Button>
-            </SheetClose>
+            </SheetClose> */}
           </div>
         </SheetHeader>
         
@@ -344,16 +343,7 @@ const MobileNavbar = () => {
               </div>
               
               {/* Quick Stats */}
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="flex items-center gap-1 text-[#828083]">
-                  <Package size={12} className="text-[#FFD249]" />
-                  <span>12 Active</span>
-                </div>
-                <div className="flex items-center gap-1 text-[#828083]">
-                  <Truck size={12} className="text-blue-500" />
-                  <span>5 Transit</span>
-                </div>
-              </div>
+             
             </div>
 
             {/* Navigation Links */}

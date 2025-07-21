@@ -6,7 +6,7 @@ import {
   getAllInvoices,
   getInvoiceById,
   updateInvoice,
-  generateDellcubeInvoicePDF,
+  // generateDellcubeInvoicePDF,
   generateInvoicePDF,
   exportInvoicesCSV,
 } from "../controllers/invoiceController.js";
@@ -28,7 +28,7 @@ router.put("/update", isAuthenticated, updateInvoice);
 // Delete invoice by ID
 router.delete("/delete", isAuthenticated, deleteInvoice);
 
-router.get("/:invoiceId/pdf-dellcube", generateDellcubeInvoicePDF);
+// router.get("/:invoiceId/pdf-dellcube", generateDellcubeInvoicePDF);
 
 router.get("/:invoiceId/pdf", generateInvoicePDF);
 

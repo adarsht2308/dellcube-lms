@@ -41,6 +41,7 @@ import {
 import { useGetAllDriversQuery } from "@/features/api/authApi";
 import { useGetAllSiteTypesQuery } from "@/features/api/SiteType/siteTypeApi.js";
 import { useGetAllTransportModesQuery } from "@/features/api/TransportMode/transportModeApi.js";
+import { imageUrlToBase64 } from "@/utils/imageUrlToBase64.js";
 
 const UpdateInvoice = () => {
   const navigate = useNavigate();
@@ -111,6 +112,15 @@ const UpdateInvoice = () => {
   // Add state for selected site type
   const [selectedSiteType, setSelectedSiteType] = useState("");
   const [selectedTransportMode, setSelectedTransportMode] = useState("");
+  const [status, setStatus] = useState("");
+  const [deliveredAt, setDeliveredAt] = useState("");
+
+  const [deliveryProof, setDeliveryProof] = useState({
+    receiverName: "",
+    receiverMobile: "",
+    remarks: "",
+    signature: "", // Will store base64
+  });
 
   // State for "From" address fields
   const [fromRegion, setFromRegion] = useState({
@@ -223,6 +233,17 @@ const UpdateInvoice = () => {
       setVehicleSize(invoice.vehicleSize || "");
       setOrderNumber(invoice.orderNumber || "");
       setSelectedTransportMode(invoice.transportMode?._id || "");
+      setStatus(invoice.status || "Created");
+      setDeliveredAt(invoice.deliveredAt ? new Date(invoice.deliveredAt).toISOString().slice(0, 16) : "");
+      
+      if (invoice.deliveryProof) {
+        setDeliveryProof({
+          receiverName: invoice.deliveryProof.receiverName || "",
+          receiverMobile: invoice.deliveryProof.receiverMobile || "",
+          remarks: invoice.deliveryProof.remarks || "",
+          signature: invoice.deliveryProof.signature || "", // Already base64 hopefully
+        });
+      }
 
       setFromRegion({
         country: invoice.fromAddress?.country?._id || "",
@@ -468,6 +489,14 @@ const UpdateInvoice = () => {
       siteType: selectedSiteType,
       orderNumber,
       transportMode: selectedTransportMode,
+      status,
+      deliveredAt: deliveredAt || null,
+      deliveryProof: {
+        receiverName: deliveryProof.receiverName || null,
+        receiverMobile: deliveryProof.receiverMobile || null,
+        remarks: deliveryProof.remarks || null,
+        signature: deliveryProof.signature || null,
+      },
     };
 
     if (vehicleType === "Dellcube") {
@@ -505,6 +534,30 @@ const UpdateInvoice = () => {
       toast.error(err?.data?.message || "Error updating invoice");
     }
   };
+
+  const handleDeliveryProofChange = (field, value) => {
+    setDeliveryProof(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSignatureUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) { // 2MB limit
+      toast.error("Signature file is too large. Max size is 2MB.");
+      return;
+    }
+
+    try {
+      const base64 = await imageUrlToBase64(file);
+      setDeliveryProof(prev => ({ ...prev, signature: base64 }));
+      toast.success("Signature image ready for upload.");
+    } catch (error) {
+      toast.error("Failed to process signature image.");
+      console.error("Signature conversion error:", error);
+    }
+  };
+
 
   const AddressFields = ({
     type,
@@ -1225,6 +1278,63 @@ const UpdateInvoice = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Delivery Proof */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Delivery Proof</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                 <div className="space-y-2">
+                  <Label>Delivered At</Label>
+                  <Input
+                    type="datetime-local"
+                    value={deliveredAt}
+                    onChange={(e) => setDeliveredAt(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Receiver's Name</Label>
+                  <Input
+                    value={deliveryProof.receiverName}
+                    onChange={e => handleDeliveryProofChange('receiverName', e.target.value)}
+                    placeholder="Enter receiver's name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Receiver's Mobile</Label>
+                  <Input
+                    value={deliveryProof.receiverMobile}
+                    onChange={e => handleDeliveryProofChange('receiverMobile', e.target.value)}
+                    placeholder="Enter receiver's mobile"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Delivery Remarks</Label>
+                  <Textarea
+                    value={deliveryProof.remarks}
+                    onChange={e => handleDeliveryProofChange('remarks', e.target.value)}
+                    placeholder="Enter delivery remarks"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Receiver's Signature</Label>
+                  <Input
+                    type="file"
+                    accept="image/png, image/jpeg"
+                    onChange={handleSignatureUpload}
+                  />
+                  {deliveryProof.signature && (
+                    <div className="mt-2 p-2 border rounded-md bg-gray-50">
+                      <p className="text-xs text-green-600 font-semibold mb-2">Signature Preview:</p>
+                      <img src={deliveryProof.signature} alt="Signature Preview" className="max-h-24 border rounded shadow-sm" />
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+
             {/* Submit Button */}
             <Card className="shadow-sm border border-gray-200">
               <CardContent className="pt-6">
