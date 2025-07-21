@@ -21,7 +21,8 @@ app.use(
       "https://dellcube-lms.onrender.com",
       "https://dellcube-lms-1.onrender.com",
       "https://dellcube-lms-nucw.onrender.com",
-      "https://lms.dellcube.com"
+      "https://lms.dellcube.com",
+      "https://dellcube-lms-2-or9e.onrender.com"
     ],
     credentials: true,
   })
