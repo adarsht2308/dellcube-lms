@@ -40,6 +40,7 @@ import {
   useDeleteInvoiceMutation,
   useGetInvoicePdfMutation,
   useExportInvoicesCSVMutation,
+  useCreateReservedDocketsMutation,
 } from "@/features/api/Invoice/invoiceApi.js";
 import { useGetAllCompaniesQuery } from "@/features/api/Company/companyApi.js";
 import { useGetBranchesByCompanyMutation } from "@/features/api/Branch/branchApi.js";
@@ -91,6 +92,7 @@ import { PDFDownloadLink, PDFViewer, pdf } from '@react-pdf/renderer';
 import InvoicePDFDocument from './InvoicePDFDocument';
 import logoUrl from '/images/dellcube_logo-og.png';
 import { imageUrlToBase64 } from '@/utils/imageUrlToBase64.js';
+import { Input } from '@/components/ui/input';
 
 // Adjust path as needed
 
@@ -239,6 +241,23 @@ const Invoices = () => {
   const [exportInvoicesCSV, { isLoading: isExporting }] =
     useExportInvoicesCSVMutation();
 
+  const [reservedDialogOpen, setReservedDialogOpen] = useState(false);
+  const [reservedForm, setReservedForm] = useState({ customer: '', count: 1, fromAddress: '', toAddress: '' });
+  const [createReservedDockets, { isLoading: isCreatingReserved }] = useCreateReservedDocketsMutation();
+
+  const { data: companiesData } = useGetAllCompaniesQuery({ status: 'active' });
+  const [branchOptions, setBranchOptions] = useState([]);
+
+  // Watch for company change in reservedForm (for superAdmin/operation)
+  useEffect(() => {
+    if ((user?.role === 'superAdmin') && reservedForm.company) {
+      getBranchesByCompany(reservedForm.company).then(res => {
+        if (res?.data?.branches) setBranchOptions(res.data.branches);
+        else setBranchOptions([]);
+      });
+    }
+  }, [reservedForm.company, user?.role, getBranchesByCompany]);
+
   useEffect(() => {
     fetch(logoUrl)
       .then(response => response.blob())
@@ -326,6 +345,7 @@ const Invoices = () => {
     setVehicleType("");
     setFromDate("");
     setToDate("");
+    setStatus("");
     setPage(1);
     setLimit(5);
   };
@@ -594,9 +614,44 @@ const Invoices = () => {
   // Call the hook here so it always runs when selectedInvoice changes
   const driverUpdateLocations = useReverseGeocode(selectedInvoice?.driverUpdates);
 
+  const handleReservedDocketSubmit = async (e) => {
+    e.preventDefault();
+    if (!reservedForm.customer || !reservedForm.count) {
+      toast.error('Please select a customer and enter count.');
+      return;
+    }
+    // For superAdmin/operation, require company and branch
+    if ((user?.role === 'superAdmin' || user?.role === 'operation') && (!reservedForm.company || !reservedForm.branch)) {
+      toast.error('Please select company and branch.');
+      return;
+    }
+    try {
+      await createReservedDockets({
+        customer: reservedForm.customer,
+        quantity: reservedForm.count, // Backend expects 'quantity'
+        fromAddress: reservedForm.fromAddress,
+        toAddress: reservedForm.toAddress,
+        company:
+          user?.role === 'superAdmin' || user?.role === 'operation'
+            ? reservedForm.company
+            : user?.company?._id,
+        branch:
+          user?.role === 'superAdmin' || user?.role === 'operation'
+            ? reservedForm.branch
+            : user?.branch?._id,
+      }).unwrap();
+      toast.success('Reserved dockets created successfully!');
+      setReservedDialogOpen(false);
+      setReservedForm({ customer: '', count: 1, fromAddress: '', toAddress: '' });
+      refetch();
+    } catch (err) {
+      toast.error(err?.data?.message || 'Failed to create reserved dockets');
+    }
+  };
+
   return (
     <section className="min-h-[100vh] ">
-      <div className="p-4 md:p-10">
+      <div className="px-4 md:pc-10">
         {/* Component Title */}
         <div className="mb-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white/80 dark:bg-gray-800/80 rounded-2xl shadow-sm px-6 py-5 border border-gray-100 dark:border-gray-800">
@@ -610,6 +665,12 @@ const Invoices = () => {
                 className="rounded-full px-5 py-2 flex items-center gap-2 text-base shadow-sm border border-[#FFD249] text-[#202020] bg-white hover:bg-[#FFD249]/20 hover:text-[#202020] dark:bg-[#202020] dark:text-[#FFD249] dark:border-[#FFD249] dark:hover:bg-[#FFD249]/10"
               >
                 <Download className="w-5 h-5" /> Export CSV
+              </Button>
+              <Button
+                onClick={() => setReservedDialogOpen(true)}
+                className="rounded-full px-5 py-2 flex items-center gap-2 text-base bg-[#FFD249] text-[#202020] hover:bg-[#FFD249]/80 hover:text-[#202020] shadow-sm border border-[#FFD249] dark:bg-[#FFD249] dark:text-[#202020] dark:hover:bg-[#FFD249]/80"
+              >
+                + Create Reserved Docket
               </Button>
               <Button
                 onClick={() => navigate("/admin/create-invoice")}
@@ -627,6 +688,8 @@ const Invoices = () => {
             </div>
           </div>
         </div>
+
+        {/* Status Filter Dropdown - moved beside Items per page */}
         <div className="mb-6 flex flex-col md:flex-row md:items-end gap-4 md:gap-6">
           <div className="flex-1 flex flex-col md:flex-row md:items-end gap-4">
             <div className="flex flex-col gap-1 w-full md:w-1/3">
@@ -699,6 +762,28 @@ const Invoices = () => {
                       {n}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {/* Status filter beside items per page */}
+            <div className="flex flex-col gap-1 min-w-[160px]">
+              <Label className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                Status
+              </Label>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="Reserved">Reserved</SelectItem>
+                  <SelectItem value="Created">Created</SelectItem>
+                  <SelectItem value="Dispatched">Dispatched</SelectItem>
+                  <SelectItem value="In Transit">In Transit</SelectItem>
+                  <SelectItem value="Arrived at Destination">Arrived at Destination</SelectItem>
+                  <SelectItem value="Delivered">Delivered</SelectItem>
+                  <SelectItem value="Cancelled">Cancelled</SelectItem>
+                  <SelectItem value="Returned">Returned</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1824,6 +1909,104 @@ const Invoices = () => {
             </Pagination>
           )}
         </div>
+
+        {/* Reserved Docket Dialog */}
+        <Dialog open={reservedDialogOpen} onOpenChange={setReservedDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Create Reserved Dockets</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleReservedDocketSubmit} className="space-y-4">
+              {/* Company/Branch dropdowns for superAdmin/operation */}
+              {(user?.role === 'superAdmin' || user?.role === 'operation') && (
+                <>
+                  <div>
+                    <Label>Company</Label>
+                    <Select
+                      value={reservedForm.company}
+                      onValueChange={val => setReservedForm(f => ({ ...f, company: val, branch: '' }))}
+                      required
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select company" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {companiesData?.companies?.map((c) => (
+                          <SelectItem key={c._id} value={c._id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Branch</Label>
+                    <Select
+                      value={reservedForm.branch}
+                      onValueChange={val => setReservedForm(f => ({ ...f, branch: val }))}
+                      required
+                      disabled={!reservedForm.company}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select branch" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {branchOptions.map((b) => (
+                          <SelectItem key={b._id} value={b._id}>{b.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
+              <div>
+                <Label>Customer</Label>
+                <Select
+                  value={reservedForm.customer}
+                  onValueChange={(val) => setReservedForm(f => ({ ...f, customer: val }))}
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select customer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {customersData?.customers?.map((c) => (
+                      <SelectItem key={c._id} value={c._id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Count</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={reservedForm.count}
+                  onChange={e => setReservedForm(f => ({ ...f, count: Number(e.target.value) }))}
+                  placeholder="How many dockets to create?"
+                  required
+                />
+              </div>
+              <div>
+                <Label>From Address (optional)</Label>
+                <Input
+                  value={reservedForm.fromAddress}
+                  onChange={e => setReservedForm(f => ({ ...f, fromAddress: e.target.value }))}
+                  placeholder="Pickup address (optional)"
+                />
+              </div>
+              <div>
+                <Label>To Address (optional)</Label>
+                <Input
+                  value={reservedForm.toAddress}
+                  onChange={e => setReservedForm(f => ({ ...f, toAddress: e.target.value }))}
+                  placeholder="Delivery address (optional)"
+                />
+              </div>
+              <Button type="submit" className="w-full bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020] font-medium py-2 text-base border border-[#FFD249]" disabled={isCreatingReserved || ((user?.role === 'superAdmin' || user?.role === 'operation') && (!reservedForm.company || !reservedForm.branch))}>
+                {isCreatingReserved ? 'Creating...' : 'Create Reserved Dockets'}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
     </section>
   );

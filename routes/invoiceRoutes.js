@@ -9,6 +9,7 @@ import {
   // generateDellcubeInvoicePDF,
   generateInvoicePDF,
   exportInvoicesCSV,
+  createReservedInvoices,
 } from "../controllers/invoiceController.js";
 
 const router = express.Router();
@@ -27,6 +28,9 @@ router.put("/update", isAuthenticated, updateInvoice);
 
 // Delete invoice by ID
 router.delete("/delete", isAuthenticated, deleteInvoice);
+
+// Create reserved dockets (bulk reserved invoices)
+router.post("/reserve", isAuthenticated, createReservedInvoices);
 
 // router.get("/:invoiceId/pdf-dellcube", generateDellcubeInvoicePDF);
 

@@ -82,8 +82,8 @@ export const vehicleApi = createApi({
         query: (branchId) => `branch/${branchId}`,
     }),
     searchVehicles: builder.mutation({
-        query: ({ vehicleNumber, branchId }) => ({
-          url: `/search?vehicleNumber=${vehicleNumber}&branchId=${branchId}`,
+        query: ({ vehicleNumber, companyId, branchId }) => ({
+          url: `/search?vehicleNumber=${vehicleNumber}&companyId=${companyId}&branchId=${branchId}`,
           method: 'GET',
         }),
       }),

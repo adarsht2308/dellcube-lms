@@ -104,7 +104,7 @@ export const createInvoice = async (req, res) => {
     if (vehicleNumber && !vehicleData) {
       return res.status(404).json({ success: false, message: "Vehicle not found." });
     }
-    
+
     // The following fields are now supported: pickupAddress, deliveryAddress, consignor, consignee, address, invoiceNumber, invoiceBill, ewayBillNo, driverContactNumber, siteId, sealNo, vehicleSize, orderNumber, transportMode
     const invoicePayload = {
       ...req.body,
@@ -148,6 +148,109 @@ export const createInvoice = async (req, res) => {
   }
 };
 
+export const createReservedInvoices = async (req, res) => {
+  try {
+    const user = req.user;
+    let companyId = req.body.company;
+    let branchId = req.body.branch;
+
+    // Role-based control
+    if (user.role === "branchAdmin" || user.role === "operation") {
+      companyId = user.company;
+      branchId = user.branch;
+    }
+
+    if (!companyId || !branchId) {
+      return res.status(400).json({
+        success: false,
+        message: "Company and Branch information is required.",
+      });
+    }
+
+    const { customer, fromAddress, toAddress, quantity = 1, ...rest } = req.body;
+    if (!customer || !quantity) {
+      return res.status(400).json({
+        success: false,
+        message: "Customer and quantity are required.",
+      });
+    }
+
+    // Fetch company and branch documents
+    const companyDoc = await mongoose
+      .model("Company")
+      .findById(companyId)
+      .select("name");
+    const branchDoc = await mongoose
+      .model("Branch")
+      .findById(branchId)
+      .select("name");
+
+    if (!companyDoc || !branchDoc) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid company or branch selected",
+      });
+    }
+
+    // Generate companyCode and branchCode
+    const companyCode = companyDoc.name
+      ?.toUpperCase()
+      .slice(0, 3)
+      .replace(/\s/g, "");
+    const branchCode = branchDoc.name
+      ?.toUpperCase()
+      .slice(0, 5)
+      .replace(/\s/g, "");
+
+    // Generate date string
+    const now = new Date();
+    const yy = now.getFullYear().toString().slice(2);
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const dd = String(now.getDate()).padStart(2, "0");
+    const dateStr = `${yy}${mm}${dd}`;
+
+    // Calculate daily counter
+    const dayStart = new Date(now.setHours(0, 0, 0, 0));
+    const dayEnd = new Date(now.setHours(23, 59, 59, 999));
+    const dailyCount = await Invoice.countDocuments({
+      company: companyId,
+      branch: branchId,
+      createdAt: { $gte: dayStart, $lte: dayEnd },
+    });
+
+    let runningCounter = dailyCount;
+    const reservedInvoices = [];
+    for (let i = 1; i <= quantity; i++) {
+      runningCounter++;
+      const docketNumber = `DLC-${companyCode}-${branchCode}-${dateStr}-${String(runningCounter).padStart(4, "0")}`;
+      reservedInvoices.push({
+        company: companyId,
+        branch: branchId,
+        customer,
+        fromAddress,
+        toAddress,
+        docketNumber,
+        status: "Reserved",
+        ...rest,
+      });
+    }
+
+    const created = await Invoice.insertMany(reservedInvoices);
+    return res.status(201).json({
+      success: true,
+      message: `${quantity} reserved dockets created successfully`,
+      invoices: created,
+    });
+  } catch (error) {
+    console.error("Error creating reserved invoices:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong while creating reserved dockets",
+      error: error.message,
+    });
+  }
+};
+
 export const getAllInvoices = async (req, res) => {
   try {
     let {
@@ -159,6 +262,7 @@ export const getAllInvoices = async (req, res) => {
       customerId,
       paymentType,
       vehicleType,
+      status,
       invoiceDate,
     } = req.query;
 
@@ -173,6 +277,7 @@ export const getAllInvoices = async (req, res) => {
     if (customerId) query.customer = customerId;
     if (paymentType) query.paymentType = paymentType;
     if (vehicleType) query.vehicleType = vehicleType;
+    if (status && status !== "all") query.status = status;
     // Date range filtering
     if (req.query.fromDate || req.query.toDate) {
       const dateQuery = {};
@@ -300,8 +405,45 @@ export const updateInvoice = async (req, res) => {
       });
     }
 
+    // Vehicle logic (same as createInvoice)
+    if (updates.vehicleNumber) {
+      let vehicleData = null;
+      let ownerType = '';
+      // Search in Dellcube's vehicles
+      const vehicle = await Vehicle.findOne({ vehicleNumber: updates.vehicleNumber }).populate("currentDriver");
+      if (vehicle) {
+        vehicleData = vehicle;
+        ownerType = "Dellcube";
+      } else {
+        // Search in vendors' vehicles
+        const vendor = await Vendor.findOne({ "availableVehicles.vehicleNumber": updates.vehicleNumber });
+        if (vendor) {
+          const vendorVehicle = vendor.availableVehicles.find(v => v.vehicleNumber === updates.vehicleNumber);
+          vehicleData = { ...vendorVehicle, vendor: vendor._id };
+          ownerType = "Vendor";
+        }
+      }
+      if (!vehicleData) {
+        return res.status(404).json({ success: false, message: "Vehicle not found." });
+      }
+      // Set vehicle-related fields
+      invoice.vehicleType = ownerType;
+      if (ownerType === 'Dellcube') {
+        invoice.vehicle = vehicleData._id;
+        invoice.driver = vehicleData.currentDriver?._id;
+        invoice.vehicleSize = vehicleData.type;
+        invoice.vendor = undefined;
+        invoice.vendorVehicle = undefined;
+      } else if (ownerType === 'Vendor') {
+        invoice.vendor = vehicleData.vendor;
+        invoice.vendorVehicle = vehicleData;
+        invoice.vehicle = undefined;
+      }
+    }
+
     Object.keys(updates).forEach((key) => {
-      if (updates[key] !== undefined) {
+      // Don't overwrite vehicle fields if vehicleNumber was handled above
+      if (updates[key] !== undefined && key !== 'vehicleNumber') {
         invoice[key] = updates[key];
       }
     });

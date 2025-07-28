@@ -318,6 +318,7 @@ const CreateInvoice = () => {
         try {
           const res = await searchVehicles({
             vehicleNumber: debouncedSearchTerm,
+            companyId,
             branchId,
           }).unwrap();
           if (res.success) {
@@ -339,7 +340,7 @@ const CreateInvoice = () => {
       }
     }
     search();
-  }, [debouncedSearchTerm, branchId, searchVehicles, searchedVehicle]);
+  }, [debouncedSearchTerm, companyId, branchId, searchVehicles, searchedVehicle]);
 
 
   const handleVehicleSelect = (vehicle) => {

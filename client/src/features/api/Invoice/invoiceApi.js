@@ -104,6 +104,16 @@ export const invoiceApi = createApi({
         };
       },
     }),
+
+    // Create Reserved Dockets
+    createReservedDockets: builder.mutation({
+      query: (payload) => ({
+        url: "/reserve",
+        method: "POST",
+        body: payload,
+      }),
+      invalidatesTags: ["Invoice"],
+    }),
   }),
 });
 
@@ -115,4 +125,5 @@ export const {
   useDeleteInvoiceMutation,
   useGetInvoicePdfMutation,
   useExportInvoicesCSVMutation,
+  useCreateReservedDocketsMutation,
 } = invoiceApi;

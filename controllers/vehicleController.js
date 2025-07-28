@@ -377,10 +377,14 @@ export const addMaintenanceController = async (req, res) => {
 
 export const searchVehicles = async (req, res) => {
   try {
-    const { vehicleNumber, branchId } = req.query;
+    const { vehicleNumber, companyId, branchId } = req.query;
 
     if (!vehicleNumber) {
       return res.status(400).json({ success: false, message: "Vehicle number is required" });
+    }
+
+    if (!companyId) {
+      return res.status(400).json({ success: false, message: "Company ID is required" });
     }
 
     if (!branchId) {
@@ -389,9 +393,9 @@ export const searchVehicles = async (req, res) => {
 
     const sanitizedSearchTerm = vehicleNumber.replace(/\s+/g, "").toUpperCase();
 
-    // Fetch all vehicles and vendors for the branch
-    const allDellcubeVehicles = await Vehicle.find({ branch: branchId }).populate("currentDriver", "name mobile");
-    const allVendors = await Vendor.find({ branch: branchId });
+    // Fetch all vehicles and vendors for the company and branch
+    const allDellcubeVehicles = await Vehicle.find({ company: companyId, branch: branchId }).populate("currentDriver", "name mobile");
+    const allVendors = await Vendor.find({ company: companyId, branch: branchId });
 
     // Filter Dellcube vehicles in code for flexibility
     const filteredDellcube = allDellcubeVehicles.filter(v =>

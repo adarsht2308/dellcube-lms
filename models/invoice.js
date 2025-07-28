@@ -66,7 +66,7 @@ const invoiceSchema = new mongoose.Schema(
     vehicleType: {
       type: String,
       enum: ["Dellcube", "Vendor"],
-      required: true,
+      // required: true,
     },
 
     vehicle: {
@@ -93,6 +93,7 @@ const invoiceSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: [
+        "Reserved",
         "Created",
         "Dispatched",
         "In Transit",
@@ -128,12 +129,12 @@ const invoiceSchema = new mongoose.Schema(
 
     invoiceDate: {
       type: Date,
-      required: true,
+      // required: true,
     },
 
     dispatchDateTime: {
       type: Date,
-      required: true,
+      // required: true,
     },
 
     loadingContact: {
@@ -153,7 +154,7 @@ const invoiceSchema = new mongoose.Schema(
     paymentType: {
       type: String,
       enum: ["Prepaid", "To-Pay", "Billing"],
-      required: true,
+      // required: true,
     },
 
     remarks: {

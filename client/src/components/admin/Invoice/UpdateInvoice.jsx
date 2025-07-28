@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Truck } from "lucide-react";
 import { Hash } from "lucide-react";
 import { FileText } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 
 // API imports
 import {
@@ -34,6 +35,8 @@ import { useGetLocalitiesByCityMutation } from "@/features/api/Region/LocalityAp
 import { useGetPincodesByLocalityMutation } from "@/features/api/Region/pincodeApi.js";
 import { useGetAllGoodsQuery } from "@/features/api/Goods/goodsApi.js";
 import { useGetAllVehiclesQuery } from "@/features/api/Vehicle/vehicleApi.js";
+import { useSearchVehiclesMutation } from '@/features/api/Vehicle/vehicleApi.js';
+import { useDebounce } from '@/hooks/Debounce.jsx';
 import {
   useGetAllVendorsQuery,
   useGetVendorByIdMutation,
@@ -59,20 +62,51 @@ const UpdateInvoice = () => {
       ? receivedInvoiceId.invoiceId // If it's an object like { invoiceId: "..." }, extract the nested ID
       : receivedInvoiceId; // Otherwise, use it directly (should be the string ID)
 
+  // --- ALL HOOKS MUST BE CALLED HERE, BEFORE ANY RETURN ---
+  // Vehicle search logic (same as CreateInvoice)
+  const [vehicleNumber, setVehicleNumber] = useState("");
+  const [searchedVehicle, setSearchedVehicle] = useState(null);
+  const [vehicleSearchError, setVehicleSearchError] = useState("");
+  const [vehicleSuggestions, setVehicleSuggestions] = useState([]);
+  const debouncedSearchTerm = useDebounce(vehicleNumber, 500);
+  const vehicleSearchRef = React.useRef(null);
+  const [suggestionsPosition, setSuggestionsPosition] = useState("top");
+  const [searchVehicles, { isLoading: isSearchingVehicle }] = useSearchVehiclesMutation();
 
-  // Mutation hook to fetch existing invoice data
-  const [
-    getInvoiceById,
-    {
-      data: fetchedInvoiceData,
-      isLoading: isInvoiceLoading,
-      isError: isInvoiceError,
-      error: invoiceError,
-    },
-  ] = useGetInvoiceByIdMutation();
-  console.log(fetchedInvoiceData);
 
-  // State variables, initialized to empty or default values
+
+  // Handle vehicle selection (same as CreateInvoice)
+  const handleVehicleSelect = (vehicle) => {
+    setSearchedVehicle(vehicle);
+    setVehicleNumber(vehicle.vehicleNumber);
+    setVehicleSuggestions([]);
+    setVehicleSearchError("");
+
+    // Auto-fill vehicle-related fields
+    if (vehicle.ownerType === "Dellcube") {
+      setVehicleType("Dellcube");
+      setSelectedVehicle(vehicle._id);
+      setVehicleSize(vehicle.type || "");
+      setVehicleModel(vehicle.model || "");
+      setSelectedDriver(vehicle.currentDriver?._id || "");
+      setDriverContactNumber(vehicle.currentDriver?.mobile || "");
+      setSelectedVendor("");
+      setSelectedVendorVehicle("");
+      setSelectedVendorVehicleNumber("");
+    } else if (vehicle.ownerType === "Vendor") {
+      setVehicleType("Vendor");
+      setSelectedVendor(vehicle.vendor);
+      setSelectedVendorVehicle(vehicle);
+      setSelectedVendorVehicleNumber(vehicle.vehicleNumber);
+      setVehicleSize(vehicle.type || "");
+      setVehicleModel(vehicle.model || "");
+      setSelectedDriver(vehicle.currentDriver?._id || "");
+      setDriverContactNumber(vehicle.currentDriver?.mobile || "");
+      setSelectedVehicle("");
+    }
+  };
+
+  // All other hooks and state as before (do not move any hooks below this point)
   const [companyId, setCompanyId] = useState("");
   const [branchId, setBranchId] = useState("");
   const [customerId, setCustomerId] = useState("");
@@ -80,7 +114,6 @@ const UpdateInvoice = () => {
   const [dispatchDateTime, setDispatchDateTime] = useState("");
   const [paymentType, setPaymentType] = useState("");
   const [remarks, setRemarks] = useState("");
-
   const [totalWeight, setTotalWeight] = useState("");
   const [freightCharges, setFreightCharges] = useState("");
   const [numberOfPackages, setNumberOfPackages] = useState("");
@@ -91,13 +124,11 @@ const UpdateInvoice = () => {
   const [selectedVehicle, setSelectedVehicle] = useState("");
   const [selectedVendor, setSelectedVendor] = useState("");
   const [selectedVendorVehicle, setSelectedVendorVehicle] = useState("");
-  const [selectedVendorVehicleNumber, setSelectedVendorVehicleNumber] =
-    useState("");
+  const [selectedVendorVehicleNumber, setSelectedVendorVehicleNumber] = useState("");
   const [selectedDriver, setSelectedDriver] = useState("");
   const [driverContactNumber, setDriverContactNumber] = useState("");
   const [vehicleSize, setVehicleSize] = useState("");
-
-  // Add new state variables for the new fields
+  const [vehicleModel, setVehicleModel] = useState("");
   const [pickupAddress, setPickupAddress] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [consignor, setConsignor] = useState("");
@@ -109,90 +140,76 @@ const UpdateInvoice = () => {
   const [siteId, setSiteId] = useState("");
   const [sealNo, setSealNo] = useState("");
   const [orderNumber, setOrderNumber] = useState("");
-  // Add state for selected site type
   const [selectedSiteType, setSelectedSiteType] = useState("");
   const [selectedTransportMode, setSelectedTransportMode] = useState("");
   const [status, setStatus] = useState("");
   const [deliveredAt, setDeliveredAt] = useState("");
+  const [deliveryProof, setDeliveryProof] = useState({ receiverName: "", receiverMobile: "", remarks: "", signature: "" });
+  const [fromRegion, setFromRegion] = useState({ country: "", state: "", city: "", locality: "", pincode: "" });
+  const [toRegion, setToRegion] = useState({ country: "", state: "", city: "", locality: "", pincode: "" });
+  
+  // Current vehicle information (read-only display)
+  const [currentVehicleNumber, setCurrentVehicleNumber] = useState("");
+  const [currentDriverName, setCurrentDriverName] = useState("");
+  const [currentDriverContact, setCurrentDriverContact] = useState("");
+  const [currentVehicleType, setCurrentVehicleType] = useState("");
 
-  const [deliveryProof, setDeliveryProof] = useState({
-    receiverName: "",
-    receiverMobile: "",
-    remarks: "",
-    signature: "", // Will store base64
-  });
-
-  // State for "From" address fields
-  const [fromRegion, setFromRegion] = useState({
-    country: "",
-    state: "",
-    city: "",
-    locality: "",
-    pincode: "",
-  });
-
-  // State for "To" address fields
-  const [toRegion, setToRegion] = useState({
-    country: "",
-    state: "",
-    city: "",
-    locality: "",
-    pincode: "",
-  });
-
-  // API hooks for "From" address
-  const [getFromStatesByCountry, { data: fromStateData }] =
-    useGetStatesByCountryMutation();
-  const [getFromCitiesByState, { data: fromCityData }] =
-    useGetCitiesByStateMutation(); // Corrected this line, was getCitiesByStateMutation
-  const [getFromLocalitiesByCity, { data: fromLocalityData }] =
-    useGetLocalitiesByCityMutation();
-  const [getFromPincodesByLocality, { data: fromPincodeData }] =
-    useGetPincodesByLocalityMutation();
-
-  // API hooks for "To" address
-  const [getToStatesByCountry, { data: toStateData }] =
-    useGetStatesByCountryMutation();
-  const [getToCitiesByState, { data: toCityData }] =
-    useGetCitiesByStateMutation(); // Corrected this line, was getCitiesByStateMutation
-  const [getToLocalitiesByCity, { data: toLocalityData }] =
-    useGetLocalitiesByCityMutation();
-  const [getToPincodesByLocality, { data: toPincodeData }] =
-    useGetPincodesByLocalityMutation();
-
-  // Common API hooks
+  // All API hooks (mutations/queries)
+  const [getInvoiceById, { data: fetchedInvoiceData, isLoading: isInvoiceLoading, isError: isInvoiceError, error: invoiceError }] = useGetInvoiceByIdMutation();
   const { data: companies } = useGetAllCompaniesQuery({});
   const [getBranchesByCompany] = useGetBranchesByCompanyMutation();
   const { data: customersData } = useGetAllCustomersQuery({});
-  const { data: countries } = useGetAllCountriesQuery({
-    page: 1,
-    limit: 10000,
-  });
-  const { data: driversData, isLoading: isDriversLoading } =
-    useGetAllDriversQuery({});
+  const { data: countries } = useGetAllCountriesQuery({ page: 1, limit: 10000 });
+  const { data: driversData, isLoading: isDriversLoading } = useGetAllDriversQuery({});
   const { data: goodsData } = useGetAllGoodsQuery({ page: 1, limit: 1000 });
-  const { data: siteTypesData } = useGetAllSiteTypesQuery({
-    page: 1,
-    limit: 1000,
-    status: "true"
-  });
+  const { data: siteTypesData } = useGetAllSiteTypesQuery({ page: 1, limit: 1000, status: "true" });
   const { data: transportModesData } = useGetAllTransportModesQuery({ page: 1, limit: 1000, status: "true" });
-
-  const { data: vehicleData } = useGetAllVehiclesQuery({
-    page: 1,
-    limit: 1000,
-    companyId: companyId,
-    branchId: branchId,
-  });
-  const { data: vendorData } = useGetAllVendorsQuery({
-    companyId: companyId,
-    branchId: branchId,
-  });
-  console.log(vendorData);
-
+  const { data: vehicleData } = useGetAllVehiclesQuery({ page: 1, limit: 1000, companyId: companyId, branchId: branchId });
+  const { data: vendorData } = useGetAllVendorsQuery({ companyId: companyId, branchId: branchId });
   const [getVendorById, { data: vendorDetails }] = useGetVendorByIdMutation();
-  console.log("venodrByrid", vendorDetails);
   const [updateInvoice, { isLoading: isUpdating }] = useUpdateInvoiceMutation();
+
+  // API hooks for "From" address
+  const [getFromStatesByCountry, { data: fromStateData }] = useGetStatesByCountryMutation();
+  const [getFromCitiesByState, { data: fromCityData }] = useGetCitiesByStateMutation();
+  const [getFromLocalitiesByCity, { data: fromLocalityData }] = useGetLocalitiesByCityMutation();
+  const [getFromPincodesByLocality, { data: fromPincodeData }] = useGetPincodesByLocalityMutation();
+
+  // API hooks for "To" address
+  const [getToStatesByCountry, { data: toStateData }] = useGetStatesByCountryMutation();
+  const [getToCitiesByState, { data: toCityData }] = useGetCitiesByStateMutation();
+  const [getToLocalitiesByCity, { data: toLocalityData }] = useGetLocalitiesByCityMutation();
+  const [getToPincodesByLocality, { data: toPincodeData }] = useGetPincodesByLocalityMutation();
+
+  // Vehicle search useEffect (moved after all state variables are declared)
+  useEffect(() => {
+    if (debouncedSearchTerm && debouncedSearchTerm.length >= 1 && companyId && branchId) {
+      const searchVehiclesAsync = async () => {
+        try {
+          setVehicleSearchError("");
+          const result = await searchVehicles({
+            vehicleNumber: debouncedSearchTerm,
+            companyId: companyId,
+            branchId: branchId,
+          }).unwrap();
+          setVehicleSuggestions(result.vehicles || []);
+        } catch (error) {
+          console.error("Vehicle search error:", error);
+          setVehicleSearchError("Failed to search vehicles");
+          setVehicleSuggestions([]);
+        }
+      };
+      searchVehiclesAsync();
+    } else {
+      setVehicleSuggestions([]);
+      setVehicleSearchError("");
+    }
+  }, [debouncedSearchTerm, companyId, branchId, searchVehicles]);
+
+  const isFormDisabled = isInvoiceLoading || !fetchedInvoiceData?.invoice;
+  
+  // Only after all hooks:
+  
 
   useEffect(() => {
     getInvoiceById(invoiceId);
@@ -202,6 +219,7 @@ const UpdateInvoice = () => {
   useEffect(() => {
     if (fetchedInvoiceData && fetchedInvoiceData.invoice) {
       const invoice = fetchedInvoiceData.invoice;
+      console.log(invoice)
       console.log(invoice);
       setCompanyId(invoice.company?._id || user?.company?._id || "");
       setBranchId(invoice.branch?._id || user?.branch?._id || "");
@@ -229,8 +247,24 @@ const UpdateInvoice = () => {
       setSelectedVehicle(invoice.vehicle?._id || "");
       setSelectedVendor(invoice.vendor?._id || "");
       setSelectedDriver(invoice.driver?._id || "");
-      setDriverContactNumber(invoice.driverContactNumber || "");
+      setDriverContactNumber(invoice.driver?.mobile || "");
       setVehicleSize(invoice.vehicleSize || "");
+      setVehicleModel(invoice.vehicleModel || "");
+      
+      // Set current vehicle information for display
+      if (invoice.vehicleType === "Dellcube" && invoice.vehicle) {
+        setCurrentVehicleNumber(invoice.vehicle.vehicleNumber || "");
+        setCurrentVehicleType("Dellcube");
+      } else if (invoice.vehicleType === "Vendor" && invoice.vendorVehicle) {
+        setCurrentVehicleNumber(invoice.vendorVehicle.vehicleNumber || "");
+        setCurrentVehicleType("Vendor");
+      } else {
+        setCurrentVehicleNumber("");
+        setCurrentVehicleType("");
+      }
+      
+      setCurrentDriverName(invoice.driver?.name || "");
+      setCurrentDriverContact(invoice.driver?.driverContactNumber || "");
       setOrderNumber(invoice.orderNumber || "");
       setSelectedTransportMode(invoice.transportMode?._id || "");
       setStatus(invoice.status || "Created");
@@ -431,6 +465,13 @@ const UpdateInvoice = () => {
     }
   }, [selectedDriver, driversData, fetchedInvoiceData]);
 
+  // Add effect to auto-select driver when Dellcube vehicle is selected (same as CreateInvoice)
+  useEffect(() => {
+    if (searchedVehicle?.ownerType === "Dellcube" && searchedVehicle?.currentDriver && searchedVehicle.currentDriver._id) {
+      setSelectedDriver(searchedVehicle.currentDriver._id);
+    }
+  }, [searchedVehicle]);
+
   //Validations
   const handleSubmit = async () => {
     if (
@@ -438,7 +479,7 @@ const UpdateInvoice = () => {
       !invoiceDate ||
       !dispatchDateTime ||
       !paymentType ||
-      !vehicleType ||
+      !searchedVehicle ||
       !fromRegion.country ||
       !fromRegion.state ||
       !fromRegion.city ||
@@ -451,7 +492,7 @@ const UpdateInvoice = () => {
       !toRegion.pincode
     ) {
       toast.error(
-        "Please fill all required fields, including From and To addresses."
+        "Please fill all required fields, including selecting a vehicle and From and To addresses."
       );
       return;
     }
@@ -465,16 +506,18 @@ const UpdateInvoice = () => {
       company: companyId,
       branch: branchId,
       remarks,
-      vehicleType,
+      vehicleNumber,
+      vehicleType: searchedVehicle?.ownerType || vehicleType,
       totalWeight: totalWeight === "" ? null : Number(totalWeight),
       freightCharges: freightCharges === "" ? null : Number(freightCharges),
       numberOfPackages:
         numberOfPackages === "" ? null : Number(numberOfPackages),
-      goodsType: selectedGood,
+      ...(selectedGood && { goodsType: selectedGood }),
       goodItems: selectedItems.map((name) => ({ name })),
       fromAddress: fromRegion,
       toAddress: toRegion,
-      driver: selectedDriver,
+      ...(selectedDriver && { driver: selectedDriver }),
+      driverContactNumber,
       pickupAddress,
       deliveryAddress,
       consignor,
@@ -485,10 +528,11 @@ const UpdateInvoice = () => {
       ewayBillNo,
       siteId,
       sealNo,
+      vehicleModel,
       vehicleSize,
-      siteType: selectedSiteType,
+      ...(selectedSiteType && { siteType: selectedSiteType }),
       orderNumber,
-      transportMode: selectedTransportMode,
+      ...(selectedTransportMode && { transportMode: selectedTransportMode }),
       status,
       deliveredAt: deliveredAt || null,
       deliveryProof: {
@@ -499,21 +543,36 @@ const UpdateInvoice = () => {
       },
     };
 
-    if (vehicleType === "Dellcube") {
-      payload.vehicle = selectedVehicle;
-      delete payload.vendor;
-      delete payload.vendorVehicleNumber;
-      delete payload.vendorVehicle;
-    } else if (vehicleType === "Vendor") {
-      payload.vendor = selectedVendor;
-      payload.vendorVehicleNumber = selectedVendorVehicle?.vehicleNumber;
-      payload.vendorVehicle = selectedVendorVehicle;
-      delete payload.vehicle;
+    // Set vehicle-related fields based on searched vehicle
+    if (searchedVehicle) {
+      if (searchedVehicle.ownerType === "Dellcube") {
+        payload.vehicle = searchedVehicle._id;
+        payload.vehicleType = "Dellcube";
+        // Use vehicle size from dropdown if vehicle doesn't have type, otherwise use vehicle's type
+        payload.vehicleSize = searchedVehicle.type || vehicleSize;
+        payload.vehicleModel = searchedVehicle.model || vehicleModel;
+        delete payload.vendor;
+        delete payload.vendorVehicle;
+      } else if (searchedVehicle.ownerType === "Vendor") {
+        payload.vendor = searchedVehicle.vendor;
+        payload.vendorVehicle = searchedVehicle;
+        payload.vehicleType = "Vendor";
+        // Use vehicle size from dropdown if vehicle doesn't have type, otherwise use vehicle's type
+        payload.vehicleSize = searchedVehicle.type || vehicleSize;
+        payload.vehicleModel = searchedVehicle.model || vehicleModel;
+        delete payload.vehicle;
+      }
     } else {
-      delete payload.vehicle;
-      delete payload.vendor;
-      delete payload.vendorVehicleNumber;
-      delete payload.vendorVehicle;
+      // Fallback to old logic if no vehicle is searched
+      if (vehicleType === "Dellcube") {
+        payload.vehicle = selectedVehicle;
+        delete payload.vendor;
+        delete payload.vendorVehicle;
+      } else if (vehicleType === "Vendor") {
+        payload.vendor = selectedVendor;
+        payload.vendorVehicle = selectedVendorVehicle;
+        delete payload.vehicle;
+      }
     }
 
     Object.keys(payload).forEach(
@@ -663,14 +722,62 @@ const UpdateInvoice = () => {
     </div>
   );
 
-  const isFormDisabled = isInvoiceLoading || !fetchedInvoiceData?.invoice;
+ 
+
+  useEffect(() => {
+    if (fetchedInvoiceData?.invoice) {
+      setVehicleNumber(fetchedInvoiceData.invoice.vehicleNumber || "");
+      setSearchedVehicle(null); // Reset on load
+    }
+  }, [fetchedInvoiceData]);
+
+  useEffect(() => {
+    const search = async () => {
+      if (debouncedSearchTerm && !searchedVehicle) {
+        setVehicleSearchError("");
+        setVehicleSuggestions([]);
+        try {
+          const res = await searchVehicles({
+            vehicleNumber: debouncedSearchTerm,
+            branchId,
+          }).unwrap();
+          if (res.success) {
+            setVehicleSuggestions(res.vehicles);
+          }
+        } catch (err) {
+          setVehicleSearchError(err.data?.message || "No vehicles found.");
+          setVehicleSuggestions([]);
+        }
+      } else {
+        setVehicleSuggestions([]);
+      }
+    };
+    if (debouncedSearchTerm) {
+      const inputRect = vehicleSearchRef.current?.getBoundingClientRect();
+      if (inputRect) {
+        const spaceBelow = window.innerHeight - inputRect.bottom;
+        setSuggestionsPosition(spaceBelow < 250 ? "bottom" : "top");
+      }
+    }
+    search();
+  }, [debouncedSearchTerm, branchId, searchVehicles, searchedVehicle]);
+
+
+
+  if (!invoiceId) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-lg text-gray-600">No invoice selected.</div>
+      </div>
+    );
+  }
 
   if (isInvoiceLoading) {
     return (
-      <section className="bg-gray-50 dark:bg-gray-900 min-h-screen flex items-center justify-center">
-        <Loader2 className="w-10 h-10 animate-spin text-gray-500" />
-        <p className="text-gray-500 ml-2">Loading Invoice Data...</p>
-      </section>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="animate-spin w-8 h-8 text-gray-500" />
+        <span className="ml-4 text-lg text-gray-600">Loading invoice...</span>
+      </div>
     );
   }
 
@@ -1045,148 +1152,228 @@ const UpdateInvoice = () => {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Vehicle Owner (Dellcube/Vendor) */}
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium flex items-center gap-2">
-                      Vehicle Owner
-                    </Label>
-                    <Select
-                      value={vehicleType}
-                      onValueChange={(val) => {
-                        setVehicleType(val);
-                        setSelectedVendor("");
-                        setSelectedVehicle("");
-                        setSelectedVendorVehicle("");
-                      }}
-                      disabled={isFormDisabled}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select Owner" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Dellcube">Dellcube</SelectItem>
-                        <SelectItem value="Vendor">Vendor</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {/* Vehicle Number */}
-                  {vehicleType === "Dellcube" && (
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium flex items-center gap-2">
-                        Vehicle Number
-                      </Label>
-                      <Select
-                        value={selectedVehicle}
-                        onValueChange={setSelectedVehicle}
-                        disabled={!vehicleData?.vehicles?.length || isFormDisabled}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select Vehicle Number" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {vehicleData?.vehicles?.map((vehicle) => (
-                            <SelectItem key={vehicle._id} value={vehicle._id}>
-                              {vehicle.vehicleNumber} - {vehicle.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                  {/* Current Vehicle Information (Read-only) */}
+                  {currentVehicleNumber && (
+                    <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <Label className="text-sm font-medium text-gray-700">
+                          Current Vehicle Information
+                        </Label>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-xs font-medium text-gray-600">
+                            Current Vehicle Number
+                          </Label>
+                          <Input
+                            type="text"
+                            value={currentVehicleNumber}
+                            disabled
+                            className="w-full bg-white border-gray-300"
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label className="text-xs font-medium text-gray-600">
+                            Current Vehicle Type
+                          </Label>
+                          <Input
+                            type="text"
+                            value={currentVehicleType}
+                            disabled
+                            className="w-full bg-white border-gray-300"
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label className="text-xs font-medium text-gray-600">
+                            Current Driver Name
+                          </Label>
+                          <Input
+                            type="text"
+                            value={currentDriverName}
+                            disabled
+                            className="w-full bg-white border-gray-300"
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label className="text-xs font-medium text-gray-600">
+                            Current Driver Contact
+                          </Label>
+                          <Input
+                            type="text"
+                            value={currentDriverContact}
+                            disabled
+                            className="w-full bg-white border-gray-300"
+                          />
+                        </div>
+                      </div>
                     </div>
                   )}
-                  {vehicleType === "Vendor" && (
-                    <>
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium flex items-center gap-2">
-                          Vendor
-                        </Label>
-                        <Select
-                          value={selectedVendor}
-                          onValueChange={setSelectedVendor}
-                          disabled={!vendorData?.vendors?.length || isFormDisabled}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select Vendor" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {vendorData?.vendors?.map((vendor) => (
-                              <SelectItem key={vendor._id} value={vendor._id}>
-                                {vendor.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+
+                  {/* New Vehicle Search */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      Search New Vehicle (Optional)
+                    </Label>
+                    {/* Display Searched Vehicle Info */}
+                    {searchedVehicle && (
+                      <div className="space-y-2 mb-4">
+                        <Label className="text-sm font-medium">Owner</Label>
+                        <Input
+                          value={searchedVehicle.ownerType === 'Vendor' ? `Vendor: ${searchedVehicle.vendor?.name || 'Unknown'}` : 'Dellcube'}
+                          disabled
+                          className="w-full bg-gray-50"
+                        />
                       </div>
-                      {selectedVendor && vendorDetails?.vendor?.availableVehicles?.length > 0 && (
+                    )}
+                    <div className="relative" ref={vehicleSearchRef}>
+                      <Input
+                        type="text"
+                        value={vehicleNumber}
+                        onChange={(e) => {
+                          const val = e.target.value.toUpperCase();
+                          setVehicleNumber(val);
+                          // Only clear searchedVehicle if the value does not match the selected vehicle
+                          if (!searchedVehicle || searchedVehicle.vehicleNumber !== val) {
+                            setSearchedVehicle(null);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && vehicleSuggestions.length > 0) {
+                            handleVehicleSelect(vehicleSuggestions[0]);
+                            e.preventDefault();
+                          }
+                        }}
+                        placeholder="Start typing to search for a vehicle..."
+                        disabled={isFormDisabled}
+                        className="w-full"
+                      />
+                      {vehicleSearchError && !vehicleSuggestions.length && (
+                        <div className="text-red-500 text-sm mt-2 flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4" />
+                          {vehicleSearchError}
+                          <Button variant="outline" size="sm" onClick={() => navigate("/admin/create-vehicle")}>Create Dellcube Vehicle</Button>
+                          <Button variant="outline" size="sm" onClick={() => navigate("/admin/vendors")}>Add to Vendor</Button>
+                        </div>
+                      )}
+                      {vehicleSuggestions.length > 0 && (
+                        <div
+                          className={`absolute z-50 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto ${
+                            suggestionsPosition === "top" ? "bottom-full mb-1" : "top-full mt-1"
+                          }`}
+                        >
+                                                  {vehicleSuggestions.map((vehicle, index) => (
+                          <div
+                            key={vehicle._id || vehicle.vehicleNumber}
+                            className="px-3 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
+                            onClick={() => handleVehicleSelect(vehicle)}
+                          >
+                            <div className="font-medium">{vehicle.vehicleNumber}</div>
+                            <div className="text-sm text-gray-600">
+                              {vehicle.ownerType} - {vehicle.type || 'No type'}
+                            </div>
+                          </div>
+                        ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Vehicle Type/Size */}
+                  {searchedVehicle && (
+                    <>
+                      {/* Only show disabled Vehicle Type/Size if type exists */}
+                      {searchedVehicle.type && (
                         <div className="space-y-2">
                           <Label className="text-sm font-medium flex items-center gap-2">
-                            Vendor Vehicle Number
+                            Vehicle Type/Size
                           </Label>
-                          <Select
-                            value={selectedVendorVehicle?._id || ""}
-                            onValueChange={(val) => {
-                              const vehicleObj = vendorDetails.vendor.availableVehicles.find(v => v._id === val);
-                              setSelectedVendorVehicle(vehicleObj);
-                            }}
+                          <Input
+                            type="text"
+                            value={searchedVehicle.type}
+                            disabled
+                            className="w-full bg-gray-50"
+                          />
+                        </div>
+                      )}
+                      {/* Only show dropdown if type is missing */}
+                      {!searchedVehicle.type && (
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium flex items-center gap-2">
+                            Vehicle Type/Size
+                          </Label>
+                          <Select 
+                            value={vehicleSize} 
+                            onValueChange={setVehicleSize}
                             disabled={isFormDisabled}
                           >
                             <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Select Vendor Vehicle" />
+                              <SelectValue placeholder="Select Vehicle Size" />
                             </SelectTrigger>
                             <SelectContent>
-                              {vendorDetails?.vendor?.availableVehicles?.map((v) => (
-                                <SelectItem key={v._id} value={v._id}>
-                                  {v.vehicleNumber}
+                              {["7ft", "10ft", "14ft", "18ft", "24ft", "32ft"].map(size => (
+                                <SelectItem key={size} value={size}>{size}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                      {/* Only show disabled Driver if exists */}
+                      {searchedVehicle.currentDriver && (
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium flex items-center gap-2">
+                            Driver Name
+                          </Label>
+                          <Input
+                            type="text"
+                            value={searchedVehicle.currentDriver.name}
+                            disabled
+                            className="w-full bg-gray-50"
+                          />
+                        </div>
+                      )}
+                      {/* Only show dropdown if driver is missing */}
+                      {!searchedVehicle.currentDriver && (
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium flex items-center gap-2">
+                            Assign Driver
+                          </Label>
+                          <Select 
+                            value={selectedDriver} 
+                            onValueChange={setSelectedDriver}
+                            disabled={isFormDisabled}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Select a Driver" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {driversData?.drivers?.map((driver) => (
+                                <SelectItem key={driver._id} value={driver._id}>
+                                  {driver.name} ({driver.mobile})
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                         </div>
                       )}
+                      {/* Driver Contact always shown */}
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium flex items-center gap-2">
+                          Driver Contact
+                        </Label>
+                        <Input
+                          type="text"
+                          value={searchedVehicle.currentDriver?.mobile || (driversData?.drivers?.find(d => d._id === selectedDriver)?.mobile || 'N/A')}
+                          disabled
+                          className="w-full bg-gray-50"
+                        />
+                      </div>
                     </>
                   )}
-                  {/* Vehicle Type/Size */}
-                  {vehicleType === "Dellcube" && selectedVehicle && (
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium flex items-center gap-2">
-                        Vehicle Type/Size
-                      </Label>
-                      <Select value={vehicleSize} onValueChange={setVehicleSize} disabled>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select Vehicle Size" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(() => {
-                            const foundVehicle = vehicleData?.vehicles?.find(v => v._id === selectedVehicle);
-                            return foundVehicle && foundVehicle.type ? (
-                              <SelectItem value={foundVehicle.type}>{foundVehicle.type}</SelectItem>
-                            ) : null;
-                          })()}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                  {/* Driver Name */}
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium flex items-center gap-2">
-                      Driver Name
-                    </Label>
-                    <Select
-                      value={selectedDriver}
-                      onValueChange={setSelectedDriver}
-                      disabled={isDriversLoading || isFormDisabled}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select Driver" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {driversData?.drivers?.map((driver) => (
-                          <SelectItem key={driver._id} value={driver._id}>
-                            {driver.name} ({driver.mobile})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
                 </div>
               </CardContent>
             </Card>
