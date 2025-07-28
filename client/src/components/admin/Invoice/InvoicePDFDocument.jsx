@@ -669,7 +669,7 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
                   { width: "10%", borderRight: "none" },
                 ]}
               >
-                <Text style={styles.fieldLabel}>DISPATCHED AT:</Text>
+                {/* <Text style={styles.fieldLabel}>DISPATCHED AT:</Text>
                 <FieldInputView
                   value={
                     invoice?.dispatchDateTime
@@ -685,7 +685,7 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
                         )
                       : "-"
                   }
-                />
+                /> */}
               </View>
             </View>
           </View>
