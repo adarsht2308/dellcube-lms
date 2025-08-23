@@ -15,11 +15,12 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Truck } from "lucide-react";
 import { Hash } from "lucide-react";
 import { FileText } from "lucide-react";
 import { AlertCircle } from "lucide-react";
-import { Plus, Building2 } from "lucide-react";
+import { Plus, Building2, MapPin, RefreshCw } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 // API imports
@@ -53,6 +54,18 @@ const UpdateInvoice = () => {
   const location = useLocation();
   const user = useSelector((state) => state.auth.user);
   const isSuperAdmin = user?.role === "superAdmin";
+
+  // Function to check if invoice can be edited (within 24 hours, superadmin bypass)
+  const canEditInvoice = (invoice) => {
+    if (!invoice?.createdAt) return false;
+    // Superadmin can always edit
+    if (isSuperAdmin) return true;
+    
+    const createdAt = new Date(invoice.createdAt);
+    const now = new Date();
+    const hoursDiff = (now - createdAt) / (1000 * 60 * 60);
+    return hoursDiff <= 24;
+  };
 
   // Extract invoiceId from location state
   let receivedInvoiceId = location.state?.invoiceId;
@@ -147,9 +160,6 @@ const UpdateInvoice = () => {
   const [status, setStatus] = useState("");
   const [deliveredAt, setDeliveredAt] = useState("");
   const [deliveryProof, setDeliveryProof] = useState({ receiverName: "", receiverMobile: "", remarks: "", signature: "" });
-  const [fromRegion, setFromRegion] = useState({ country: "", state: "", city: "", locality: "", pincode: "" });
-  const [toRegion, setToRegion] = useState({ country: "", state: "", city: "", locality: "", pincode: "" });
-  
   // Current vehicle information (read-only display)
   const [currentVehicleNumber, setCurrentVehicleNumber] = useState("");
   const [currentDriverName, setCurrentDriverName] = useState("");
@@ -176,6 +186,173 @@ const UpdateInvoice = () => {
   // Add driver creation mutation
   const [createDriver, { isLoading: isCreatingDriver }] = useCreateDriverMutation();
 
+  // Replace old region system with pincode-based address fields
+  const [fromPincode, setFromPincode] = useState("");
+  const [fromAddressDetails, setFromAddressDetails] = useState(null);
+  const [toPincode, setToPincode] = useState("");
+  const [toAddressDetails, setToAddressDetails] = useState(null);
+  const [isLoadingFromPincode, setIsLoadingFromPincode] = useState(false);
+  const [isLoadingToPincode, setIsLoadingToPincode] = useState(false);
+  
+  // Add state for the old region system (for backward compatibility)
+  const [fromRegion, setFromRegion] = useState({
+    country: "",
+    state: "",
+    city: "",
+    locality: "",
+    pincode: ""
+  });
+  const [toRegion, setToRegion] = useState({
+    country: "",
+    state: "",
+    city: "",
+    locality: "",
+    pincode: ""
+  });
+
+  // Function to fetch address details from pincode
+  const fetchAddressFromPincode = async (pincode, type) => {
+    if (!pincode || pincode.length !== 6) return;
+    
+    const setIsLoading = type === 'from' ? setIsLoadingFromPincode : setIsLoadingToPincode;
+    const setAddressDetails = type === 'from' ? setFromAddressDetails : setToAddressDetails;
+    
+    setIsLoading(true);
+    try {
+      // Try multiple CORS proxies and direct API calls
+      let response;
+      let data;
+      
+      // Try different approaches in sequence
+      const attempts = [
+        // Direct HTTPS call
+        () => fetch(`https://www.postalpincode.in/api/pincode/${pincode}`),
+        // Alternative API endpoint
+        () => fetch(`https://api.postalpincode.in/pincode/${pincode}`),
+        // CORS proxy 1
+        () => fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(`http://www.postalpincode.in/api/pincode/${pincode}`)}`),
+        // CORS proxy 2
+        () => fetch(`https://cors-anywhere.herokuapp.com/https://www.postalpincode.in/api/pincode/${pincode}`),
+        // CORS proxy 3
+        () => fetch(`https://thingproxy.freeboard.io/fetch/https://www.postalpincode.in/api/pincode/${pincode}`)
+      ];
+      
+      for (let i = 0; i < attempts.length; i++) {
+        try {
+          // Add timeout to prevent hanging
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+          
+          response = await attempts[i]();
+          clearTimeout(timeoutId);
+          
+          if (response.ok) {
+            data = await response.json();
+            break;
+          }
+        } catch (error) {
+          console.log(`Attempt ${i + 1} failed:`, error);
+          continue;
+        }
+      }
+      
+      if (!data) {
+        throw new Error("All API attempts failed");
+      }
+      
+      // Debug logging
+      console.log("API Response:", data);
+      console.log("Response type:", typeof data);
+      console.log("Is array:", Array.isArray(data));
+      
+      // Handle different API response formats
+      let postOfficeData = data;
+      
+      // Check if response is wrapped in an array (like your API response)
+      if (Array.isArray(data) && data.length > 0) {
+        postOfficeData = data[0];
+      }
+      
+      console.log("Processed postOfficeData:", postOfficeData);
+      
+      if (postOfficeData.Status === "Success" && postOfficeData.PostOffice && postOfficeData.PostOffice.length > 0) {
+        if (postOfficeData.PostOffice.length === 1) {
+          // Single post office, set directly
+          const postOffice = postOfficeData.PostOffice[0];
+          const addressData = {
+            name: postOffice.Name,
+            taluk: postOffice.Block || postOffice.Taluk, // Handle different field names
+            district: postOffice.District,
+            division: postOffice.Division,
+            region: postOffice.Region,
+            state: postOffice.State,
+            country: postOffice.Country,
+            branchType: postOffice.BranchType,
+            deliveryStatus: postOffice.DeliveryStatus,
+            allPostOffices: postOfficeData.PostOffice,
+            selectedPostOffice: postOffice
+          };
+          
+          console.log("Setting address details:", addressData);
+          setAddressDetails(addressData);
+        } else {
+          // Multiple post offices, store all for selection
+          setAddressDetails({
+            allPostOffices: postOfficeData.PostOffice,
+            selectedPostOffice: null,
+            name: null,
+            taluk: null,
+            district: null,
+            division: null,
+            region: null,
+            state: null,
+            country: null,
+            branchType: null,
+            deliveryStatus: null
+          });
+        }
+      } else {
+        setAddressDetails(null);
+        toast.error("Invalid pincode or no data found");
+      }
+    } catch (error) {
+      console.error("Error fetching pincode data:", error);
+      setAddressDetails(null);
+      
+      // Provide more specific error messages
+      if (error.message.includes('Failed to fetch')) {
+        toast.error("Network error. Please check your internet connection or try again later.");
+      } else if (error.message.includes('CORS')) {
+        toast.error("Service temporarily unavailable. Please try again later.");
+      } else if (error.message.includes('All API attempts failed')) {
+        toast.error("Unable to fetch address details. Please try again later or enter address manually.");
+      } else {
+        toast.error("Error fetching address details. Please try again.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Function to select a specific post office from multiple options
+  const selectPostOffice = (postOffice, type) => {
+    const setAddressDetails = type === 'from' ? setFromAddressDetails : setToAddressDetails;
+    
+    setAddressDetails(prev => ({
+      ...prev,
+      name: postOffice.Name,
+      taluk: postOffice.Block || postOffice.Taluk, // Handle both field names
+      district: postOffice.District,
+      division: postOffice.Division,
+      region: postOffice.Region,
+      state: postOffice.State,
+      country: postOffice.Country,
+      branchType: postOffice.BranchType,
+      deliveryStatus: postOffice.DeliveryStatus,
+      selectedPostOffice: postOffice
+    }));
+  };
+
   // All API hooks (mutations/queries)
   const [getInvoiceById, { data: fetchedInvoiceData, isLoading: isInvoiceLoading, isError: isInvoiceError, error: invoiceError }] = useGetInvoiceByIdMutation();
   const { data: companies } = useGetAllCompaniesQuery({});
@@ -186,8 +363,8 @@ const UpdateInvoice = () => {
   const { data: goodsData } = useGetAllGoodsQuery({ page: 1, limit: 1000 });
   const { data: siteTypesData } = useGetAllSiteTypesQuery({ page: 1, limit: 1000, status: "true" });
   const { data: transportModesData } = useGetAllTransportModesQuery({ page: 1, limit: 1000, status: "true" });
-  const { data: vehicleData } = useGetAllVehiclesQuery({ page: 1, limit: 1000, companyId: companyId, branchId: branchId });
-  const { data: vendorData } = useGetAllVendorsQuery({ companyId: companyId, branchId: branchId });
+  const { data: vehicleData, refetch: refetchVehicles } = useGetAllVehiclesQuery({ page: 1, limit: 1000, companyId: companyId, branchId: branchId });
+  const { data: vendorData, refetch: refetchVendors } = useGetAllVendorsQuery({ companyId: companyId, branchId: branchId });
   const [getVendorById, { data: vendorDetails }] = useGetVendorByIdMutation();
   const [updateInvoice, { isLoading: isUpdating }] = useUpdateInvoiceMutation();
 
@@ -228,7 +405,7 @@ const UpdateInvoice = () => {
     }
   }, [debouncedSearchTerm, companyId, branchId, searchVehicles]);
 
-  const isFormDisabled = isInvoiceLoading || !fetchedInvoiceData?.invoice;
+  const isFormDisabled = isInvoiceLoading || !fetchedInvoiceData?.invoice || (fetchedInvoiceData?.invoice && !canEditInvoice(fetchedInvoiceData.invoice) && !isSuperAdmin);
   
   // Only after all hooks:
  
@@ -236,6 +413,30 @@ const UpdateInvoice = () => {
   useEffect(() => {
     getInvoiceById(invoiceId);
   }, [invoiceId, getInvoiceById]); 
+
+  // Add pincode change handlers with debounce to prevent input focus loss
+  useEffect(() => {
+    if (fromPincode.length === 6) {
+      // Add a small delay to prevent immediate API calls on every keystroke
+      const timer = setTimeout(() => {
+        fetchAddressFromPincode(fromPincode, 'from');
+      }, 500); // 500ms delay
+      
+      return () => clearTimeout(timer);
+    }
+  }, [fromPincode]);
+
+  useEffect(() => {
+    if (toPincode.length === 6) {
+      // Add a small delay to prevent immediate API calls on every keystroke
+      const timer = setTimeout(() => {
+        fetchAddressFromPincode(toPincode, 'to');
+      }, 500); // 500ms delay
+      
+      return () => clearTimeout(timer);
+    }
+  }, [toPincode]);
+
   useEffect(() => {
     if (fetchedInvoiceData && fetchedInvoiceData.invoice) {
       const invoice = fetchedInvoiceData.invoice;
@@ -304,7 +505,7 @@ const UpdateInvoice = () => {
         state: invoice.fromAddress?.state?._id || "",
         city: invoice.fromAddress?.city?._id || "",
         locality: invoice.fromAddress?.locality?._id || "",
-        pincode: invoice.fromAddress?.pincode?._id || "",
+        pincode: invoice.fromAddress?.pincode || "",
       });
 
       setToRegion({
@@ -312,8 +513,12 @@ const UpdateInvoice = () => {
         state: invoice.toAddress?.state?._id || "",
         city: invoice.toAddress?.city?._id || "",
         locality: invoice.toAddress?.locality?._id || "",
-        pincode: invoice.toAddress?.pincode?._id || "",
+        pincode: invoice.toAddress?.pincode || "",
       });
+      
+      // Set pincode values for the new system
+      setFromPincode(invoice.fromAddress?.pincode || "");
+      setToPincode(invoice.toAddress?.pincode || "");
       // If Vendor, fetch vendor details and set vendor vehicle after vendor details load
       if (invoice.vehicleType === "Vendor" && invoice.vendor?._id) {
         setSelectedVendor(invoice.vendor._id);
@@ -330,8 +535,17 @@ const UpdateInvoice = () => {
       setSiteId(invoice.siteId || "");
       setSealNo(invoice.sealNo || "");
       setSelectedSiteType(invoice.siteType?._id || "");
+      
+      // Check if invoice can still be edited (within 24 hours)
+      if (!canEditInvoice(invoice) && !isSuperAdmin) {
+        toast.error("This invoice cannot be edited as it was created more than 24 hours ago.");
+        // Redirect back to invoices list after a short delay
+        setTimeout(() => {
+          navigate("/admin/invoices");
+        }, 2000);
+      }
     }
-  }, [fetchedInvoiceData, user, isInvoiceLoading, isInvoiceError]);
+  }, [fetchedInvoiceData, user, isInvoiceLoading, isInvoiceError, canEditInvoice, navigate]);
 
   useEffect(() => {
     if (isInvoiceError) {
@@ -495,24 +709,10 @@ const UpdateInvoice = () => {
   //Validations
   const handleSubmit = async () => {
     if (
-      !customerId ||
-      !invoiceDate ||
-      !dispatchDateTime ||
-      !paymentType ||
-      !searchedVehicle ||
-      !fromRegion.country ||
-      !fromRegion.state ||
-      !fromRegion.city ||
-      !fromRegion.locality ||
-      !fromRegion.pincode ||
-      !toRegion.country ||
-      !toRegion.state ||
-      !toRegion.city ||
-      !toRegion.locality ||
-      !toRegion.pincode
+      !customerId
     ) {
       toast.error(
-        "Please fill all required fields, including selecting a vehicle and From and To addresses."
+        "Please select a customer to create the docket."
       );
       return;
     }
@@ -520,47 +720,60 @@ const UpdateInvoice = () => {
     let payload = {
       invoiceId,
       customer: customerId,
-      invoiceDate,
-      dispatchDateTime,
-      paymentType,
       company: companyId,
       branch: branchId,
-      remarks,
-      vehicleNumber,
-      vehicleType: searchedVehicle?.ownerType || vehicleType,
-      totalWeight: totalWeight === "" ? null : Number(totalWeight),
-      freightCharges: freightCharges === "" ? null : Number(freightCharges),
-      numberOfPackages:
-        numberOfPackages === "" ? null : Number(numberOfPackages),
+      ...(invoiceDate && { invoiceDate }),
+      ...(dispatchDateTime && { dispatchDateTime }),
+      ...(paymentType && { paymentType }),
+      ...(remarks && { remarks }),
+      ...(vehicleNumber && { vehicleNumber }),
+      ...(searchedVehicle?.ownerType && { vehicleType: searchedVehicle.ownerType }),
+      ...(totalWeight !== "" && { totalWeight: Number(totalWeight) }),
+      ...(freightCharges !== "" && { freightCharges: Number(freightCharges) }),
+      ...(numberOfPackages !== "" && { numberOfPackages: Number(numberOfPackages) }),
       ...(selectedGood && { goodsType: selectedGood }),
-      goodItems: selectedItems.map((name) => ({ name })),
-      fromAddress: fromRegion,
-      toAddress: toRegion,
-      ...(selectedDriver && { driver: selectedDriver }),
-      driverContactNumber,
-      pickupAddress,
-      deliveryAddress,
-      consignor,
-      consignee,
-      address,
-      invoiceNumber,
-      invoiceBill,
-      ewayBillNo,
-      siteId,
-      sealNo,
-      vehicleModel,
-      vehicleSize,
-      ...(selectedSiteType && { siteType: selectedSiteType }),
-      orderNumber,
-      ...(selectedTransportMode && { transportMode: selectedTransportMode }),
-      status,
-      deliveredAt: deliveredAt || null,
-      deliveryProof: {
-        receiverName: deliveryProof.receiverName || null,
-        receiverMobile: deliveryProof.receiverMobile || null,
-        remarks: deliveryProof.remarks || null,
-        signature: deliveryProof.signature || null,
+      ...(selectedItems.length > 0 && { goodItems: selectedItems.map((name) => ({ name })) }),
+      fromAddress: {
+        ...(fromRegion.country && { country: fromRegion.country }),
+        ...(fromRegion.state && { state: fromRegion.state }),
+        ...(fromRegion.city && { city: fromRegion.city }),
+        ...(fromRegion.locality && { locality: fromRegion.locality }),
+        ...(fromPincode && { pincode: fromPincode })
       },
+      toAddress: {
+        ...(toRegion.country && { country: toRegion.country }),
+        ...(toRegion.state && { state: toRegion.state }),
+        ...(toRegion.city && { city: toRegion.city }),
+        ...(toRegion.locality && { locality: toRegion.locality }),
+        ...(toPincode && { pincode: toPincode })
+      },
+      ...(selectedDriver && { driver: selectedDriver }),
+      ...(driverContactNumber && { driverContactNumber }),
+      ...(pickupAddress && { pickupAddress }),
+      ...(deliveryAddress && { deliveryAddress }),
+      ...(consignor && { consignor }),
+      ...(consignee && { consignee }),
+      ...(address && { address }),
+      ...(invoiceNumber && { invoiceNumber }),
+      ...(invoiceBill && { invoiceBill }),
+      ...(ewayBillNo && { ewayBillNo }),
+      ...(siteId && { siteId }),
+      ...(sealNo && { sealNo }),
+      ...(vehicleModel && { vehicleModel }),
+      ...(vehicleSize && { vehicleSize }),
+      ...(selectedSiteType && { siteType: selectedSiteType }),
+      ...(orderNumber && { orderNumber }),
+      ...(selectedTransportMode && { transportMode: selectedTransportMode }),
+      ...(status && { status }),
+      ...(deliveredAt && { deliveredAt }),
+      ...(Object.values(deliveryProof).some(val => val) && {
+        deliveryProof: {
+          ...(deliveryProof.receiverName && { receiverName: deliveryProof.receiverName }),
+          ...(deliveryProof.receiverMobile && { receiverMobile: deliveryProof.receiverMobile }),
+          ...(deliveryProof.remarks && { remarks: deliveryProof.remarks }),
+          ...(deliveryProof.signature && { signature: deliveryProof.signature })
+        }
+      })
     };
 
     // Set vehicle-related fields based on searched vehicle
@@ -582,19 +795,21 @@ const UpdateInvoice = () => {
         payload.vehicleModel = searchedVehicle.model || vehicleModel;
         delete payload.vehicle;
       }
-    } else {
-      // Fallback to old logic if no vehicle is searched
-      if (vehicleType === "Dellcube") {
+    } else if (vehicleType) {
+      // Fallback to old logic if no vehicle is searched but vehicle type is selected
+      if (vehicleType === "Dellcube" && selectedVehicle) {
         payload.vehicle = selectedVehicle;
         delete payload.vendor;
         delete payload.vendorVehicle;
-      } else if (vehicleType === "Vendor") {
+      } else if (vehicleType === "Vendor" && selectedVendor) {
         payload.vendor = selectedVendor;
         payload.vendorVehicle = selectedVendorVehicle;
         delete payload.vehicle;
       }
     }
+    // If no vehicle is selected, payload will not include vehicle-related fields
 
+    // Remove any undefined values that might have been created
     Object.keys(payload).forEach(
       (key) =>
         (payload[key] === undefined || payload[key] === null) &&
@@ -638,109 +853,138 @@ const UpdateInvoice = () => {
   };
 
 
-  const AddressFields = ({
-    type,
-    region,
-    handleRegionChange,
-    countries,
-    stateData,
-    cityData,
-    localityData,
-    pincodeData,
-    isDisabled,
-  }) => (
-    <div className="space-y-4 p-4 border rounded-lg shadow-sm dark:border-gray-700">
-      <h3 className="text-lg font-semibold text-gray-800 dark:text-white capitalize">
-        {type} Address
-      </h3>
-      <Select
-        value={region.country}
-        onValueChange={(val) => handleRegionChange(type, "country", val)}
-        disabled={isDisabled}
-      >
-        <SelectTrigger className="w-full">
-          <SelectValue placeholder="Select Country" />
-        </SelectTrigger>
-        <SelectContent>
-          {countries?.countries?.map((c) => (
-            <SelectItem key={c._id} value={c._id}>
-              {c.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+  // New simplified Address Fields component with pincode-based system
+  const AddressFields = ({ type }) => {
+    const pincode = type === 'from' ? fromPincode : toPincode;
+    const setPincode = type === 'from' ? setFromPincode : setToPincode;
+    const addressDetails = type === 'from' ? fromAddressDetails : toAddressDetails;
+    const isLoading = type === 'from' ? isLoadingFromPincode : isLoadingToPincode;
+    const address = type === 'from' ? pickupAddress : deliveryAddress;
+    const setAddress = type === 'from' ? setPickupAddress : setDeliveryAddress;
+    
+    // Debug logging
+    console.log(`${type} addressDetails:`, addressDetails);
+    console.log(`${type} pincode:`, pincode);
 
-      <Select
-        value={region.state}
-        onValueChange={(val) => handleRegionChange(type, "state", val)}
-        disabled={isDisabled || !region.country || !stateData?.data?.length}
-      >
-        <SelectTrigger className="w-full">
-          <SelectValue placeholder="Select State" />
-        </SelectTrigger>
-        <SelectContent>
-          {stateData?.data?.map((s) => (
-            <SelectItem key={s._id} value={s._id}>
-              {s.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+    return (
+      <Card className="border border-gray-200 hover:border-blue-300 transition-colors">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <MapPin className="w-4 h-4 text-blue-600" />
+            {type === "from" ? "Pickup Address" : "Delivery Address"}
+            <Badge variant={type === "from" ? "default" : "secondary"} className="ml-auto text-xs">
+              {type === "from" ? "FROM" : "TO"}
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Address</Label>
+              <Textarea
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder={`Enter ${type === 'from' ? 'pickup' : 'delivery'} address`}
+                className="w-full"
+                rows={3}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Pincode</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  value={pincode}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Only allow digits and limit to 6 characters
+                    if (/^\d*$/.test(value) && value.length <= 6) {
+                      setPincode(value);
+                    }
+                  }}
+                  onKeyPress={(e) => {
+                    // Only allow digits
+                    if (!/\d/.test(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
+                  placeholder="Enter 6-digit pincode"
+                  className="w-full"
+                  maxLength={6}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  autoComplete="off"
+                />
+                {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                {pincode.length === 6 && !isLoading && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fetchAddressFromPincode(pincode, type)}
+                    className="px-3"
+                    title="Refresh address details"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
 
-      <Select
-        value={region.city}
-        onValueChange={(val) => handleRegionChange(type, "city", val)}
-        disabled={isDisabled || !region.state || !cityData?.cities?.length}
-      >
-        <SelectTrigger className="w-full">
-          <SelectValue placeholder="Select City" />
-        </SelectTrigger>
-        <SelectContent>
-          {cityData?.cities?.map((c) => (
-            <SelectItem key={c._id} value={c._id}>
-              {c.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+            {/* Post Office Selection Dropdown */}
+            {addressDetails?.allPostOffices && addressDetails.allPostOffices.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Select Post Office</Label>
+                <Select
+                  value={addressDetails.selectedPostOffice ? addressDetails.selectedPostOffice.Name : ""}
+                  onValueChange={(postOfficeName) => {
+                    const selectedPostOffice = addressDetails.allPostOffices.find(po => po.Name === postOfficeName);
+                    if (selectedPostOffice) {
+                      selectPostOffice(selectedPostOffice, type);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a post office" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {addressDetails.allPostOffices.map((postOffice, index) => (
+                      <SelectItem key={index} value={postOffice.Name}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{postOffice.Name}</span>
+                          <span className="text-xs text-gray-500">
+                            {postOffice.Block || postOffice.Taluk}, {postOffice.District}, {postOffice.State}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
-      <Select
-        value={region.locality}
-        onValueChange={(val) => handleRegionChange(type, "locality", val)}
-        disabled={isDisabled || !region.city || !localityData?.data?.length}
-      >
-        <SelectTrigger className="w-full">
-          <SelectValue placeholder="Select Locality" />
-        </SelectTrigger>
-        <SelectContent>
-          {localityData?.data?.map((l) => (
-            <SelectItem key={l._id} value={l._id}>
-              {l.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      <Select
-        value={region.pincode}
-        onValueChange={(val) => handleRegionChange(type, "pincode", val)}
-        disabled={
-          isDisabled || !region.locality || !pincodeData?.pincodes?.length
-        }
-      >
-        <SelectTrigger className="w-full">
-          <SelectValue placeholder="Select Pincode" />
-        </SelectTrigger>
-        <SelectContent>
-          {pincodeData?.pincodes?.map((p) => (
-            <SelectItem key={p._id} value={p._id}>
-              {p.code}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
+            {/* Display selected address details */}
+            {addressDetails?.name && (
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border">
+                <Label className="text-sm font-medium mb-2 block text-blue-800 dark:text-blue-200">
+                  Selected Address Details
+                </Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                  <div><span className="font-medium">City:</span> {addressDetails.name}</div>
+                  <div><span className="font-medium">District:</span> {addressDetails.district}</div>
+                  <div><span className="font-medium">State:</span> {addressDetails.state}</div>
+                  <div><span className="font-medium">Country:</span> {addressDetails.country}</div>
+                  {addressDetails.taluk && <div><span className="font-medium">Taluk:</span> {addressDetails.taluk}</div>}
+                  {addressDetails.division && <div><span className="font-medium">Division:</span> {addressDetails.division}</div>}
+                </div>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
 
  
 
@@ -823,6 +1067,19 @@ const UpdateInvoice = () => {
     }
   }, [selectedConsignee, availableConsignees]);
 
+  // Auto-fetch address details when pincode reaches 6 digits
+  useEffect(() => {
+    if (fromPincode.length === 6) {
+      fetchAddressFromPincode(fromPincode, 'from');
+    }
+  }, [fromPincode]);
+
+  useEffect(() => {
+    if (toPincode.length === 6) {
+      fetchAddressFromPincode(toPincode, 'to');
+    }
+  }, [toPincode]);
+
   // Handle driver creation
   const handleCreateDriver = async () => {
     if (!newDriverData.name || !newDriverData.mobile || !newDriverData.password || !newDriverData.licenseNumber || !newDriverData.experienceYears) {
@@ -901,6 +1158,40 @@ const UpdateInvoice = () => {
           <p className="text-sm md:text-base text-gray-600 dark:text-gray-400 mt-1">
             Edit the details below to update the docket
           </p>
+          
+          {/* Edit time warning banner */}
+          {fetchedInvoiceData?.invoice && !canEditInvoice(fetchedInvoiceData.invoice) && !isSuperAdmin && (
+            <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-4 text-red-600" />
+                <div>
+                  <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
+                    Edit Locked
+                  </h3>
+                  <p className="text-sm text-red-700 dark:text-red-300">
+                    This docket was created more than 24 hours ago and cannot be edited. You will be redirected to the invoices list.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Superadmin override notice */}
+          {fetchedInvoiceData?.invoice && !canEditInvoice(fetchedInvoiceData.invoice) && isSuperAdmin && (
+            <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-4 text-blue-600" />
+                <div>
+                  <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                    Superadmin Override
+                  </h3>
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    This docket was created more than 24 hours ago, but you can edit it as a superadmin.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Single column layout for mobile, two-sided for desktop */}
@@ -1054,25 +1345,9 @@ const UpdateInvoice = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
                   <AddressFields
                     type="from"
-                    region={fromRegion}
-                    handleRegionChange={handleRegionChange}
-                    countries={countries}
-                    stateData={fromStateData}
-                    cityData={fromCityData}
-                    localityData={fromLocalityData}
-                    pincodeData={fromPincodeData}
-                    isDisabled={isFormDisabled}
                   />
                   <AddressFields
                     type="to"
-                    region={toRegion}
-                    handleRegionChange={handleRegionChange}
-                    countries={countries}
-                    stateData={toStateData}
-                    cityData={toCityData}
-                    localityData={toLocalityData}
-                    pincodeData={toPincodeData}
-                    isDisabled={isFormDisabled}
                   />
                 </div>
                 {/* Remaining Delivery Details fields */}
@@ -1701,22 +1976,22 @@ const UpdateInvoice = () => {
         </div>
       </div>
 
-      {/* Add Driver Dialog */}
-      <Dialog open={showAddDriverDialog} onOpenChange={setShowAddDriverDialog}>
-        <DialogContent className="max-w-md mx-4">
-          <DialogHeader>
-            <DialogTitle>Add New Driver</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Driver Name *</Label>
-              <Input
-                value={newDriverData.name}
-                onChange={(e) => setNewDriverData(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Enter driver name"
-              />
-            </div>
-                          <div className="space-y-2">
+        {/* Add Driver Dialog */}
+        <Dialog open={showAddDriverDialog} onOpenChange={setShowAddDriverDialog}>
+          <DialogContent className="max-w-md mx-4">
+            <DialogHeader>
+              <DialogTitle>Add New Driver</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Driver Name *</Label>
+                <Input
+                  value={newDriverData.name}
+                  onChange={(e) => setNewDriverData(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Enter driver name"
+                />
+              </div>
+              <div className="space-y-2">
                 <Label>Mobile Number * (10 digits)</Label>
                 <Input
                   value={newDriverData.mobile}
@@ -1755,46 +2030,47 @@ const UpdateInvoice = () => {
               </div>
               <div className="space-y-2">
                 <Label>Driver Type</Label>
-              <Select 
-                value={newDriverData.driverType} 
-                onValueChange={(value) => setNewDriverData(prev => ({ ...prev, driverType: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="dellcube">Dellcube</SelectItem>
-                  <SelectItem value="vendor">Vendor</SelectItem>
-                  <SelectItem value="temporary">Temporary</SelectItem>
-                </SelectContent>
-              </Select>
+                <Select 
+                  value={newDriverData.driverType} 
+                  onValueChange={(value) => setNewDriverData(prev => ({ ...prev, driverType: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="dellcube">Dellcube</SelectItem>
+                    <SelectItem value="vendor">Vendor</SelectItem>
+                    <SelectItem value="temporary">Temporary</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowAddDriverDialog(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleCreateDriver}
+                  disabled={isCreatingDriver}
+                  className="flex-1 bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020]"
+                >
+                  {isCreatingDriver ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Create Driver"
+                  )}
+                </Button>
+              </div>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2 pt-4">
-              <Button
-                variant="outline"
-                onClick={() => setShowAddDriverDialog(false)}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleCreateDriver}
-                disabled={isCreatingDriver}
-                className="flex-1 bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020]"
-              >
-                {isCreatingDriver ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Creating...
-                  </>
-                ) : (
-                  "Create Driver"
-                )}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      
     </div>
   );
 };

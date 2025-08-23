@@ -17,7 +17,8 @@ import {
   CheckCircle,
   AlertCircle,
   Hash,
-  Weight
+  Weight,
+  RefreshCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,11 +41,12 @@ import { useCreateInvoiceMutation } from "@/features/api/Invoice/invoiceApi.js";
 import { useGetAllCompaniesQuery } from "@/features/api/Company/companyApi.js";
 import { useGetBranchesByCompanyMutation } from "@/features/api/Branch/branchApi.js";
 import { useGetAllCustomersQuery } from "@/features/api/Customer/customerApi.js";
-import { useGetAllCountriesQuery } from "@/features/api/Region/countryApi.js";
-import { useGetStatesByCountryMutation } from "@/features/api/Region/stateApi.js";
-import { useGetCitiesByStateMutation } from "@/features/api/Region/cityApi.js";
-import { useGetLocalitiesByCityMutation } from "@/features/api/Region/LocalityApi.js";
-import { useGetPincodesByLocalityMutation } from "@/features/api/Region/pincodeApi.js";
+// Remove unused region API imports since we're no longer using the region system
+// import { useGetAllCountriesQuery } from "@/features/api/Region/countryApi.js";
+// import { useGetStatesByCountryMutation } from "@/features/api/Region/stateApi.js";
+// import { useGetCitiesByStateMutation } from "@/features/api/Region/cityApi.js";
+// import { useGetLocalitiesByCityMutation } from "@/features/api/Region/LocalityApi.js";
+// import { useGetPincodesByLocalityMutation } from "@/features/api/Region/pincodeApi.js";
 import { useGetAllGoodsQuery } from "@/features/api/Goods/goodsApi.js";
 import { useGetAllVehiclesQuery, useSearchVehiclesMutation } from "@/features/api/Vehicle/vehicleApi.js";
 import {
@@ -114,42 +116,179 @@ const CreateInvoice = () => {
   // Add state for vehicle size
   const [vehicleSize, setVehicleSize] = useState("");
 
-  // State for "From" address fields - Set default country as India
-  const [fromRegion, setFromRegion] = useState({
-    country: "",
-    state: "",
-    city: "",
-    locality: "",
-    pincode: "",
-  });
+  // Replace with simple pincode-based address fields
 
-  const [toRegion, setToRegion] = useState({
-    country: "",
-    state: "",
-    city: "",
-    locality: "",
-    pincode: "",
-  });
+  // Replace with simple pincode-based address fields
+  const [fromPincode, setFromPincode] = useState("");
+  const [fromAddressDetails, setFromAddressDetails] = useState(null);
+  const [toPincode, setToPincode] = useState("");
+  const [toAddressDetails, setToAddressDetails] = useState(null);
+  const [isLoadingFromPincode, setIsLoadingFromPincode] = useState(false);
+  const [isLoadingToPincode, setIsLoadingToPincode] = useState(false);
 
   const [selectedTransportMode, setSelectedTransportMode] = useState("");
 
-  const [getFromStatesByCountry, { data: fromStateData }] =
-    useGetStatesByCountryMutation();
-  const [getFromCitiesByState, { data: fromCityData }] =
-    useGetCitiesByStateMutation();
-  const [getFromLocalitiesByCity, { data: fromLocalityData }] =
-    useGetLocalitiesByCityMutation();
-  const [getFromPincodesByLocality, { data: fromPincodeData }] =
-    useGetPincodesByLocalityMutation();
+  // Function to fetch address details from pincode
+  const fetchAddressFromPincode = async (pincode, type) => {
+    if (!pincode || pincode.length !== 6) return;
+    
+    const setIsLoading = type === 'from' ? setIsLoadingFromPincode : setIsLoadingToPincode;
+    const setAddressDetails = type === 'from' ? setFromAddressDetails : setToAddressDetails;
+    
+    setIsLoading(true);
+    try {
+      // Try multiple CORS proxies and direct API calls
+      let response;
+      let data;
+      
+      // Try different approaches in sequence
+      const attempts = [
+        // Direct HTTPS call
+        () => fetch(`https://www.postalpincode.in/api/pincode/${pincode}`),
+        // Alternative API endpoint
+        () => fetch(`https://api.postalpincode.in/pincode/${pincode}`),
+        // CORS proxy 1
+        () => fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(`http://www.postalpincode.in/api/pincode/${pincode}`)}`),
+        // CORS proxy 2
+        () => fetch(`https://cors-anywhere.herokuapp.com/https://www.postalpincode.in/api/pincode/${pincode}`),
+        // CORS proxy 3
+        () => fetch(`https://thingproxy.freeboard.io/fetch/https://www.postalpincode.in/api/pincode/${pincode}`)
+      ];
+      
+      for (let i = 0; i < attempts.length; i++) {
+        try {
+          // Add timeout to prevent hanging
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+          
+          response = await attempts[i]();
+          clearTimeout(timeoutId);
+          
+          if (response.ok) {
+            data = await response.json();
+            break;
+          }
+        } catch (error) {
+          console.log(`Attempt ${i + 1} failed:`, error);
+          continue;
+        }
+      }
+      
+      if (!data) {
+        throw new Error("All API attempts failed");
+      }
+      
+      // Debug logging
+      console.log("API Response:", data);
+      console.log("Response type:", typeof data);
+      console.log("Is array:", Array.isArray(data));
+      
+      // Handle different API response formats
+      let postOfficeData = data;
+      
+      // Check if response is wrapped in an array (like your API response)
+      if (Array.isArray(data) && data.length > 0) {
+        postOfficeData = data[0];
+      }
+      
+      console.log("Processed postOfficeData:", postOfficeData);
+      
+      if (postOfficeData.Status === "Success" && postOfficeData.PostOffice && postOfficeData.PostOffice.length > 0) {
+        if (postOfficeData.PostOffice.length === 1) {
+          // Single post office, set directly
+          const postOffice = postOfficeData.PostOffice[0];
+          const addressData = {
+            name: postOffice.Name,
+            taluk: postOffice.Block || postOffice.Taluk, // Handle different field names
+            district: postOffice.District,
+            division: postOffice.Division,
+            region: postOffice.Region,
+            state: postOffice.State,
+            country: postOffice.Country,
+            branchType: postOffice.BranchType,
+            deliveryStatus: postOffice.DeliveryStatus,
+            allPostOffices: postOfficeData.PostOffice,
+            selectedPostOffice: postOffice
+          };
+          
+          console.log("Setting address details:", addressData);
+          setAddressDetails(addressData);
+        } else {
+          // Multiple post offices, store all for selection
+          setAddressDetails({
+            allPostOffices: postOfficeData.PostOffice,
+            selectedPostOffice: null,
+            name: null,
+            taluk: null,
+            district: null,
+            division: null,
+            region: null,
+            state: null,
+            country: null,
+            branchType: null,
+            deliveryStatus: null
+          });
+        }
+      } else {
+        setAddressDetails(null);
+        toast.error("Invalid pincode or no data found");
+      }
+    } catch (error) {
+      console.error("Error fetching pincode data:", error);
+      setAddressDetails(null);
+      
+      // Provide more specific error messages
+      if (error.message.includes('Failed to fetch')) {
+        toast.error("Network error. Please check your internet connection or try again later.");
+      } else if (error.message.includes('CORS')) {
+        toast.error("Service temporarily unavailable. Please try again later.");
+      } else if (error.message.includes('All API attempts failed')) {
+        toast.error("Unable to fetch address details. Please try again later or enter address manually.");
+      } else {
+        toast.error("Error fetching address details. Please try again.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const [getToStatesByCountry, { data: toStateData }] =
-    useGetStatesByCountryMutation();
-  const [getToCitiesByState, { data: toCityData }] =
-    useGetCitiesByStateMutation();
-  const [getToLocalitiesByCity, { data: toLocalityData }] =
-    useGetLocalitiesByCityMutation();
-  const [getToPincodesByLocality, { data: toPincodeData }] =
-    useGetPincodesByLocalityMutation();
+  // Function to select a specific post office from multiple options
+  const selectPostOffice = (postOffice, type) => {
+    const setAddressDetails = type === 'from' ? setFromAddressDetails : setToAddressDetails;
+    
+    setAddressDetails(prev => ({
+      ...prev,
+      name: postOffice.Name,
+      taluk: postOffice.Block || postOffice.Taluk, // Handle both field names
+      district: postOffice.District,
+      division: postOffice.Division,
+      region: postOffice.Region,
+      state: postOffice.State,
+      country: postOffice.Country,
+      branchType: postOffice.BranchType,
+      deliveryStatus: postOffice.DeliveryStatus,
+      selectedPostOffice: postOffice
+    }));
+  };
+
+  // Remove old region-related API calls since they're no longer needed
+  // const [getFromStatesByCountry, { data: fromStateData }] =
+  //   useGetStatesByCountryMutation();
+  // const [getFromCitiesByState, { data: fromCityData }] =
+  //   useGetCitiesByStateMutation();
+  // const [getFromLocalitiesByCity, { data: fromLocalityData }] =
+  //   useGetLocalitiesByCityMutation();
+  // const [getFromPincodesByLocality, { data: fromPincodeData }] =
+  //   useGetPincodesByLocalityMutation();
+
+  // const [getToStatesByCountry, { data: toStateData }] =
+  //   useGetStatesByCountryMutation();
+  // const [getToCitiesByState, { data: toCityData }] =
+  //   useGetCitiesByStateMutation();
+  // const [getToLocalitiesByCity, { data: toLocalityData }] =
+  //   useGetLocalitiesByCityMutation();
+  // const [getToPincodesByLocality, { data: toPincodeData }] =
+  //   useGetPincodesByLocalityMutation();
 
   const { data: companies } = useGetAllCompaniesQuery({});
   const [getBranchesByCompany] = useGetBranchesByCompanyMutation();
@@ -158,10 +297,11 @@ const CreateInvoice = () => {
     { skip: !companyId || !branchId }
   );
   // console.log(customersData)
-  const { data: countries } = useGetAllCountriesQuery({
-    page: 1,
-    limit: 10000,
-  });
+  // Remove unused countries query since we're no longer using the region system
+  // const { data: countries } = useGetAllCountriesQuery({
+  //   page: 1,
+  //   limit: 10000,
+  // });
   const { data: driversData, isLoading: isDriversLoading } =
     useGetAllDriversQuery({});
   const { data: goodsData } = useGetAllGoodsQuery({ page: 1, limit: 1000 });
@@ -216,84 +356,61 @@ const CreateInvoice = () => {
   const [createDriver, { isLoading: isCreatingDriver }] = useCreateDriverMutation();
 
   useEffect(() => {
-    if (countries?.countries) {
-      const indiaCountry = countries.countries.find(country => 
-        country.name.toLowerCase() === 'india'
-      );
-      if (indiaCountry) {
-        setFromRegion(prev => ({ ...prev, country: indiaCountry._id }));
-        setToRegion(prev => ({ ...prev, country: indiaCountry._id }));
-      }
-    }
-  }, [countries]);
-
-  useEffect(() => {
     if (companyId && branchId) {
       refetchVehicles();
       refetchVendors();
     }
   }, [companyId, branchId, refetchVehicles, refetchVendors]);
 
-  // Region fetch logic for "From" address
+  // Add pincode change handlers with debounce to prevent input focus loss
   useEffect(() => {
-    if (fromRegion.country) getFromStatesByCountry(fromRegion.country);
-  }, [fromRegion.country, getFromStatesByCountry]);
-
-  useEffect(() => {
-    if (fromRegion.state) getFromCitiesByState(fromRegion.state);
-  }, [fromRegion.state, getFromCitiesByState]);
-
-  useEffect(() => {
-    if (fromRegion.city) getFromLocalitiesByCity(fromRegion.city);
-  }, [fromRegion.city, getFromLocalitiesByCity]);
-
-  useEffect(() => {
-    if (fromRegion.locality) getFromPincodesByLocality(fromRegion.locality);
-  }, [fromRegion.locality, getFromPincodesByLocality]);
-
-  // Region fetch logic for "To" address
-  useEffect(() => {
-    if (toRegion.country) getToStatesByCountry(toRegion.country);
-  }, [toRegion.country, getToStatesByCountry]);
-
-  useEffect(() => {
-    if (toRegion.state) getToCitiesByState(toRegion.state);
-  }, [toRegion.state, getToCitiesByState]);
-
-  useEffect(() => {
-    if (toRegion.city) getToLocalitiesByCity(toRegion.city);
-  }, [toRegion.city, getToLocalitiesByCity]);
-
-  useEffect(() => {
-    if (toRegion.locality) getToPincodesByLocality(toRegion.locality);
-  }, [toRegion.locality, getToPincodesByLocality]);
-
-  const handleRegionChange = (type, field, value) => {
-    const reset = { state: "", city: "", locality: "", pincode: "" };
-    let updated;
-
-    if (type === "from") {
-      updated = {
-        ...fromRegion,
-        [field]: value,
-        ...(field === "country" ? reset : {}),
-        ...(field === "state" ? { city: "", locality: "", pincode: "" } : {}),
-        ...(field === "city" ? { locality: "", pincode: "" } : {}),
-        ...(field === "locality" ? { pincode: "" } : {}),
-      };
-      setFromRegion(updated);
-    } else if (type === "to") {
-      updated = {
-        ...toRegion,
-        [field]: value,
-        ...(field === "country" ? reset : {}),
-        ...(field === "state" ? { city: "", locality: "", pincode: "" } : {}),
-        ...(field === "city" ? { locality: "", pincode: "" } : {}),
-        ...(field === "locality" ? { pincode: "" } : {}),
-      };
-      setToRegion(updated);
+    if (fromPincode.length === 6) {
+      // Add a small delay to prevent immediate API calls on every keystroke
+      const timer = setTimeout(() => {
+        fetchAddressFromPincode(fromPincode, 'from');
+      }, 500); // 500ms delay
+      
+      return () => clearTimeout(timer);
     }
-  };
+  }, [fromPincode]);
+
+  useEffect(() => {
+    if (toPincode.length === 6) {
+      // Add a small delay to prevent immediate API calls on every keystroke
+      const timer = setTimeout(() => {
+        fetchAddressFromPincode(toPincode, 'to');
+      }, 500); // 500ms delay
+      
+      return () => clearTimeout(timer);
+    }
+  }, [toPincode]);
+
+  // Remove old handleRegionChange function since it's no longer needed
+  // const handleRegionChange = (type, field, value) => {
+  //   const reset = { state: "", city: "", locality: "", pincode: "" };
+  //   let updated;
+
+  //   if (type === "from") {
+  //     updated = {
+  //       ...fromRegion,
+  //       [field]: value,
+  //       ...(field === "country" ? reset : {}),
+  //       ...(field === "state" ? { city: "", locality: "", pincode: "" } : {}),
+  //       ...(field === "city" ? { locality: "", pincode: "" } : {}),
+  //       ...(field === "locality" ? { pincode: "" } : {}),
+  //     };
+  //     setFromRegion(updated);
+  //   } else if (type === "to") {
+  //     updated = {
+  //       ...toRegion,
+  //       ...(field === "country" ? reset : {}),
+  //       ...(field === "state" ? { city: "", locality: "", pincode: "" } : {}),
+  //       ...(field === "city" ? { locality: "", pincode: "" } : {}),
+  //       ...(field === "locality" ? { pincode: "" } : {}),
+  //     };
+  //     setToRegion(updated);
+  //   }
+  // };
 
   useEffect(() => {
     if (selectedVendor) {
@@ -380,52 +497,56 @@ const CreateInvoice = () => {
     }
     // Basic validation for required fields
     if (
-      !customerId ||
-      !invoiceDate ||
-      !dispatchDateTime ||
-      !paymentType ||
-      !searchedVehicle
+      !customerId
     ) {
       toast.error(
-        "Please fill all required fields, including selecting a vehicle."
+        "Please select a customer to create the docket."
       );
       return;
     }
 
     let payload = {
       customer: customerId,
-      invoiceDate,
-      dispatchDateTime,
-      paymentType,
       company: companyId,
       branch: branchId,
-      remarks,
-      vehicleNumber,
-      vehicleType: searchedVehicle?.ownerType, // Ensure vehicleType is always sent
-      totalWeight,
-      freightCharges,
-      numberOfPackages,
-      goodsType: selectedGood,
-      goodItems: selectedItems.map((name) => ({ name })),
-      fromAddress: fromRegion,
-      toAddress: toRegion,
-      driver: selectedDriver,
-      pickupAddress,
-      deliveryAddress,
-      consignor,
-      consignee,
-      address,
-      invoiceNumber,
-      invoiceBill,
-      ewayBillNo,
-      driverContactNumber,
-      siteId,
-      sealNo,
-      vehicleModel,
-      siteType: selectedSiteType,
-      vehicleSize,
-      orderNumber,
-      transportMode: selectedTransportMode,
+      ...(invoiceDate && { invoiceDate }),
+      ...(dispatchDateTime && { dispatchDateTime }),
+      ...(paymentType && { paymentType }),
+      ...(remarks && { remarks }),
+      ...(vehicleNumber && { vehicleNumber }),
+      ...(searchedVehicle?.ownerType && { vehicleType: searchedVehicle.ownerType }),
+      ...(totalWeight && { totalWeight }),
+      ...(freightCharges && { freightCharges }),
+      ...(numberOfPackages && { numberOfPackages }),
+      ...(selectedGood && { goodsType: selectedGood }),
+      ...(selectedItems.length > 0 && { goodItems: selectedItems.map((name) => ({ name })) }),
+      fromAddress: {
+        ...(pickupAddress && { pickupAddress }),
+        ...(fromPincode && { pincode: fromPincode }),
+        ...(fromAddressDetails && { addressDetails: fromAddressDetails })
+      },
+      toAddress: {
+        ...(deliveryAddress && { deliveryAddress }),
+        ...(toPincode && { pincode: toPincode }),
+        ...(toAddressDetails && { addressDetails: toAddressDetails })
+      },
+      ...(selectedDriver && { driver: selectedDriver }),
+      ...(pickupAddress && { pickupAddress }),
+      ...(deliveryAddress && { deliveryAddress }),
+      ...(consignor && { consignor }),
+      ...(consignee && { consignee }),
+      ...(address && { address }),
+      ...(invoiceNumber && { invoiceNumber }),
+      ...(invoiceBill && { invoiceBill }),
+      ...(ewayBillNo && { ewayBillNo }),
+      ...(driverContactNumber && { driverContactNumber }),
+      ...(siteId && { siteId }),
+      ...(sealNo && { sealNo }),
+      ...(vehicleModel && { vehicleModel }),
+      ...(selectedSiteType && { siteType: selectedSiteType }),
+      ...(vehicleSize && { vehicleSize }),
+      ...(orderNumber && { orderNumber }),
+      ...(selectedTransportMode && { transportMode: selectedTransportMode }),
     };
 
     if (searchedVehicle) {
@@ -544,6 +665,19 @@ const CreateInvoice = () => {
     }
   }, [selectedConsignee, availableConsignees]);
 
+  // Auto-fetch address details when pincode reaches 6 digits
+  useEffect(() => {
+    if (fromPincode.length === 6) {
+      fetchAddressFromPincode(fromPincode, 'from');
+    }
+  }, [fromPincode]);
+
+  useEffect(() => {
+    if (toPincode.length === 6) {
+      fetchAddressFromPincode(toPincode, 'to');
+    }
+  }, [toPincode]);
+
   // Handle driver creation
   const handleCreateDriver = async () => {
     if (!newDriverData.name || !newDriverData.mobile || !newDriverData.password || !newDriverData.licenseNumber || !newDriverData.experienceYears) {
@@ -588,116 +722,261 @@ const CreateInvoice = () => {
     }
   };
 
-  // Helper component for Address fields
-  const AddressFields = ({
-    type,
-    region,
-    handleRegionChange,
-    countries,
-    stateData,
-    cityData,
-    localityData,
-    pincodeData,
-  }) => (
-    <Card className="border border-gray-200 hover:border-blue-300 transition-colors">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <MapPin className="w-4 h-4 text-blue-600" />
-          {type === "from" ? "Pickup Address" : "Delivery Address"}
-          <Badge variant={type === "from" ? "default" : "secondary"} className="ml-auto text-xs">
-            {type === "from" ? "FROM" : "TO"}
-          </Badge>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="space-y-3">
-          <Select
-            value={region.country}
-            onValueChange={(val) => handleRegionChange(type, "country", val)}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select Country" />
-            </SelectTrigger>
-            <SelectContent>
-              {countries?.countries?.map((c) => (
-                <SelectItem key={c._id} value={c._id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+  // New simplified Address Fields component
+  const AddressFields = ({ type }) => {
+    const pincode = type === 'from' ? fromPincode : toPincode;
+    const setPincode = type === 'from' ? setFromPincode : setToPincode;
+    const addressDetails = type === 'from' ? fromAddressDetails : toAddressDetails;
+    const isLoading = type === 'from' ? isLoadingFromPincode : isLoadingToPincode;
+    const address = type === 'from' ? pickupAddress : deliveryAddress;
+    const setAddress = type === 'from' ? setPickupAddress : setDeliveryAddress;
+    
+    // Debug logging
+    console.log(`${type} addressDetails:`, addressDetails);
+    console.log(`${type} pincode:`, pincode);
 
-          <Select
-            value={region.state}
-            onValueChange={(val) => handleRegionChange(type, "state", val)}
-            disabled={!region.country || !stateData?.data?.length}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select State" />
-            </SelectTrigger>
-            <SelectContent>
-              {stateData?.data?.map((s) => (
-                <SelectItem key={s._id} value={s._id}>
-                  {s.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+    return (
+      <Card className="border border-gray-200 hover:border-blue-300 transition-colors">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <MapPin className="w-4 h-4 text-blue-600" />
+            {type === "from" ? "Pickup Address" : "Delivery Address"}
+            <Badge variant={type === "from" ? "default" : "secondary"} className="ml-auto text-xs">
+              {type === "from" ? "FROM" : "TO"}
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Address</Label>
+              <Textarea
+                value={address}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setAddress(value);
+                }}
+                placeholder={`Enter ${type === 'from' ? 'pickup' : 'delivery'} address`}
+                className="w-full"
+                rows={3}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Pincode</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  value={pincode}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Only allow digits and limit to 6 characters
+                    if (/^\d*$/.test(value) && value.length <= 6) {
+                      setPincode(value);
+                    }
+                  }}
+                  onKeyPress={(e) => {
+                    // Only allow digits
+                    if (!/\d/.test(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
+                  placeholder="Enter 6-digit pincode"
+                  className="w-full"
+                  maxLength={6}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  autoComplete="off"
+                />
+                {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                {pincode.length === 6 && !isLoading && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fetchAddressFromPincode(pincode, type)}
+                    className="px-3"
+                    title="Fetch address details"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </Button>
+                )}
+                {/* Retry button when API fails */}
+                {pincode.length === 6 && !isLoading && addressDetails === null && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fetchAddressFromPincode(pincode, type)}
+                    className="px-3 text-orange-600 border-orange-300 hover:bg-orange-50"
+                    title="Retry fetching address details"
+                  >
+                    <AlertCircle className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
 
-          <Select
-            value={region.city}
-            onValueChange={(val) => handleRegionChange(type, "city", val)}
-            disabled={!region.state || !cityData?.cities?.length}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select City" />
-            </SelectTrigger>
-            <SelectContent>
-              {cityData?.cities?.map((c) => (
-                <SelectItem key={c._id} value={c._id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            {/* Manual address input option */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Manual Address Details (Optional)</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (type === 'from') {
+                      setFromAddressDetails(prev => ({ ...prev, showManual: !prev?.showManual }));
+                    } else {
+                      setToAddressDetails(prev => ({ ...prev, showManual: !prev?.showManual }));
+                    }
+                  }}
+                  className="text-xs"
+                >
+                  {addressDetails?.showManual ? 'Hide' : 'Show'} Manual Input
+                </Button>
+              </div>
+              
+              {addressDetails?.showManual && (
+                <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium">City</Label>
+                      <Input
+                        type="text"
+                        value={addressDetails.manualCity || ''}
+                        onChange={(e) => {
+                          if (type === 'from') {
+                            setFromAddressDetails(prev => ({ ...prev, manualCity: e.target.value }));
+                          } else {
+                            setToAddressDetails(prev => ({ ...prev, manualCity: e.target.value }));
+                          }
+                        }}
+                        placeholder="Enter city"
+                        className="text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium">State</Label>
+                      <Input
+                        type="text"
+                        value={addressDetails.manualState || ''}
+                        onChange={(e) => {
+                          if (type === 'from') {
+                            setFromAddressDetails(prev => ({ ...prev, manualState: e.target.value }));
+                          } else {
+                            setToAddressDetails(prev => ({ ...prev, manualState: e.target.value }));
+                          }
+                        }}
+                        placeholder="Enter state"
+                        className="text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium">District</Label>
+                      <Input
+                        type="text"
+                        value={addressDetails.manualDistrict || ''}
+                        onChange={(e) => {
+                          if (type === 'from') {
+                            setFromAddressDetails(prev => ({ ...prev, manualDistrict: e.target.value }));
+                          } else {
+                            setToAddressDetails(prev => ({ ...prev, manualDistrict: e.target.value }));
+                          }
+                        }}
+                        placeholder="Enter district"
+                        className="text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium">Country</Label>
+                      <Input
+                        type="text"
+                        value={addressDetails.manualCountry || 'India'}
+                        onChange={(e) => {
+                          if (type === 'from') {
+                            setFromAddressDetails(prev => ({ ...prev, manualCountry: e.target.value }));
+                          } else {
+                            setToAddressDetails(prev => ({ ...prev, manualCountry: e.target.value }));
+                          }
+                        }}
+                        placeholder="Enter country"
+                        className="text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Status message */}
+              {isLoading && (
+                <div className="text-sm text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Fetching address details...
+                </div>
+              )}
+              {!isLoading && addressDetails === null && pincode.length === 6 && (
+                <div className="text-sm text-orange-600 dark:text-orange-400 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4" />
+                  Address details not found. Try manual input or retry.
+                </div>
+              )}
+            </div>
 
-          <Select
-            value={region.locality}
-            onValueChange={(val) => handleRegionChange(type, "locality", val)}
-            disabled={!region.city || !localityData?.data?.length}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select Locality" />
-            </SelectTrigger>
-            <SelectContent>
-              {localityData?.data?.map((l) => (
-                <SelectItem key={l._id} value={l._id}>
-                  {l.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            {/* Post Office Selection Dropdown */}
+            {addressDetails?.allPostOffices && addressDetails.allPostOffices.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Select Post Office</Label>
+                <Select
+                  value={addressDetails.selectedPostOffice ? addressDetails.selectedPostOffice.Name : ""}
+                  onValueChange={(postOfficeName) => {
+                    const selectedPostOffice = addressDetails.allPostOffices.find(po => po.Name === postOfficeName);
+                    if (selectedPostOffice) {
+                      selectPostOffice(selectedPostOffice, type);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a post office" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {addressDetails.allPostOffices.map((postOffice, index) => (
+                      <SelectItem key={index} value={postOffice.Name}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{postOffice.Name}</span>
+                          <span className="text-xs text-gray-500">
+                            {postOffice.Block || postOffice.Taluk}, {postOffice.District}, {postOffice.State}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
-          <Select
-            value={region.pincode}
-            onValueChange={(val) => handleRegionChange(type, "pincode", val)}
-            disabled={!region.locality || !pincodeData?.pincodes?.length}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select Pincode" />
-            </SelectTrigger>
-            <SelectContent>
-              {pincodeData?.pincodes?.map((p) => (
-                <SelectItem key={p._id} value={p._id}>
-                  {p.code}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </CardContent>
-    </Card>
-  );
+            {/* Display selected address details */}
+            {addressDetails?.name && (
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border">
+                <Label className="text-sm font-medium mb-2 block text-blue-800 dark:text-blue-200">
+                  Selected Address Details
+                </Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                  <div><span className="font-medium">City:</span> {addressDetails.name}</div>
+                  <div><span className="font-medium">District:</span> {addressDetails.district}</div>
+                  <div><span className="font-medium">State:</span> {addressDetails.state}</div>
+                  <div><span className="font-medium">Country:</span> {addressDetails.country}</div>
+                  {addressDetails.taluk && <div><span className="font-medium">Taluk:</span> {addressDetails.taluk}</div>}
+                  {addressDetails.division && <div><span className="font-medium">Division:</span> {addressDetails.division}</div>}
+                </div>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
 
   return (
     <div className="min-h-screen">
@@ -848,55 +1127,13 @@ const CreateInvoice = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium flex items-center gap-2">
-                      <MapPin className="w-4 h-4" />
-                      Pickup Address
-                    </Label>
-                    <Input
-                      type="text"
-                      value={pickupAddress}
-                      onChange={e => setPickupAddress(e.target.value)}
-                      placeholder="Enter pickup address"
-                      className="w-full"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium flex items-center gap-2">
-                      <MapPin className="w-4 h-4" />
-                      Delivery Address
-                    </Label>
-                    <Input
-                      type="text"
-                      value={deliveryAddress}
-                      onChange={e => setDeliveryAddress(e.target.value)}
-                      placeholder="Enter delivery address"
-                      className="w-full"
-                    />
-                  </div>
-                </div>
-                {/* Add Pickup/Delivery Address region fields - stack on mobile */}
+                {/* Pickup/Delivery Address fields with pincode-based location */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
                   <AddressFields
                     type="from"
-                    region={fromRegion}
-                    handleRegionChange={handleRegionChange}
-                    countries={countries}
-                    stateData={fromStateData}
-                    cityData={fromCityData}
-                    localityData={fromLocalityData}
-                    pincodeData={fromPincodeData}
                   />
                   <AddressFields
                     type="to"
-                    region={toRegion}
-                    handleRegionChange={handleRegionChange}
-                    countries={countries}
-                    stateData={toStateData}
-                    cityData={toCityData}
-                    localityData={toLocalityData}
-                    pincodeData={toPincodeData}
                   />
                 </div>
                 {/* Remaining Delivery Details fields */}

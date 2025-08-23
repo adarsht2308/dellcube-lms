@@ -111,19 +111,19 @@ const Sidebar = () => {
         : "/admin/branch-admin-dashboard",
       roles: ["superAdmin", "branchAdmin", "operation", "driver"],
     },
-    {
-      id: "regions",
-      title: "Regions",
-      icon: ContactRound,
-      roles: ["superAdmin", "branchAdmin", "operation"],
-      subItems: [
-        { title: "Countries", icon: Globe, path: "/admin/countries" },
-        { title: "States", icon: Map, path: "/admin/states" },
-        { title: "Cities", icon: Building2, path: "/admin/cities" },
-        { title: "Localities", icon: MapPinned, path: "/admin/localities" },
-        { title: "Pincodes", icon: MapPinPlus, path: "/admin/pincodes" },
-      ],
-    },
+    // {
+    //   id: "regions",
+    //   title: "Regions",
+    //   icon: ContactRound,
+    //   roles: ["superAdmin", "branchAdmin", "operation"],
+    //   subItems: [
+    //     { title: "Countries", icon: Globe, path: "/admin/countries" },
+    //     { title: "States", icon: Map, path: "/admin/states" },
+    //     { title: "Cities", icon: Building2, path: "/admin/cities" },
+    //     { title: "Localities", icon: MapPinned, path: "/admin/localities" },
+    //     { title: "Pincodes", icon: MapPinPlus, path: "/admin/pincodes" },
+    //   ],
+    // },
     {
       id: "company",
       title: "Company Management",

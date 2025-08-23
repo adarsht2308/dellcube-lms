@@ -50,10 +50,10 @@ export const getDriverInvoices = async (req, res) => {
       .populate("vendor", "name availableVehicles")
       .populate("driver", "name")
       .populate(
-        "fromAddress.country fromAddress.state fromAddress.city fromAddress.locality fromAddress.pincode"
+        "fromAddress.country fromAddress.state fromAddress.city fromAddress.locality"
       )
       .populate(
-        "toAddress.country toAddress.state toAddress.city toAddress.locality toAddress.pincode"
+        "toAddress.country toAddress.state toAddress.city toAddress.locality"
       )
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -116,10 +116,10 @@ export const getRecentDriverInvoices = async (req, res) => {
       .populate("vendor", "name")
       .populate("driver", "name")
       .populate(
-        "fromAddress.country fromAddress.state fromAddress.city fromAddress.locality fromAddress.pincode"
+        "fromAddress.country fromAddress.state fromAddress.city fromAddress.locality"
       )
       .populate(
-        "toAddress.country toAddress.state toAddress.city toAddress.locality toAddress.pincode"
+        "toAddress.country toAddress.state toAddress.city toAddress.locality"
       )
       .sort({ createdAt: -1 })
       .skip(skip)

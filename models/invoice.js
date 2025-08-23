@@ -40,7 +40,7 @@ const invoiceSchema = new mongoose.Schema(
       state: { type: mongoose.Schema.Types.ObjectId, ref: "State" },
       city: { type: mongoose.Schema.Types.ObjectId, ref: "City" },
       locality: { type: mongoose.Schema.Types.ObjectId, ref: "Locality" },
-      pincode: { type: mongoose.Schema.Types.ObjectId, ref: "Pincode" },
+      pincode: { type: String, trim: true, default: "" },
     },
 
     // TO ADDRESS - Renamed from toLocation to match frontend
@@ -49,7 +49,7 @@ const invoiceSchema = new mongoose.Schema(
       state: { type: mongoose.Schema.Types.ObjectId, ref: "State" },
       city: { type: mongoose.Schema.Types.ObjectId, ref: "City" },
       locality: { type: mongoose.Schema.Types.ObjectId, ref: "Locality" },
-      pincode: { type: mongoose.Schema.Types.ObjectId, ref: "Pincode" },
+      pincode: { type: String, trim: true, default: "" },
     },
 
     customer: {

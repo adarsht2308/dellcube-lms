@@ -256,6 +256,18 @@ const Invoices = () => {
   const { data: companiesData } = useGetAllCompaniesQuery({ status: "active" });
   const [branchOptions, setBranchOptions] = useState([]);
 
+  // Function to check if invoice can be edited (within 24 hours, superadmin bypass)
+  const canEditInvoice = (invoice) => {
+    if (!invoice?.createdAt) return false;
+    // Superadmin can always edit
+    if (isSuperAdmin) return true;
+    
+    const createdAt = new Date(invoice.createdAt);
+    const now = new Date();
+    const hoursDiff = (now - createdAt) / (1000 * 60 * 60);
+    return hoursDiff <= 24;
+  };
+
   // Watch for company change in reservedForm (for superAdmin/operation)
   useEffect(() => {
     if (user?.role === "superAdmin" && reservedForm.company) {
@@ -1090,17 +1102,45 @@ const Invoices = () => {
                       </span>
                     </td>
                     <td className="p-3 text-center">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-semibold text-center ${
-                          inv.status === "Delivered"
-                            ? "bg-[#FFD249]/80 text-[#202020]"
-                            : inv.status === "Cancelled"
-                            ? "bg-red-100 text-red-700"
-                            : "bg-[#FFD249]/30 text-[#202020]"
-                        }`}
-                      >
-                        {inv.status || "Created"}
-                      </span>
+                      <div className="flex flex-col gap-1">
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-semibold text-center ${
+                            inv.status === "Delivered"
+                              ? "bg-[#FFD249]/80 text-[#202020]"
+                              : inv.status === "Cancelled"
+                              ? "bg-red-100 text-red-700"
+                              : "bg-[#FFD249]/30 text-[#202020]"
+                          }`}
+                        >
+                          {inv.status || "Created"}
+                        </span>
+                        {/* Edit time indicator */}
+                        {inv.createdAt && (
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-medium text-center ${
+                              canEditInvoice(inv)
+                                ? isSuperAdmin && (new Date() - new Date(inv.createdAt)) / (1000 * 60 * 60) > 24
+                                  ? "bg-blue-100 text-blue-700"
+                                  : "bg-green-100 text-green-700"
+                                : "bg-red-100 text-red-700"
+                            }`}
+                            title={
+                              canEditInvoice(inv)
+                                ? isSuperAdmin && (new Date() - new Date(inv.createdAt)) / (1000 * 60 * 60) > 24
+                                  ? "Can be edited (Superadmin override)"
+                                  : "Can be edited (within 24 hours)"
+                                : "Cannot be edited (after 24 hours)"
+                            }
+                          >
+                            {canEditInvoice(inv) 
+                              ? isSuperAdmin && (new Date() - new Date(inv.createdAt)) / (1000 * 60 * 60) > 24
+                                ? "Override"
+                                : "Editable"
+                              : "Locked"
+                            }
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 flex gap-2 justify-center text-center">
                       <Button
@@ -1112,46 +1152,68 @@ const Invoices = () => {
                       >
                         <EyeIcon className="h-4 w-4" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          navigate("/admin/update-invoice", {
-                            state: { invoiceId: inv._id },
-                          })
-                        }
-                        className="text-[#202020] hover:text-[#FFD249] dark:text-[#FFD249] dark:hover:text-[#FFD249] rounded-full p-2 border border-[#FFD249]/40 hover:bg-[#FFD249]/20"
-                        title="Edit Invoice"
-                      >
-                        <MdOutlineEdit className="h-4 w-4" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 rounded-full p-2 border border-red-200/40 hover:bg-red-100/20"
-                          >
-                            <FaRegTrashCan className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Invoice?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDelete(inv._id)}
+                      {/* Edit Button - All roles can edit within 24 hours */}
+                      {canEditInvoice(inv) ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            navigate("/admin/update-invoice", {
+                              state: { invoiceId: inv._id },
+                            })
+                          }
+                          className="text-[#202020] hover:text-[#FFD249] dark:text-[#FFD249] dark:hover:text-[#FFD249] rounded-full p-2 border border-[#FFD249]/40 hover:bg-[#FFD249]/20"
+                          title={
+                            isSuperAdmin && (new Date() - new Date(inv.createdAt)) / (1000 * 60 * 60) > 24
+                              ? "Edit Invoice (Superadmin override)"
+                              : "Edit Invoice (within 24 hours)"
+                          }
+                        >
+                          <MdOutlineEdit className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled
+                          className="text-gray-400 dark:text-gray-500 rounded-full p-2 border border-gray-200/40 cursor-not-allowed"
+                          title="Edit not allowed after 24 hours"
+                        >
+                          <MdOutlineEdit className="h-4 w-4" />
+                        </Button>
+                      )}
+                      
+                      {/* Delete Button - Only superadmin can delete */}
+                      {isSuperAdmin && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 rounded-full p-2 border border-red-200/40 hover:bg-red-100/20"
+                              title="Delete Invoice (Superadmin only)"
                             >
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                              <FaRegTrashCan className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Invoice?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This action cannot be undone. Only superadmins can delete invoices.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDelete(inv._id)}
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
 
                       {isGeneratingPdf?.id === inv._id &&
                       isGeneratingPdf?.type === "download" ? (

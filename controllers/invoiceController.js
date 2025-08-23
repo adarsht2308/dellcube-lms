@@ -310,10 +310,10 @@ export const getAllInvoices = async (req, res) => {
       .populate("vendor", "name availableVehicles")
       .populate("driver", "name phone")
       .populate(
-        "fromAddress.country fromAddress.state fromAddress.city fromAddress.locality fromAddress.pincode"
+        "fromAddress.country fromAddress.state fromAddress.city fromAddress.locality"
       )
       .populate(
-        "toAddress.country toAddress.state toAddress.city toAddress.locality toAddress.pincode"
+        "toAddress.country toAddress.state toAddress.city toAddress.locality"
       )
       .populate("siteType", "name desc")
       .populate("transportMode", "name desc")
@@ -359,10 +359,10 @@ export const getInvoiceById = async (req, res) => {
       .populate("siteType", "name desc")
       .populate("transportMode", "name desc")
       .populate(
-        "fromAddress.country fromAddress.state fromAddress.city fromAddress.locality fromAddress.pincode"
+        "fromAddress.country fromAddress.state fromAddress.city fromAddress.locality"
       )
       .populate(
-        "toAddress.country toAddress.state toAddress.city toAddress.locality toAddress.pincode"
+        "toAddress.country toAddress.state toAddress.city toAddress.locality"
       );
 
     if (!invoice) {
@@ -516,8 +516,8 @@ export const generateInvoicePDF = async (req, res) => {
     const invoice = await Invoice.findById(invoiceId)
       .populate("company branch customer goodsType vehicle vendor driver")
       .populate("siteType", "name desc")
-      .populate("fromAddress.country fromAddress.state fromAddress.city fromAddress.locality fromAddress.pincode")
-      .populate("toAddress.country toAddress.state toAddress.city toAddress.locality toAddress.pincode");
+      .populate("fromAddress.country fromAddress.state fromAddress.city fromAddress.locality")
+      .populate("toAddress.country toAddress.state toAddress.city toAddress.locality");
     if (!invoice) {
       return res.status(404).json({ success: false, message: "Invoice not found" });
     }
@@ -579,8 +579,8 @@ export const exportInvoicesCSV = async (req, res) => {
       .populate("vehicle", "vehicleNumber")
       .populate("vendor", "name availableVehicles")
       .populate("driver", "name mobile")
-      .populate("fromAddress.country fromAddress.state fromAddress.city fromAddress.locality fromAddress.pincode")
-      .populate("toAddress.country toAddress.state toAddress.city toAddress.locality toAddress.pincode");
+      .populate("fromAddress.country fromAddress.state fromAddress.city fromAddress.locality")
+      .populate("toAddress.country toAddress.state toAddress.city toAddress.locality");
 
     // Flatten and map fields for CSV
     const data = invoices.map((inv) => ({
@@ -607,12 +607,12 @@ export const exportInvoicesCSV = async (req, res) => {
       FromState: inv.fromAddress?.state?.name || "",
       FromCity: inv.fromAddress?.city?.name || "",
       FromLocality: inv.fromAddress?.locality?.name || "",
-      FromPincode: inv.fromAddress?.pincode?.code || "",
+      FromPincode: inv.fromAddress?.pincode || "",
       ToCountry: inv.toAddress?.country?.name || "",
       ToState: inv.toAddress?.state?.name || "",
       ToCity: inv.toAddress?.city?.name || "",
       ToLocality: inv.toAddress?.locality?.name || "",
-      ToPincode: inv?.toAddress?.pincode?.code || "",
+      ToPincode: inv?.toAddress?.pincode || "",
       TotalWeight: inv?.totalWeight,
       NumberOfPackages: inv?.numberOfPackages,
       FreightCharges: inv?.freightCharges,
