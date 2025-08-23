@@ -106,6 +106,7 @@ const Drivers = () => {
   const [status, setStatus] = useState("all");
   const [companyId, setCompanyId] = useState(isBranchAdmin ? user?.company?._id : "all");
   const [branchId, setBranchId] = useState(isBranchAdmin ? user?.branch?._id : "all");
+  const [driverType, setDriverType] = useState("all");
   const debouncedSearch = useDebounce(search, 500);
   const [branches, setBranches] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
@@ -122,9 +123,16 @@ const Drivers = () => {
     status: status === "all" ? "" : status,
     company: isBranchAdmin ? user?.company?._id : (companyId === "all" ? "" : companyId),
     branch: isBranchAdmin ? user?.branch?._id : (branchId === "all" ? "" : branchId),
+    driverType: driverType === "all" ? "" : driverType,
   });
 
   const [deleteDriver] = useDeleteDriverMutation();
+
+  // Helper function to format driver type
+  const formatDriverType = (driverType) => {
+    if (!driverType) return 'N/A';
+    return driverType.charAt(0).toUpperCase() + driverType.slice(1);
+  };
 
   useEffect(() => {
     const fetchBranches = async () => {
@@ -232,6 +240,20 @@ const Drivers = () => {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Driver Type:</span>
+                <Select value={driverType} onValueChange={setDriverType}>
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue placeholder="All Types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="dellcube">Dellcube Driver</SelectItem>
+                    <SelectItem value="vendor">Vendor Driver</SelectItem>
+                    <SelectItem value="temporary">Temporary Driver</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               {isSuperAdmin && (
                 <>
                   <div className="flex items-center gap-2">
@@ -285,12 +307,42 @@ const Drivers = () => {
                   setStatus("all");
                   setCompanyId("all");
                   setBranchId("all");
+                  setDriverType("all");
                 }}
                 className="text-xs"
               >
                 Clear Filters
               </Button>
             </div>
+            
+            {/* Active Filters Display */}
+            {(status !== "all" || driverType !== "all" || companyId !== "all" || branchId !== "all") && (
+              <div className="mt-4 pt-3 border-t border-[#FFD249]/30">
+                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                  <span className="font-medium">Active Filters:</span>
+                  {status !== "all" && (
+                    <span className="px-2 py-1 bg-[#FFD249]/30 text-[#202020] rounded-full text-xs">
+                      Status: {status === "true" ? "Active" : "Inactive"}
+                    </span>
+                  )}
+                  {driverType !== "all" && (
+                    <span className="px-2 py-1 bg-[#FFD249]/30 text-[#202020] rounded-full text-xs">
+                      Type: {formatDriverType(driverType)}
+                    </span>
+                  )}
+                  {companyId !== "all" && companyData?.companies?.find(c => c._id === companyId) && (
+                    <span className="px-2 py-1 bg-[#FFD249]/30 text-[#202020] rounded-full text-xs">
+                      Company: {companyData.companies.find(c => c._id === companyId)?.name}
+                    </span>
+                  )}
+                  {branchId !== "all" && branches.find(b => b._id === branchId) && (
+                    <span className="px-2 py-1 bg-[#FFD249]/30 text-[#202020] rounded-full text-xs">
+                      Branch: {branches.find(b => b._id === branchId)?.name}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -303,6 +355,9 @@ const Drivers = () => {
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">No</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Name</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Mobile</th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Driver Type</th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Aadhar</th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">PAN</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Company</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Branch</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Status</th>
@@ -312,7 +367,7 @@ const Drivers = () => {
             <tbody className="divide-y divide-gray-200 text-center">
               {isLoading ? (
                 <tr>
-                  <td colSpan="7" className="text-center py-6">
+                  <td colSpan="10" className="text-center py-6">
                     <Loader2 className="animate-spin mx-auto text-[#FFD249]" /> Loading...
                   </td>
                 </tr>
@@ -330,6 +385,9 @@ const Drivers = () => {
                     <td className="p-3 font-medium text-[#202020] dark:text-[#FFD249] text-center">{limit * (page - 1) + (i + 1)}</td>
                     <td className="p-3 text-[#202020] dark:text-[#FFD249] font-semibold">{driver.name}</td>
                     <td className="p-3 text-[#202020] dark:text-[#FFD249]">{driver.mobile}</td>
+                    <td className="p-3 text-[#202020] dark:text-[#FFD249] font-mono text-xs">{formatDriverType(driver.driverType)}</td>
+                    <td className="p-3 text-[#202020] dark:text-[#FFD249] font-mono text-xs">{driver.aadharNumber || <span className="text-gray-400">N/A</span>}</td>
+                    <td className="p-3 text-[#202020] dark:text-[#FFD249] font-mono text-xs">{driver.panNumber || <span className="text-gray-400">N/A</span>}</td>
                     <td className="p-3 text-[#202020] dark:text-[#FFD249]">{driver.company?.name || <span className="text-gray-400">N/A</span>}</td>
                     <td className="p-3 text-[#202020] dark:text-[#FFD249]">{driver.branch?.name || <span className="text-gray-400">N/A</span>}</td>
                     <td className="p-3 text-center">
@@ -380,7 +438,7 @@ const Drivers = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="7" className="text-center py-10 text-[#828083]">
+                  <td colSpan="10" className="text-center py-10 text-[#828083]">
                     <Truck className="w-8 h-8 mx-auto text-[#828083]" />
                     <p className="text-[#828083] font-medium">No Drivers Available</p>
                     <p className="text-sm text-[#828083]">Add a new driver to begin</p>
@@ -393,7 +451,10 @@ const Drivers = () => {
               <tr>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">No</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Name</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Email</th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Mobile</th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Driver Type</th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Aadhar</th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">PAN</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Company</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Branch</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Status</th>
@@ -465,10 +526,47 @@ const Drivers = () => {
                       <InfoCard icon={UserRound} title="Driver Information">
                         <InfoRow label="Name" value={selectedDriver.name} icon={UserRound} />
                         <InfoRow label="Status" value={selectedDriver.status ? 'Active' : 'Inactive'} icon={UserRound} />
+                        <InfoRow label="Driver Type" value={selectedDriver.driverType ? selectedDriver.driverType.charAt(0).toUpperCase() + selectedDriver.driverType.slice(1) : 'N/A'} icon={Truck} />
                         <InfoRow label="Company" value={selectedDriver.company?.name} icon={Building2} />
                         <InfoRow label="Branch" value={selectedDriver.branch?.name} icon={MapPin} />
                         <InfoRow label="License Number" value={selectedDriver.licenseNumber} icon={Truck} />
                         <InfoRow label="Experience" value={selectedDriver.experienceYears ? `${selectedDriver.experienceYears} Years` : ''} icon={Truck} />
+                      </InfoCard>
+
+                      <InfoCard icon={UserRound} title="Identity Documents">
+                        <InfoRow 
+                          label="Aadhar Number" 
+                          value={selectedDriver.aadharNumber} 
+                          icon={UserRound} 
+                        />
+                        <InfoRow 
+                          label="PAN Number" 
+                          value={selectedDriver.panNumber} 
+                          icon={UserRound} 
+                        />
+                      </InfoCard>
+
+                      <InfoCard icon={Box} title="Bank Account Details">
+                        <InfoRow 
+                          label="Account Holder" 
+                          value={selectedDriver.bankDetails?.accountHolderName} 
+                          icon={UserRound} 
+                        />
+                        <InfoRow 
+                          label="Bank Name" 
+                          value={selectedDriver.bankDetails?.bankName} 
+                          icon={Building2} 
+                        />
+                        <InfoRow 
+                          label="Account Number" 
+                          value={selectedDriver.bankDetails?.accountNumber} 
+                          icon={UserRound} 
+                        />
+                        <InfoRow 
+                          label="IFSC Code" 
+                          value={selectedDriver.bankDetails?.ifscCode} 
+                          icon={UserRound} 
+                        />
                       </InfoCard>
                     </div>
                   )}

@@ -25,6 +25,32 @@ const customerSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // New Company Information Fields
+    companyName: {
+      type: String,
+      trim: true,
+    },
+    companyContactName: {
+      type: String,
+      trim: true,
+    },
+    companyContactInfo: {
+      type: String,
+      trim: true,
+    },
+
+    // New Tax Information Fields
+    taxType: {
+      type: String,
+      trim: true,
+      enum: ["GST", "CGST+SGST", "IGST", "Exempt", "Other"],
+    },
+    taxValue: {
+      type: Number,
+      min: 0,
+      max: 100,
+    },
+
     company: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Company",
@@ -35,6 +61,32 @@ const customerSchema = new mongoose.Schema(
       ref: "Branch",
       required: [true, "Branch is required"],
     },
+
+    // New Consignee and Consignor Fields
+    consignees: [
+      {
+        siteId: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+        consignee: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+      },
+    ],
+
+    consignors: [
+      {
+        consignor: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+      },
+    ],
 
     status: {
       type: Boolean,

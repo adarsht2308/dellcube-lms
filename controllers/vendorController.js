@@ -228,12 +228,17 @@ export const deleteVendor = async (req, res) => {
 };
 
 export const addVehicleController = async (req, res) => {
-  const { vendorId, vehicle } = req.body;
+  console.log("=== Add Vehicle Request ===");
+  console.log("Body:", req.body);
+  console.log("Files:", req.files);
+  console.log("Content-Type:", req.get('Content-Type'));
+  
+  const { vendorId } = req.body;
 
-  if (!vendorId || !vehicle) {
+  if (!vendorId) {
     return res.status(400).json({
       success: false,
-      message: "Vendor ID and vehicle data are required",
+      message: "Vendor ID is required",
     });
   }
 
@@ -247,13 +252,102 @@ export const addVehicleController = async (req, res) => {
       });
     }
 
-    vendor.availableVehicles.push(vehicle);
-    await vendor.save();
+    // Extract vehicle data from form fields
+    const vehicleData = {
+      vehicleNumber: req.body.vehicleNumber,
+      type: req.body.type,
+      brand: req.body.brand,
+      model: req.body.model,
+      yearOfManufacture: req.body.yearOfManufacture ? parseInt(req.body.yearOfManufacture) : undefined,
+      registrationDate: req.body.registrationDate ? new Date(req.body.registrationDate) : undefined,
+      fitnessCertificateExpiry: req.body.fitnessCertificateExpiry ? new Date(req.body.fitnessCertificateExpiry) : undefined,
+      insuranceExpiry: req.body.insuranceExpiry ? new Date(req.body.insuranceExpiry) : undefined,
+      pollutionCertificateExpiry: req.body.pollutionCertificateExpiry ? new Date(req.body.pollutionCertificateExpiry) : undefined,
+      vehicleInsuranceNo: req.body.vehicleInsuranceNo || "",
+      fitnessNo: req.body.fitnessNo || "",
+      status: req.body.status || "active",
+    };
+
+    console.log("Extracted vehicle data:", vehicleData);
+    console.log("Raw req.body keys:", Object.keys(req.body));
+    console.log("Raw req.body values:", Object.values(req.body));
+
+    // Validate required fields
+    if (!vehicleData.vehicleNumber || !vehicleData.type || !vehicleData.brand || !vehicleData.model) {
+      return res.status(400).json({
+        success: false,
+        message: `Missing required fields. Received: vehicleNumber=${vehicleData.vehicleNumber}, type=${vehicleData.type}, brand=${vehicleData.brand}, model=${vehicleData.model}`,
+      });
+    }
+
+    // Handle certificate image uploads if present
+    const certFields = [
+      "fitnessCertificateImage",
+      "pollutionCertificateImage",
+      "registrationCertificateImage",
+      "insuranceImage",
+    ];
+
+    for (const field of certFields) {
+      if (req.files && req.files[`vendorVehicle${field.charAt(0).toUpperCase() + field.slice(1)}`] && req.files[`vendorVehicle${field.charAt(0).toUpperCase() + field.slice(1)}`][0]) {
+        vehicleData[field] = {
+          url: req.files[`vendorVehicle${field.charAt(0).toUpperCase() + field.slice(1)}`][0].path,
+          public_id: req.files[`vendorVehicle${field.charAt(0).toUpperCase() + field.slice(1)}`][0].filename,
+        };
+      } else {
+        // Set default empty values if no image
+        vehicleData[field] = { url: "", public_id: "" };
+      }
+    }
+
+    // Initialize maintenance history array
+    vehicleData.maintenanceHistory = [];
+
+    console.log("Final vehicle data to be saved:", JSON.stringify(vehicleData, null, 2));
+
+    // Create a new vehicle document using the schema
+    const newVehicle = {
+      vehicleNumber: vehicleData.vehicleNumber,
+      type: vehicleData.type,
+      brand: vehicleData.brand,
+      model: vehicleData.model,
+      yearOfManufacture: vehicleData.yearOfManufacture,
+      registrationDate: vehicleData.registrationDate,
+      fitnessCertificateExpiry: vehicleData.fitnessCertificateExpiry,
+      insuranceExpiry: vehicleData.insuranceExpiry,
+      pollutionCertificateExpiry: vehicleData.pollutionCertificateExpiry,
+      vehicleInsuranceNo: vehicleData.vehicleInsuranceNo,
+      fitnessNo: vehicleData.fitnessNo,
+      status: vehicleData.status,
+      fitnessCertificateImage: vehicleData.fitnessCertificateImage,
+      pollutionCertificateImage: vehicleData.pollutionCertificateImage,
+      registrationCertificateImage: vehicleData.registrationCertificateImage,
+      insuranceImage: vehicleData.insuranceImage,
+      maintenanceHistory: vehicleData.maintenanceHistory,
+    };
+
+    console.log("New vehicle object:", JSON.stringify(newVehicle, null, 2));
+
+    // Try using updateOne with $push to ensure proper schema validation
+    const result = await Vendor.updateOne(
+      { _id: vendorId },
+      { $push: { availableVehicles: newVehicle } }
+    );
+
+    if (result.modifiedCount === 0) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to add vehicle to vendor",
+      });
+    }
+
+    // Fetch the updated vendor to return
+    const updatedVendor = await Vendor.findById(vendorId);
 
     res.status(200).json({
       success: true,
       message: "Vehicle added to vendor successfully",
-      vendor,
+      vendor: updatedVendor,
     });
   } catch (error) {
     console.error("Add Vehicle Error:", error);
@@ -356,6 +450,90 @@ export const updateVendorVehicleStatus = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error while updating vehicle status",
+      error: error.message,
+    });
+  }
+};
+
+// Add maintenance record to a vendor vehicle
+export const addVendorVehicleMaintenance = async (req, res) => {
+  console.log("=== Add Vendor Vehicle Maintenance Request ===");
+  console.log("Body:", req.body);
+  console.log("Files:", req.files);
+  console.log("Content-Type:", req.get('Content-Type'));
+  
+  const { vendorId, vehicleId } = req.body;
+
+  if (!vendorId || !vehicleId) {
+    console.log("Missing data - vendorId:", vendorId, "vehicleId:", vehicleId);
+    return res.status(400).json({
+      success: false,
+      message: "Vendor ID and vehicle ID are required",
+    });
+  }
+
+  try {
+    const vendor = await Vendor.findById(vendorId);
+
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor not found",
+      });
+    }
+
+    // Find the specific vehicle in the vendor's availableVehicles array
+    const vehicleIndex = vendor.availableVehicles.findIndex(v => v._id.toString() === vehicleId);
+    
+    if (vehicleIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: "Vehicle not found in vendor's available vehicles",
+      });
+    }
+
+    // Extract maintenance data from form fields
+    const maintenanceData = {
+      serviceDate: req.body.serviceDate || undefined,
+      serviceType: req.body.serviceType,
+      cost: req.body.cost ? parseFloat(req.body.cost) : undefined,
+      description: req.body.description,
+      servicedBy: req.body.servicedBy || "",
+    };
+
+    // Validate required fields
+    if (!maintenanceData.serviceDate || !maintenanceData.serviceType || !maintenanceData.description) {
+      return res.status(400).json({
+        success: false,
+        message: "Service date, type, and description are required",
+      });
+    }
+
+    // Handle bill image upload if present
+    if (req.files && req.files.vendorVehicleBillImage && req.files.vendorVehicleBillImage[0]) {
+      maintenanceData.billImage = {
+        url: req.files.vendorVehicleBillImage[0].path,
+        public_id: req.files.vendorVehicleBillImage[0].filename,
+      };
+    } else {
+      // Set default empty values if no image
+      maintenanceData.billImage = { url: "", public_id: "" };
+    }
+
+    // Add maintenance record to the specific vehicle
+    vendor.availableVehicles[vehicleIndex].maintenanceHistory.push(maintenanceData);
+    await vendor.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Maintenance record added successfully to vendor vehicle",
+      vendor,
+    });
+  } catch (error) {
+    console.error("Add Vendor Vehicle Maintenance Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error while adding maintenance record",
       error: error.message,
     });
   }

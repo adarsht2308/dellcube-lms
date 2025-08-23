@@ -88,11 +88,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { PDFDownloadLink, PDFViewer, pdf } from '@react-pdf/renderer';
-import InvoicePDFDocument from './InvoicePDFDocument';
-import logoUrl from '/images/dellcube_logo-og.png';
-import { imageUrlToBase64 } from '@/utils/imageUrlToBase64.js';
-import { Input } from '@/components/ui/input';
+import { PDFDownloadLink, PDFViewer, pdf } from "@react-pdf/renderer";
+import InvoicePDFDocument from "./InvoicePDFDocument";
+import logoUrl from "/images/dellcube_logo-og.png";
+import { imageUrlToBase64 } from "@/utils/imageUrlToBase64.js";
+import { Input } from "@/components/ui/input";
 
 // Adjust path as needed
 
@@ -177,7 +177,9 @@ function useReverseGeocode(updates) {
             return;
           }
           try {
-            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`);
+            const res = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`
+            );
             const data = await res.json();
             const address = data.display_name || `${lat}, ${lng}`;
             newLocations[`${lat},${lng}`] = address;
@@ -229,7 +231,7 @@ const Invoices = () => {
   const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
   const [pdfBlobUrl, setPdfBlobUrl] = useState("");
   const [pdfLoading, setPdfLoading] = useState(false);
-  const [logoBase64, setLogoBase64] = useState('');
+  const [logoBase64, setLogoBase64] = useState("");
   const [invoiceForPdf, setInvoiceForPdf] = useState(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(null);
 
@@ -242,16 +244,22 @@ const Invoices = () => {
     useExportInvoicesCSVMutation();
 
   const [reservedDialogOpen, setReservedDialogOpen] = useState(false);
-  const [reservedForm, setReservedForm] = useState({ customer: '', count: 1, fromAddress: '', toAddress: '' });
-  const [createReservedDockets, { isLoading: isCreatingReserved }] = useCreateReservedDocketsMutation();
+  const [reservedForm, setReservedForm] = useState({
+    customer: "",
+    count: 1,
+    fromAddress: "",
+    toAddress: "",
+  });
+  const [createReservedDockets, { isLoading: isCreatingReserved }] =
+    useCreateReservedDocketsMutation();
 
-  const { data: companiesData } = useGetAllCompaniesQuery({ status: 'active' });
+  const { data: companiesData } = useGetAllCompaniesQuery({ status: "active" });
   const [branchOptions, setBranchOptions] = useState([]);
 
   // Watch for company change in reservedForm (for superAdmin/operation)
   useEffect(() => {
-    if ((user?.role === 'superAdmin') && reservedForm.company) {
-      getBranchesByCompany(reservedForm.company).then(res => {
+    if (user?.role === "superAdmin" && reservedForm.company) {
+      getBranchesByCompany(reservedForm.company).then((res) => {
         if (res?.data?.branches) setBranchOptions(res.data.branches);
         else setBranchOptions([]);
       });
@@ -260,15 +268,15 @@ const Invoices = () => {
 
   useEffect(() => {
     fetch(logoUrl)
-      .then(response => response.blob())
-      .then(blob => {
+      .then((response) => response.blob())
+      .then((blob) => {
         const reader = new FileReader();
         reader.onloadend = () => {
           setLogoBase64(reader.result);
         };
         reader.readAsDataURL(blob);
       })
-      .catch(error => {
+      .catch((error) => {
         console.error("Error loading logo:", error);
         toast.error("Could not load company logo for PDF.");
       });
@@ -351,25 +359,27 @@ const Invoices = () => {
   };
 
   const handleViewPDF = async (invoice) => {
-    setIsGeneratingPdf({ id: invoice._id, type: 'view' });
-    
+    setIsGeneratingPdf({ id: invoice._id, type: "view" });
+
     // Create a deep, mutable copy of the invoice object to avoid read-only errors.
     let processedInvoice = JSON.parse(JSON.stringify(invoice));
 
     if (processedInvoice.deliveryProof?.signature) {
       try {
-        const signatureBase64 = await imageUrlToBase64(processedInvoice.deliveryProof.signature);
+        const signatureBase64 = await imageUrlToBase64(
+          processedInvoice.deliveryProof.signature
+        );
         if (signatureBase64) {
           processedInvoice.deliveryProof.signature = signatureBase64;
         } else {
-           toast.error("Could not convert signature for PDF.");
+          toast.error("Could not convert signature for PDF.");
         }
       } catch (error) {
         toast.error("Failed to process signature image.");
         console.error("Signature conversion error:", error);
       }
     }
-    
+
     setInvoiceForPdf(processedInvoice);
     setPdfDialogOpen(true);
     // Add a small delay to ensure the PDF viewer has the data before the drawer closes.
@@ -378,9 +388,9 @@ const Invoices = () => {
     }, 100);
     setIsGeneratingPdf(null);
   };
-  
+
   const handleDownloadPdf = async (invoice) => {
-    setIsGeneratingPdf({ id: invoice._id, type: 'download' });
+    setIsGeneratingPdf({ id: invoice._id, type: "download" });
     try {
       if (!logoBase64) {
         toast.error("Logo not loaded yet. Please wait a moment.");
@@ -389,29 +399,37 @@ const Invoices = () => {
 
       // Create a deep, mutable copy of the invoice object to avoid read-only errors.
       let processedInvoice = JSON.parse(JSON.stringify(invoice));
-      
+
       if (processedInvoice.deliveryProof?.signature) {
-        const signatureBase64 = await imageUrlToBase64(processedInvoice.deliveryProof.signature);
+        const signatureBase64 = await imageUrlToBase64(
+          processedInvoice.deliveryProof.signature
+        );
         if (signatureBase64) {
           processedInvoice.deliveryProof.signature = signatureBase64;
         } else {
-          toast.error("Could not convert signature image. PDF will be generated without it.");
+          toast.error(
+            "Could not convert signature image. PDF will be generated without it."
+          );
         }
       }
-      
-      const doc = <InvoicePDFDocument invoice={processedInvoice} logoBase64={logoBase64} />;
+
+      const doc = (
+        <InvoicePDFDocument
+          invoice={processedInvoice}
+          logoBase64={logoBase64}
+        />
+      );
       const blob = await pdf(doc).toBlob();
-      
+
       const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      link.setAttribute('download', `invoice_${invoice.docketNumber}.pdf`);
+      link.setAttribute("download", `invoice_${invoice.docketNumber}.pdf`);
       document.body.appendChild(link);
       link.click();
-      
+
       link.parentNode.removeChild(link);
       URL.revokeObjectURL(url);
-
     } catch (error) {
       console.error("Failed to generate PDF for download:", error);
       toast.error("An error occurred while generating the PDF.");
@@ -423,17 +441,16 @@ const Invoices = () => {
   useEffect(() => {
     // When invoiceForPdf is updated and the type was 'download', we can reset the state
     // The actual download will be handled by the PDFDownloadLink component
-    if (invoiceForPdf && isGeneratingPdf?.type === 'download') {
+    if (invoiceForPdf && isGeneratingPdf?.type === "download") {
       // The state is ready for the link to be clicked. We can reset the loading state.
       // A short timeout can help ensure the link has time to re-render.
       setTimeout(() => {
         setIsGeneratingPdf(null);
       }, 500);
-    } else if (invoiceForPdf && isGeneratingPdf?.type === 'view') {
-       setIsGeneratingPdf(null); // It's ready for viewing
+    } else if (invoiceForPdf && isGeneratingPdf?.type === "view") {
+      setIsGeneratingPdf(null); // It's ready for viewing
     }
   }, [invoiceForPdf, isGeneratingPdf]);
-
 
   // Handle column checkbox toggle
   const handleColumnToggle = (idx) => {
@@ -612,17 +629,22 @@ const Invoices = () => {
   };
 
   // Call the hook here so it always runs when selectedInvoice changes
-  const driverUpdateLocations = useReverseGeocode(selectedInvoice?.driverUpdates);
+  const driverUpdateLocations = useReverseGeocode(
+    selectedInvoice?.driverUpdates
+  );
 
   const handleReservedDocketSubmit = async (e) => {
     e.preventDefault();
     if (!reservedForm.customer || !reservedForm.count) {
-      toast.error('Please select a customer and enter count.');
+      toast.error("Please select a customer and enter count.");
       return;
     }
     // For superAdmin/operation, require company and branch
-    if ((user?.role === 'superAdmin' || user?.role === 'operation') && (!reservedForm.company || !reservedForm.branch)) {
-      toast.error('Please select company and branch.');
+    if (
+      (user?.role === "superAdmin" || user?.role === "operation") &&
+      (!reservedForm.company || !reservedForm.branch)
+    ) {
+      toast.error("Please select company and branch.");
       return;
     }
     try {
@@ -632,20 +654,25 @@ const Invoices = () => {
         fromAddress: reservedForm.fromAddress,
         toAddress: reservedForm.toAddress,
         company:
-          user?.role === 'superAdmin' || user?.role === 'operation'
+          user?.role === "superAdmin" || user?.role === "operation"
             ? reservedForm.company
             : user?.company?._id,
         branch:
-          user?.role === 'superAdmin' || user?.role === 'operation'
+          user?.role === "superAdmin" || user?.role === "operation"
             ? reservedForm.branch
             : user?.branch?._id,
       }).unwrap();
-      toast.success('Reserved dockets created successfully!');
+      toast.success("Reserved dockets created successfully!");
       setReservedDialogOpen(false);
-      setReservedForm({ customer: '', count: 1, fromAddress: '', toAddress: '' });
+      setReservedForm({
+        customer: "",
+        count: 1,
+        fromAddress: "",
+        toAddress: "",
+      });
       refetch();
     } catch (err) {
-      toast.error(err?.data?.message || 'Failed to create reserved dockets');
+      toast.error(err?.data?.message || "Failed to create reserved dockets");
     }
   };
 
@@ -780,7 +807,9 @@ const Invoices = () => {
                   <SelectItem value="Created">Created</SelectItem>
                   <SelectItem value="Dispatched">Dispatched</SelectItem>
                   <SelectItem value="In Transit">In Transit</SelectItem>
-                  <SelectItem value="Arrived at Destination">Arrived at Destination</SelectItem>
+                  <SelectItem value="Arrived at Destination">
+                    Arrived at Destination
+                  </SelectItem>
                   <SelectItem value="Delivered">Delivered</SelectItem>
                   <SelectItem value="Cancelled">Cancelled</SelectItem>
                   <SelectItem value="Returned">Returned</SelectItem>
@@ -1020,9 +1049,18 @@ const Invoices = () => {
                     <td className="p-3 font-medium text-[#202020] dark:text-[#FFD249] text-center">
                       {limit * (page - 1) + i + 1}
                     </td>
-                    <td className="p-3 text-[#ad8a21] dark:text-[#FFD249] font-semibold text-center">
+                    <td
+                      className={`p-3 font-semibold text-center 
+    ${
+      inv.status === "Reserved"
+        ? "text-red-500"
+        : "text-[#ad8a21] dark:text-[#FFD249]"
+    }
+  `}
+                    >
                       {inv.docketNumber}
                     </td>
+
                     <td className="p-3 text-center">
                       {inv.customer?.name || (
                         <span className="text-[#828083]">N/A</span>
@@ -1115,7 +1153,8 @@ const Invoices = () => {
                         </AlertDialogContent>
                       </AlertDialog>
 
-                      {isGeneratingPdf?.id === inv._id && isGeneratingPdf?.type === 'download' ? (
+                      {isGeneratingPdf?.id === inv._id &&
+                      isGeneratingPdf?.type === "download" ? (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -1665,7 +1704,10 @@ const Invoices = () => {
                     <div className="space-y-3">
                       {selectedInvoice.driverUpdates.map((update, idx) => {
                         const { lat, lng } = update.location || {};
-                        const address = lat && lng ? driverUpdateLocations[`${lat},${lng}`] : null;
+                        const address =
+                          lat && lng
+                            ? driverUpdateLocations[`${lat},${lng}`]
+                            : null;
                         return (
                           <div
                             key={idx}
@@ -1753,7 +1795,16 @@ const Invoices = () => {
             </div>
           )}
           {selectedInvoice && (
-            <div style={{ position: 'sticky', bottom: 0, left: 0, right: 0, zIndex: 20 }} className="bg-white border-t border-gray-200 p-4 flex justify-center shadow-lg">
+            <div
+              style={{
+                position: "sticky",
+                bottom: 0,
+                left: 0,
+                right: 0,
+                zIndex: 20,
+              }}
+              className="bg-white border-t border-gray-200 p-4 flex justify-center shadow-lg"
+            >
               <Button
                 onClick={() => handleViewPDF(selectedInvoice)}
                 className="w-full max-w-xs bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020] font-semibold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center gap-3 group border border-[#FFD249] dark:bg-[#FFD249] dark:text-[#202020] dark:hover:bg-[#FFD249]/80"
@@ -1785,13 +1836,23 @@ const Invoices = () => {
               <DialogTitle>Invoice PDF Preview</DialogTitle>
             </DialogHeader>
             {isGeneratingPdf?.id === invoiceForPdf?._id ? (
-                 <div className="flex-1 flex items-center justify-center text-lg">
+              <div className="flex-1 flex items-center justify-center text-lg">
                 <Loader2 className="w-8 h-8 animate-spin text-blue-600 mr-2" />
                 Processing images...
               </div>
             ) : invoiceForPdf && logoBase64 ? (
-              <PDFViewer style={{ flex: 1, width: '100%', height: '100%', border: 'none' }}>
-                <InvoicePDFDocument invoice={invoiceForPdf} logoBase64={logoBase64} />
+              <PDFViewer
+                style={{
+                  flex: 1,
+                  width: "100%",
+                  height: "100%",
+                  border: "none",
+                }}
+              >
+                <InvoicePDFDocument
+                  invoice={invoiceForPdf}
+                  logoBase64={logoBase64}
+                />
               </PDFViewer>
             ) : (
               <div className="flex-1 flex items-center justify-center text-lg">
@@ -1918,13 +1979,19 @@ const Invoices = () => {
             </DialogHeader>
             <form onSubmit={handleReservedDocketSubmit} className="space-y-4">
               {/* Company/Branch dropdowns for superAdmin/operation */}
-              {(user?.role === 'superAdmin' || user?.role === 'operation') && (
+              {(user?.role === "superAdmin" || user?.role === "operation") && (
                 <>
                   <div>
                     <Label>Company</Label>
                     <Select
                       value={reservedForm.company}
-                      onValueChange={val => setReservedForm(f => ({ ...f, company: val, branch: '' }))}
+                      onValueChange={(val) =>
+                        setReservedForm((f) => ({
+                          ...f,
+                          company: val,
+                          branch: "",
+                        }))
+                      }
                       required
                     >
                       <SelectTrigger>
@@ -1932,7 +1999,9 @@ const Invoices = () => {
                       </SelectTrigger>
                       <SelectContent>
                         {companiesData?.companies?.map((c) => (
-                          <SelectItem key={c._id} value={c._id}>{c.name}</SelectItem>
+                          <SelectItem key={c._id} value={c._id}>
+                            {c.name}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -1941,7 +2010,9 @@ const Invoices = () => {
                     <Label>Branch</Label>
                     <Select
                       value={reservedForm.branch}
-                      onValueChange={val => setReservedForm(f => ({ ...f, branch: val }))}
+                      onValueChange={(val) =>
+                        setReservedForm((f) => ({ ...f, branch: val }))
+                      }
                       required
                       disabled={!reservedForm.company}
                     >
@@ -1950,7 +2021,9 @@ const Invoices = () => {
                       </SelectTrigger>
                       <SelectContent>
                         {branchOptions.map((b) => (
-                          <SelectItem key={b._id} value={b._id}>{b.name}</SelectItem>
+                          <SelectItem key={b._id} value={b._id}>
+                            {b.name}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -1961,7 +2034,9 @@ const Invoices = () => {
                 <Label>Customer</Label>
                 <Select
                   value={reservedForm.customer}
-                  onValueChange={(val) => setReservedForm(f => ({ ...f, customer: val }))}
+                  onValueChange={(val) =>
+                    setReservedForm((f) => ({ ...f, customer: val }))
+                  }
                   required
                 >
                   <SelectTrigger>
@@ -1969,7 +2044,9 @@ const Invoices = () => {
                   </SelectTrigger>
                   <SelectContent>
                     {customersData?.customers?.map((c) => (
-                      <SelectItem key={c._id} value={c._id}>{c.name}</SelectItem>
+                      <SelectItem key={c._id} value={c._id}>
+                        {c.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -1980,7 +2057,12 @@ const Invoices = () => {
                   type="number"
                   min={1}
                   value={reservedForm.count}
-                  onChange={e => setReservedForm(f => ({ ...f, count: Number(e.target.value) }))}
+                  onChange={(e) =>
+                    setReservedForm((f) => ({
+                      ...f,
+                      count: Number(e.target.value),
+                    }))
+                  }
                   placeholder="How many dockets to create?"
                   required
                 />
@@ -1989,7 +2071,12 @@ const Invoices = () => {
                 <Label>From Address (optional)</Label>
                 <Input
                   value={reservedForm.fromAddress}
-                  onChange={e => setReservedForm(f => ({ ...f, fromAddress: e.target.value }))}
+                  onChange={(e) =>
+                    setReservedForm((f) => ({
+                      ...f,
+                      fromAddress: e.target.value,
+                    }))
+                  }
                   placeholder="Pickup address (optional)"
                 />
               </div>
@@ -1997,12 +2084,26 @@ const Invoices = () => {
                 <Label>To Address (optional)</Label>
                 <Input
                   value={reservedForm.toAddress}
-                  onChange={e => setReservedForm(f => ({ ...f, toAddress: e.target.value }))}
+                  onChange={(e) =>
+                    setReservedForm((f) => ({
+                      ...f,
+                      toAddress: e.target.value,
+                    }))
+                  }
                   placeholder="Delivery address (optional)"
                 />
               </div>
-              <Button type="submit" className="w-full bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020] font-medium py-2 text-base border border-[#FFD249]" disabled={isCreatingReserved || ((user?.role === 'superAdmin' || user?.role === 'operation') && (!reservedForm.company || !reservedForm.branch))}>
-                {isCreatingReserved ? 'Creating...' : 'Create Reserved Dockets'}
+              <Button
+                type="submit"
+                className="w-full bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020] font-medium py-2 text-base border border-[#FFD249]"
+                disabled={
+                  isCreatingReserved ||
+                  ((user?.role === "superAdmin" ||
+                    user?.role === "operation") &&
+                    (!reservedForm.company || !reservedForm.branch))
+                }
+              >
+                {isCreatingReserved ? "Creating..." : "Create Reserved Dockets"}
               </Button>
             </form>
           </DialogContent>

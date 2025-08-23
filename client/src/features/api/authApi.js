@@ -203,10 +203,11 @@ export const authApi = createApi({
         status = "",
         company = "",
         branch = "",
+        driverType = "",
       }) => ({
         url: "/all-drivers",
         method: "GET",
-        params: { page, limit, search, status, company, branch },
+        params: { page, limit, search, status, company, branch, driverType },
       }),
       providesTags: ["Driver"],
     }),

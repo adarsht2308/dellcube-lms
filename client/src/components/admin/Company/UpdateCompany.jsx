@@ -149,7 +149,7 @@ const UpdateCompany = () => {
     if (!companyCode.trim()) return toast.error("Company code is required");
     if (!emailId.trim()) return toast.error("Email ID is required");
     if (!gstNumber.trim()) return toast.error("GST Number is required");
-    if (!gstNo.trim()) return toast.error("GST NO is required");
+    // if (!gstNo.trim()) return toast.error("GST NO is required");
     if (!gstValue || gstValue <= 0) return toast.error("GST Value is required and must be greater than 0");
     if (!pan.trim()) return toast.error("PAN is required");
     if (!sacHsnCode.trim()) return toast.error("SAC/HSN code is required");
@@ -172,7 +172,7 @@ const UpdateCompany = () => {
     payload.append("emailId", emailId);
     payload.append("website", website);
     payload.append("gstNumber", gstNumber);
-    payload.append("gstNo", gstNo);
+    // payload.append("gstNo", gstNo);
     payload.append("gstValue", gstValue);
     payload.append("pan", pan);
     payload.append("sacHsnCode", sacHsnCode);
@@ -262,7 +262,7 @@ const UpdateCompany = () => {
             placeholder="GST number"
           />
         </div>
-        <div>
+        {/* <div>
           <Label>GST NO</Label>
           <Input
             value={formData.gstNo}
@@ -271,7 +271,7 @@ const UpdateCompany = () => {
             }
             placeholder="GST NO"
           />
-        </div>
+        </div> */}
         <div>
           <Label>GST Value</Label>
           <Input
@@ -343,7 +343,7 @@ const UpdateCompany = () => {
             placeholder="Address"
           />
         </div>
-        <div>
+        {/* <div>
           <Label>Country</Label>
           <Select
             value={formData.region.country}
@@ -432,7 +432,8 @@ const UpdateCompany = () => {
               ))}
             </SelectContent>
           </Select>
-        </div>
+        </div> */}
+
         <div>
           <Label>Logo (optional)</Label>
           <Input

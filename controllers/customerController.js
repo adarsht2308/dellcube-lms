@@ -3,8 +3,23 @@ import { Customer } from "../models/customer.js";
 // Create Customer
 export const createCustomer = async (req, res) => {
   try {
-    const { name, email, phone, address, company, branch, status, gstNumber } =
-      req.body;
+    const { 
+      name, 
+      email, 
+      phone, 
+      address, 
+      company, 
+      branch, 
+      status, 
+      gstNumber,
+      companyName,
+      companyContactName,
+      companyContactInfo,
+      taxType,
+      taxValue,
+      consignees,
+      consignors
+    } = req.body;
 
     console.log(req.body);
 
@@ -22,6 +37,13 @@ export const createCustomer = async (req, res) => {
       company,
       branch,
       gstNumber,
+      companyName,
+      companyContactName,
+      companyContactInfo,
+      taxType,
+      taxValue: taxValue ? parseFloat(taxValue) : undefined,
+      consignees: consignees || [],
+      consignors: consignors || [],
       status: status !== undefined ? status : true,
     });
 
@@ -114,8 +136,24 @@ export const getCustomerById = async (req, res) => {
 // Update Customer
 export const updateCustomer = async (req, res) => {
   try {
-    const { customerId, name, email, phone, address, company, branch, status } =
-      req.body;
+    const { 
+      customerId, 
+      name, 
+      email, 
+      phone, 
+      address, 
+      company, 
+      branch, 
+      status,
+      gstNumber,
+      companyName,
+      companyContactName,
+      companyContactInfo,
+      taxType,
+      taxValue,
+      consignees,
+      consignors
+    } = req.body;
 
     const customer = await Customer.findById(customerId);
     if (!customer) {
@@ -129,9 +167,17 @@ export const updateCustomer = async (req, res) => {
     if (email) customer.email = email;
     if (phone) customer.phone = phone;
     if (address) customer.address = address;
+    if (gstNumber !== undefined) customer.gstNumber = gstNumber;
     if (company) customer.company = company;
     if (branch) customer.branch = branch;
     if (status !== undefined) customer.status = status;
+    if (companyName !== undefined) customer.companyName = companyName;
+    if (companyContactName !== undefined) customer.companyContactName = companyContactName;
+    if (companyContactInfo !== undefined) customer.companyContactInfo = companyContactInfo;
+    if (taxType !== undefined) customer.taxType = taxType;
+    if (taxValue !== undefined) customer.taxValue = taxValue ? parseFloat(taxValue) : undefined;
+    if (consignees !== undefined) customer.consignees = consignees;
+    if (consignors !== undefined) customer.consignors = consignors;
 
     await customer.save();
 

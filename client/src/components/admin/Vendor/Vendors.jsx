@@ -23,6 +23,7 @@ import {
   useAddVehicleMutation,
   useUpdateVendorMutation,
   useUpdateVendorVehicleStatusMutation, // <-- import the new hook
+  useAddVendorVehicleMaintenanceMutation, // <-- import the new maintenance hook
 } from "@/features/api/Vendor/vendorApi";
 import { useGetAllCompaniesQuery } from "@/features/api/Company/companyApi.js";
 import { useGetBranchesByCompanyMutation } from "@/features/api/Branch/branchApi.js";
@@ -140,6 +141,7 @@ const Vendors = () => {
   const [addVehicleToVendor] = useAddVehicleMutation();
   const [updateVendor] = useUpdateVendorMutation();
   const [updateVendorVehicleStatus] = useUpdateVendorVehicleStatusMutation();
+  const [addVendorVehicleMaintenance] = useAddVendorVehicleMaintenanceMutation();
 
   const [open, setOpen] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState(null);
@@ -204,11 +206,23 @@ const Vendors = () => {
 
   const handleAddVehicle = async (vendorId, formData) => {
     try {
-      const payload = {
-        ...formData,
-        vehicleNumber: formData.vehicleNumber,
-      };
-      await addVehicleToVendor({ vendorId, vehicle: payload }).unwrap();
+      // If formData is FormData (from file uploads), send it directly
+      if (formData instanceof FormData) {
+        // Append vendorId to the FormData
+        formData.append('vendorId', vendorId);
+        await addVehicleToVendor({ vehicle: formData }).unwrap();
+      } else {
+        // If it's a regular object, create FormData
+        const data = new FormData();
+        data.append('vendorId', vendorId);
+        Object.keys(formData).forEach(key => {
+          if (formData[key] !== "") {
+            data.append(key, formData[key]);
+          }
+        });
+        await addVehicleToVendor({ vehicle: data }).unwrap();
+      }
+      
       toast.success("Vehicle added to vendor successfully!");
       refetch();
       if (open && selectedVendor?._id === vendorId) {
@@ -295,10 +309,17 @@ const Vendors = () => {
 
   const [statusDialog, setStatusDialog] = useState({ open: false, vehicle: null });
   const [statusValue, setStatusValue] = useState("");
+  const [maintenanceDialog, setMaintenanceDialog] = useState({ open: false, vehicle: null });
+  
   const handleUpdateVehicleStatus = (vehicle) => {
     setOpen(false); // Close the drawer
     setStatusDialog({ open: true, vehicle });
     setStatusValue(vehicle.status || "");
+  };
+
+  const handleAddMaintenance = (vehicle) => {
+    setOpen(false); // Close the drawer
+    setMaintenanceDialog({ open: true, vehicle });
   };
 
   const handleRemoveVehicle = async (vehicleId) => {
@@ -546,6 +567,13 @@ const Vendors = () => {
                       </Button>
                       <Button
                         className="p-2 rounded-full bg-[#FFD249]/30 text-[#202020] hover:bg-[#FFD249]/60 dark:text-[#FFD249]"
+                        onClick={() => navigate(`/admin/vendors/${vendor._id}`)}
+                        title="View Full Details"
+                      >
+                        <Users className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        className="p-2 rounded-full bg-[#FFD249]/30 text-[#202020] hover:bg-[#FFD249]/60 dark:text-[#FFD249]"
                         onClick={() => { setVehicleDialogVendor(vendor); setShowAddVehicleDialog(true); }}
                         title="Add Vehicle"
                       >
@@ -689,6 +717,19 @@ const Vendors = () => {
             </div>
           ) : (
             <div className="p-6 space-y-6 overflow-x-hidden">
+              {/* Header with View Full Details button */}
+              <div className="flex items-center justify-between pb-4 border-b border-gray-200/50 dark:border-gray-700/50">
+                <h3 className="text-lg font-semibold text-[#202020] dark:text-[#FFD249]">
+                  Vendor Information
+                </h3>
+                <Button
+                  onClick={() => navigate(`/admin/vendors/${selectedVendor._id}`)}
+                  className="bg-[#FFD249] hover:bg-[#FFD249]/90 text-[#202020] font-semibold px-4 py-2 rounded-xl"
+                >
+                  View Full Details
+                </Button>
+              </div>
+              
               <InfoCard icon={Users} title="Vendor Information">
                 <InfoRow label="Name" value={selectedVendor.name} icon={Users} />
                 <InfoRow label="Email" value={selectedVendor.email} icon={Mail} />
@@ -722,18 +763,81 @@ const Vendors = () => {
                           <span className="text-gray-600 text-sm dark:text-gray-300">
                             {vehicle.brand} {vehicle.model}
                           </span>
+                          <span className="bg-blue-300 text-blue-900 text-xs px-2 py-1 rounded font-semibold dark:bg-blue-700 dark:text-blue-100">
+                            {vehicle.type}
+                          </span>
                         </div>
                         <div className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
-                          <p><strong>Year:</strong> {vehicle.yearOfManufacture}</p>
+                          <p><strong>Year:</strong> {vehicle.yearOfManufacture || 'N/A'}</p>
                           <p><strong>Status:</strong> {vehicle.status}</p>
+                          <p><strong>Registration Date:</strong> {vehicle.registrationDate ? new Date(vehicle.registrationDate).toLocaleDateString() : 'N/A'}</p>
                           <p><strong>FC Expiry:</strong> {vehicle.fitnessCertificateExpiry ? new Date(vehicle.fitnessCertificateExpiry).toLocaleDateString() : 'N/A'}</p>
+                          <p><strong>Insurance Expiry:</strong> {vehicle.insuranceExpiry ? new Date(vehicle.insuranceExpiry).toLocaleDateString() : 'N/A'}</p>
+                          <p><strong>Pollution Cert Expiry:</strong> {vehicle.pollutionCertificateExpiry ? new Date(vehicle.pollutionCertificateExpiry).toLocaleDateString() : 'N/A'}</p>
+                          <p><strong>Insurance No:</strong> {vehicle.vehicleInsuranceNo || 'N/A'}</p>
+                          <p><strong>Fitness No:</strong> {vehicle.fitnessNo || 'N/A'}</p>
                         </div>
-                        <div className="flex gap-2 mt-2">
-                          <Button size="sm" className="bg-yellow-400 hover:bg-yellow-500 text-yellow-900 dark:bg-yellow-700 dark:hover:bg-yellow-600 dark:text-yellow-100 border-none" onClick={() => handleRemoveVehicle(vehicle._id)}>
-                            Remove
-                          </Button>
-                          <Button size="sm" className="bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100 border-none" onClick={() => handleUpdateVehicleStatus(vehicle)}>
-                            Update Status
+                        
+                        {/* Certificate Images */}
+                        {(vehicle.fitnessCertificateImage?.url || vehicle.pollutionCertificateImage?.url || vehicle.registrationCertificateImage?.url || vehicle.insuranceImage?.url) && (
+                          <div className="mt-3 p-2 bg-gray-50 dark:bg-gray-800 rounded border">
+                            <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">Certificates:</p>
+                            <div className="grid grid-cols-2 gap-2">
+                              {vehicle.fitnessCertificateImage?.url && (
+                                <div className="text-center">
+                                  <img 
+                                    src={vehicle.fitnessCertificateImage.url} 
+                                    alt="Fitness Certificate" 
+                                    className="w-16 h-16 object-cover rounded border mx-auto"
+                                  />
+                                  <p className="text-xs text-gray-500">FC</p>
+                                </div>
+                              )}
+                              {vehicle.pollutionCertificateImage?.url && (
+                                <div className="text-center">
+                                  <img 
+                                    src={vehicle.pollutionCertificateImage.url} 
+                                    alt="Pollution Certificate" 
+                                    className="w-16 h-16 object-cover rounded border mx-auto"
+                                  />
+                                  <p className="text-xs text-gray-500">PC</p>
+                                </div>
+                              )}
+                              {vehicle.registrationCertificateImage?.url && (
+                                <div className="text-center">
+                                  <img 
+                                    src={vehicle.registrationCertificateImage.url} 
+                                    alt="Registration Certificate" 
+                                    className="w-16 h-16 object-cover rounded border mx-auto"
+                                  />
+                                  <p className="text-xs text-gray-500">RC</p>
+                                </div>
+                              )}
+                              {vehicle.insuranceImage?.url && (
+                                <div className="text-center">
+                                  <img 
+                                    src={vehicle.insuranceImage.url} 
+                                    alt="Insurance" 
+                                    className="w-16 h-16 object-cover rounded border mx-auto"
+                                  />
+                                  <p className="text-xs text-gray-500">INS</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex flex-col gap-2 mt-2">
+                          <div className="flex gap-2">
+                            <Button size="sm" className="bg-yellow-400 hover:bg-yellow-500 text-yellow-900 dark:bg-yellow-700 dark:hover:bg-yellow-600 dark:text-yellow-100 border-none" onClick={() => handleRemoveVehicle(vehicle._id)}>
+                              Remove
+                            </Button>
+                            <Button size="sm" className="bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100 border-none" onClick={() => handleUpdateVehicleStatus(vehicle)}>
+                              Update Status
+                            </Button>
+                          </div>
+                          <Button size="sm" className="bg-blue-400 hover:bg-blue-500 text-blue-900 dark:bg-blue-700 dark:hover:bg-blue-600 dark:text-blue-100 border-none w-full" onClick={() => handleAddMaintenance(vehicle)}>
+                            Add Maintenance
                           </Button>
                         </div>
                       </div>
@@ -810,6 +914,25 @@ const Vendors = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        
+        {/* Maintenance Dialog */}
+        <Dialog open={maintenanceDialog.open} onOpenChange={open => setMaintenanceDialog(s => ({ ...s, open }))}>
+          <DialogContent className="dark:bg-gray-800">
+            <DialogHeader>
+              <DialogTitle>Add Maintenance Record</DialogTitle>
+            </DialogHeader>
+            <AddMaintenanceForm 
+              vehicle={maintenanceDialog.vehicle}
+              vendorId={selectedVendor?._id}
+              onSuccess={async () => {
+                setMaintenanceDialog({ open: false, vehicle: null });
+                // Reopen the drawer with updated data
+                await handleView(selectedVendor._id);
+              }}
+              addMaintenance={addVendorVehicleMaintenance}
+            />
+          </DialogContent>
+        </Dialog>
       </div>
     </section>
   );
@@ -821,122 +944,397 @@ export default Vendors;
 const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
   const [form, setForm] = useState({
     vehicleNumber: "",
+    type: "7ft",
     brand: "",
     model: "",
     yearOfManufacture: "",
-    status: "active",
+    registrationDate: "",
     fitnessCertificateExpiry: "",
+    insuranceExpiry: "",
+    pollutionCertificateExpiry: "",
+    vehicleInsuranceNo: "",
+    fitnessNo: "",
+    status: "active",
   });
 
+  const [files, setFiles] = useState({
+    fitnessCertificateImage: null,
+    pollutionCertificateImage: null,
+    registrationCertificateImage: null,
+    insuranceImage: null,
+  });
+
+  // Debug form state
+  useEffect(() => {
+    console.log("Form state updated:", form);
+  }, [form]);
+
+  const handleFileChange = (field, file) => {
+    setFiles(prev => ({ ...prev, [field]: file }));
+  };
+
   const handleSubmit = () => {
-    if (!form.vehicleNumber || !form.brand || !form.model) {
-      toast.error("Vehicle Number, Brand, and Model are required.");
+    if (!form.vehicleNumber || !form.brand || !form.model || !form.type) {
+      toast.error("Vehicle Number, Type, Brand, and Model are required.");
       return;
     }
 
-    onAddVehicle(vendorId, form);
+    console.log("Form data before submission:", form);
+
+    // Create FormData for file uploads
+    const formData = new FormData();
+    
+    // Add vehicle data
+    Object.keys(form).forEach(key => {
+      if (form[key] !== "") {
+        formData.append(key, form[key]);
+        console.log(`Appending ${key}: ${form[key]}`);
+      } else {
+        console.log(`Skipping ${key}: ${form[key]} (empty)`);
+      }
+    });
+
+    // Add files
+    Object.keys(files).forEach(key => {
+      if (files[key]) {
+        formData.append(`vendorVehicle${key.charAt(0).toUpperCase() + key.slice(1)}`, files[key]);
+        console.log(`Appending file ${key}: ${files[key].name}`);
+      }
+    });
+
+    console.log("FormData entries:");
+    for (let [key, value] of formData.entries()) {
+      console.log(`${key}: ${value}`);
+    }
+
+    onAddVehicle(vendorId, formData);
     onClose();
 
     // Reset form
     setForm({
       vehicleNumber: "",
+      type: "7ft",
       brand: "",
       model: "",
       yearOfManufacture: "",
-      status: "active",
+      registrationDate: "",
       fitnessCertificateExpiry: "",
+      insuranceExpiry: "",
+      pollutionCertificateExpiry: "",
+      vehicleInsuranceNo: "",
+      fitnessNo: "",
+      status: "active",
+    });
+    setFiles({
+      fitnessCertificateImage: null,
+      pollutionCertificateImage: null,
+      registrationCertificateImage: null,
+      insuranceImage: null,
     });
   };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="dark:bg-gray-800 dark:text-white">
+      <DialogContent className="dark:bg-gray-800 dark:text-white max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="dark:text-white">
             Add Vehicle to Vendor
           </DialogTitle>
         </DialogHeader>
         {/* Card style for add vehicle form */}
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 shadow-sm dark:bg-yellow-950 dark:border-yellow-700">
-          <div className="grid gap-4 py-2">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="vehicleNumber" className="text-right dark:text-gray-200">
-                Vehicle Number
-              </Label>
-              <Input
-                id="vehicleNumber"
-                name="vehicleNumber"
-                placeholder="e.g. MH 04"
-                value={form.vehicleNumber}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, vehicleNumber: e.target.value }))
-                }
-                className="col-span-3 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-              />
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 shadow-sm dark:bg-yellow-950 dark:border-yellow-700">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Basic Vehicle Information */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200 border-b border-yellow-300 pb-2">
+                Basic Information
+              </h3>
+              
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <Label htmlFor="vehicleNumber" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                    Vehicle Number *
+                  </Label>
+                  <Input
+                    id="vehicleNumber"
+                    name="vehicleNumber"
+                    placeholder="e.g. MH 04 AB 1234"
+                    value={form.vehicleNumber}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, vehicleNumber: e.target.value }))
+                    }
+                    className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="type" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                    Vehicle Type *
+                  </Label>
+                  <Select
+                    value={form.type}
+                    onValueChange={(val) => {
+                      console.log("Setting type to:", val);
+                      setForm((prev) => ({ ...prev, type: val }));
+                    }}
+                  >
+                    <SelectTrigger className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600">
+                      <SelectValue placeholder="Select vehicle type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="7ft">7ft</SelectItem>
+                      <SelectItem value="10ft">10ft</SelectItem>
+                      <SelectItem value="14ft">14ft</SelectItem>
+                      <SelectItem value="18ft">18ft</SelectItem>
+                      <SelectItem value="24ft">24ft</SelectItem>
+                      <SelectItem value="32ft">32ft</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="brand" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                    Brand *
+                  </Label>
+                  <Input
+                    id="brand"
+                    name="brand"
+                    placeholder="e.g., Toyota"
+                    value={form.brand}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, brand: e.target.value }))
+                    }
+                    className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="model" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                    Model *
+                  </Label>
+                  <Input
+                    id="model"
+                    name="model"
+                    placeholder="e.g., Camry"
+                    value={form.model}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, model: e.target.value }))
+                    }
+                    className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="yearOfManufacture" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                    Year of Manufacture
+                  </Label>
+                  <Input
+                    id="yearOfManufacture"
+                    name="yearOfManufacture"
+                    type="number"
+                    placeholder="e.g., 2020"
+                    value={form.yearOfManufacture}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, yearOfManufacture: e.target.value }))
+                    }
+                    className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="status" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                    Status
+                  </Label>
+                  <Select
+                    value={form.status}
+                    onValueChange={(val) => setForm((prev) => ({ ...prev, status: val }))}
+                  >
+                    <SelectTrigger className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="under_maintenance">Under Maintenance</SelectItem>
+                      <SelectItem value="decommissioned">Decommissioned</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="brand" className="text-right dark:text-gray-200">
-                Brand
-              </Label>
-              <Input
-                id="brand"
-                name="brand"
-                placeholder="e.g., Toyota"
-                value={form.brand}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, brand: e.target.value }))
-                }
-                className="col-span-3 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="model" className="text-right dark:text-gray-200">
-                Model
-              </Label>
-              <Input
-                id="model"
-                name="model"
-                placeholder="e.g., Camry"
-                value={form.model}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, model: e.target.value }))
-                }
-                className="col-span-3 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="yearOfManufacture" className="text-right dark:text-gray-200">
-                Year
-              </Label>
-              <Input
-                id="yearOfManufacture"
-                name="yearOfManufacture"
-                type="number"
-                placeholder="e.g., 2020"
-                value={form.yearOfManufacture}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, yearOfManufacture: e.target.value }))
-                }
-                className="col-span-3 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="fitnessCertificateExpiry" className="text-right dark:text-gray-200">
-                FC Expiry
-              </Label>
-              <Input
-                id="fitnessCertificateExpiry"
-                name="fitnessCertificateExpiry"
-                type="date"
-                value={form.fitnessCertificateExpiry}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, fitnessCertificateExpiry: e.target.value }))
-                }
-                className="col-span-3 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-              />
+
+            {/* Dates and Documents */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200 border-b border-yellow-300 pb-2">
+                Dates & Documents
+              </h3>
+              
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <Label htmlFor="registrationDate" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                    Registration Date
+                  </Label>
+                  <Input
+                    id="registrationDate"
+                    name="registrationDate"
+                    type="date"
+                    value={form.registrationDate}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, registrationDate: e.target.value }))
+                    }
+                    className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="fitnessCertificateExpiry" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                    Fitness Certificate Expiry
+                  </Label>
+                  <Input
+                    id="fitnessCertificateExpiry"
+                    name="fitnessCertificateExpiry"
+                    type="date"
+                    value={form.fitnessCertificateExpiry}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, fitnessCertificateExpiry: e.target.value }))
+                    }
+                    className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="insuranceExpiry" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                    Insurance Expiry
+                  </Label>
+                  <Input
+                    id="insuranceExpiry"
+                    name="insuranceExpiry"
+                    type="date"
+                    value={form.insuranceExpiry}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, insuranceExpiry: e.target.value }))
+                    }
+                    className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="pollutionCertificateExpiry" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                    Pollution Certificate Expiry
+                  </Label>
+                  <Input
+                    id="pollutionCertificateExpiry"
+                    name="pollutionCertificateExpiry"
+                    type="date"
+                    value={form.pollutionCertificateExpiry}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, pollutionCertificateExpiry: e.target.value }))
+                    }
+                    className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="vehicleInsuranceNo" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                    Vehicle Insurance Number
+                  </Label>
+                  <Input
+                    id="vehicleInsuranceNo"
+                    name="vehicleInsuranceNo"
+                    placeholder="e.g., INS123456789"
+                    value={form.vehicleInsuranceNo}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, vehicleInsuranceNo: e.target.value }))
+                    }
+                    className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="fitnessNo" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                    Fitness Certificate Number
+                  </Label>
+                  <Input
+                    id="fitnessNo"
+                    name="fitnessNo"
+                    placeholder="e.g., FC123456789"
+                    value={form.fitnessNo}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, fitnessNo: e.target.value }))
+                    }
+                    className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                  />
+                </div>
+              </div>
             </div>
           </div>
-          <div className="flex justify-end mt-4">
+
+          {/* File Uploads */}
+          <div className="mt-6 space-y-4">
+            <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200 border-b border-yellow-300 pb-2">
+              Certificate Images
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="fitnessCertificateImage" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                  Fitness Certificate Image
+                </Label>
+                <Input
+                  id="fitnessCertificateImage"
+                  name="fitnessCertificateImage"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleFileChange('fitnessCertificateImage', e.target.files[0])}
+                  className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="pollutionCertificateImage" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                  Pollution Certificate Image
+                </Label>
+                <Input
+                  id="pollutionCertificateImage"
+                  name="pollutionCertificateImage"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleFileChange('pollutionCertificateImage', e.target.files[0])}
+                  className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="registrationCertificateImage" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                  Registration Certificate Image
+                </Label>
+                <Input
+                  id="registrationCertificateImage"
+                  name="registrationCertificateImage"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleFileChange('registrationCertificateImage', e.target.files[0])}
+                  className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="insuranceImage" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                  Insurance Image
+                </Label>
+                <Input
+                  id="insuranceImage"
+                  name="insuranceImage"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleFileChange('insuranceImage', e.target.files[0])}
+                  className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end mt-6">
             <Button
               onClick={handleSubmit}
               className="dark:bg-blue-600 dark:hover:bg-blue-700 dark:text-white"
@@ -947,5 +1345,183 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
         </div>
       </DialogContent>
     </Dialog>
+  );
+};
+
+// AddMaintenanceForm component for vendor vehicles
+const AddMaintenanceForm = ({ vehicle, vendorId, onSuccess, addMaintenance }) => {
+  const [form, setForm] = useState({
+    serviceDate: "",
+    serviceType: "",
+    cost: "",
+    description: "",
+    servicedBy: "",
+  });
+
+  const [billImage, setBillImage] = useState(null);
+
+  const handleSubmit = async () => {
+    if (!form.serviceDate || !form.serviceType || !form.description) {
+      toast.error("Service Date, Type, and Description are required.");
+      return;
+    }
+
+    try {
+      // Create FormData for file uploads
+      const formData = new FormData();
+      
+      // Add vendorId and vehicleId
+      formData.append('vendorId', vendorId);
+      formData.append('vehicleId', vehicle._id);
+      
+      // Add maintenance data
+      Object.keys(form).forEach(key => {
+        if (form[key] !== "") {
+          formData.append(key, form[key]);
+        }
+      });
+
+      // Add bill image if present
+      if (billImage) {
+        formData.append('vendorVehicleBillImage', billImage);
+      }
+
+      await addMaintenance({
+        maintenance: formData,
+      }).unwrap();
+
+      toast.success("Maintenance record added successfully!");
+      onSuccess();
+
+      // Reset form
+      setForm({
+        serviceDate: "",
+        serviceType: "",
+        cost: "",
+        description: "",
+        servicedBy: "",
+      });
+      setBillImage(null);
+    } catch (err) {
+      toast.error(err?.data?.message || "Failed to add maintenance record.");
+      console.error("Failed to add maintenance record:", err);
+    }
+  };
+
+  return (
+    <div className="space-y-4 py-4">
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 dark:bg-blue-950 dark:border-blue-700">
+        <h4 className="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-3">
+          Vehicle: {vehicle?.vehicleNumber} - {vehicle?.brand} {vehicle?.model}
+        </h4>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="serviceDate" className="text-blue-800 dark:text-blue-200 font-medium">
+              Service Date *
+            </Label>
+            <Input
+              id="serviceDate"
+              name="serviceDate"
+              type="date"
+              value={form.serviceDate}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, serviceDate: e.target.value }))
+              }
+              className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="serviceType" className="text-blue-800 dark:text-blue-200 font-medium">
+              Service Type *
+            </Label>
+            <Input
+              id="serviceType"
+              name="serviceType"
+              placeholder="e.g., Oil Change, Brake Service"
+              value={form.serviceType}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, serviceType: e.target.value }))
+              }
+              className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="cost" className="text-blue-800 dark:text-blue-200 font-medium">
+              Cost (₹)
+            </Label>
+            <Input
+              id="cost"
+              name="cost"
+              type="number"
+              placeholder="e.g., 1500"
+              value={form.cost}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, cost: e.target.value }))
+              }
+              className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="servicedBy" className="text-blue-800 dark:text-blue-200 font-medium">
+              Serviced By
+            </Label>
+            <Input
+              id="servicedBy"
+              name="servicedBy"
+              placeholder="e.g., ABC Service Center"
+              value={form.servicedBy}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, servicedBy: e.target.value }))
+              }
+              className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+            />
+          </div>
+
+          <div className="md:col-span-2">
+            <Label htmlFor="description" className="text-blue-800 dark:text-blue-200 font-medium">
+              Description *
+            </Label>
+            <textarea
+              id="description"
+              name="description"
+              placeholder="Describe the service performed..."
+              value={form.description}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, description: e.target.value }))
+              }
+              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+              rows="3"
+            />
+          </div>
+
+          <div className="md:col-span-2">
+            <Label htmlFor="billImage" className="text-blue-800 dark:text-blue-200 font-medium">
+              Bill Image
+            </Label>
+            <Input
+              id="billImage"
+              name="billImage"
+              type="file"
+              accept="image/*"
+              onChange={(e) => setBillImage(e.target.files[0])}
+              className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end mt-4">
+          <Button
+            onClick={handleSubmit}
+            className="dark:bg-blue-600 dark:hover:bg-blue-700 dark:text-white"
+          >
+            Add Maintenance Record
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 };

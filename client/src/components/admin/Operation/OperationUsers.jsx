@@ -303,6 +303,8 @@ const OperationUsers = () => {
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">No</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Name</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Email</th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Aadhar</th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">PAN</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Company</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Branch</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Status</th>
@@ -312,7 +314,7 @@ const OperationUsers = () => {
             <tbody className="divide-y divide-gray-200 text-center">
               {isLoading ? (
                 <tr>
-                  <td colSpan="7" className="text-center py-6">
+                  <td colSpan="9" className="text-center py-6">
                     <Loader2 className="animate-spin mx-auto text-[#FFD249]" /> Loading...
                   </td>
                 </tr>
@@ -330,6 +332,8 @@ const OperationUsers = () => {
                     <td className="p-3 font-medium text-[#202020] dark:text-[#FFD249] text-center">{limit * (page - 1) + (i + 1)}</td>
                     <td className="p-3 text-[#202020] dark:text-[#FFD249] font-semibold">{user.name}</td>
                     <td className="p-3 text-[#202020] dark:text-[#FFD249]">{user.email}</td>
+                    <td className="p-3 text-[#202020] dark:text-[#FFD249] font-mono text-xs">{user.aadharNumber || <span className="text-gray-400">N/A</span>}</td>
+                    <td className="p-3 text-[#202020] dark:text-[#FFD249] font-mono text-xs">{user.panNumber || <span className="text-gray-400">N/A</span>}</td>
                     <td className="p-3 text-[#202020] dark:text-[#FFD249]">{user.company?.name || <span className="text-gray-400">N/A</span>}</td>
                     <td className="p-3 text-[#202020] dark:text-[#FFD249]">{user.branch?.name || <span className="text-gray-400">N/A</span>}</td>
                     <td className="p-3 text-center">
@@ -380,7 +384,7 @@ const OperationUsers = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="7" className="text-center py-10 text-[#828083]">
+                  <td colSpan="9" className="text-center py-10 text-[#828083]">
                     <UserRound className="w-8 h-8 mx-auto text-[#828083]" />
                     <p className="text-[#828083] font-medium">No Operation Users Available</p>
                     <p className="text-sm text-[#828083]">Add a new operation user to begin</p>
@@ -394,6 +398,8 @@ const OperationUsers = () => {
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">No</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Name</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Email</th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Aadhar</th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">PAN</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Company</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Branch</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Status</th>
@@ -469,6 +475,42 @@ const OperationUsers = () => {
                   <InfoRow label="Status" value={selectedUser.status ? 'Active' : 'Inactive'} icon={UserRound} />
                   <InfoRow label="Company" value={selectedUser.company?.name} icon={Building2} />
                   <InfoRow label="Branch" value={selectedUser.branch?.name} icon={MapPin} />
+                </InfoCard>
+
+                <InfoCard icon={UserRound} title="Identity Documents">
+                  <InfoRow 
+                    label="Aadhar Number" 
+                    value={selectedUser.aadharNumber} 
+                    icon={UserRound} 
+                  />
+                  <InfoRow 
+                    label="PAN Number" 
+                    value={selectedUser.panNumber} 
+                    icon={UserRound} 
+                  />
+                </InfoCard>
+
+                <InfoCard icon={Box} title="Bank Account Details">
+                  <InfoRow 
+                    label="Account Holder" 
+                    value={selectedUser.bankDetails?.accountHolderName} 
+                    icon={UserRound} 
+                  />
+                  <InfoRow 
+                    label="Bank Name" 
+                    value={selectedUser.bankDetails?.bankName} 
+                    icon={Building2} 
+                  />
+                  <InfoRow 
+                    label="Account Number" 
+                    value={selectedUser.bankDetails?.accountNumber} 
+                    icon={UserRound} 
+                  />
+                  <InfoRow 
+                    label="IFSC Code" 
+                    value={selectedUser.bankDetails?.ifscCode} 
+                    icon={UserRound} 
+                  />
                 </InfoCard>
               </div>
             )}

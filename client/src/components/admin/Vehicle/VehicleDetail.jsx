@@ -237,6 +237,81 @@ const VehicleDetail = () => {
               );
             })}
           </div>
+          
+          {/* Document Numbers Display */}
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            {vehicleData.vehicleInsuranceNo && (
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl p-4 border border-gray-200/50 dark:border-gray-700/50">
+                <div className="flex items-center gap-2 mb-2">
+                  <Hash className="w-4 h-4 text-[#FFD249]" />
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Vehicle Insurance Number</span>
+                </div>
+                <p className="text-lg font-semibold text-[#202020] dark:text-[#FFD249]">{vehicleData.vehicleInsuranceNo}</p>
+              </div>
+            )}
+            {vehicleData.fitnessNo && (
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl p-4 border border-gray-200/50 dark:border-gray-700/50">
+                <div className="flex items-center gap-2 mb-2">
+                  <Hash className="w-4 h-4 text-[#FFD249]" />
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Fitness Number</span>
+                </div>
+                <p className="text-lg font-semibold text-[#202020] dark:text-[#FFD249]">{vehicleData.fitnessNo}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Document Expiry Status */}
+          <div className="mt-4">
+            <h3 className="text-lg font-semibold text-[#202020] dark:text-[#FFD249] mb-3">Document Expiry Status</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {[
+                {
+                  label: "Fitness Certificate",
+                  expiry: vehicleData.fitnessCertificateExpiry,
+                  icon: "🏥"
+                },
+                {
+                  label: "Insurance",
+                  expiry: vehicleData.insuranceExpiry,
+                  icon: "🛡️"
+                },
+                {
+                  label: "Pollution Certificate",
+                  expiry: vehicleData.pollutionCertificateExpiry,
+                  icon: "🌱"
+                }
+              ].map(({ label, expiry, icon }) => {
+                if (!expiry) return null;
+                
+                const today = new Date();
+                const expiryDate = new Date(expiry);
+                const daysUntilExpiry = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+                
+                let statusColor, statusText;
+                if (daysUntilExpiry < 0) {
+                  statusColor = "bg-red-100 text-red-800 border-red-200";
+                  statusText = `EXPIRED ${Math.abs(daysUntilExpiry)} days ago`;
+                } else if (daysUntilExpiry <= 30) {
+                  statusColor = "bg-orange-100 text-orange-800 border-orange-200";
+                  statusText = `Expires in ${daysUntilExpiry} days`;
+                } else {
+                  statusColor = "bg-green-100 text-green-800 border-green-200";
+                  statusText = `Valid for ${daysUntilExpiry} days`;
+                }
+                
+                return (
+                  <div key={label} className={`p-4 rounded-xl border ${statusColor}`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-2xl">{icon}</span>
+                      <span className="font-medium text-sm">{label}</span>
+                    </div>
+                    <p className="text-sm font-semibold">{statusText}</p>
+                    <p className="text-xs opacity-75">Expires: {expiryDate.toLocaleDateString()}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {/* Stats Section */}
@@ -306,13 +381,14 @@ const VehicleDetail = () => {
                 <th className="px-4 py-3 text-left">Type</th>
                 <th className="px-4 py-3 text-left">Description</th>
                 <th className="px-4 py-3 text-left">Cost (₹)</th>
+                <th className="px-4 py-3 text-left">Bill</th>
                 {/* <th className="px-4 py-3 text-left">Status</th> */}
               </tr>
             </thead>
             <tbody>
               {paginatedMaintenance.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-8 text-[#828083]">
+                  <td colSpan={6} className="text-center py-8 text-[#828083]">
                     No maintenance records found for this month.
                   </td>
                 </tr>
@@ -328,6 +404,29 @@ const VehicleDetail = () => {
                     <td className="px-4 py-3">{m.type || m.serviceType}</td>
                     <td className="px-4 py-3">{m.description}</td>
                     <td className="px-4 py-3">₹{m.cost?.toLocaleString()}</td>
+                    <td className="px-4 py-3">
+                      {m.billImage?.url ? (
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" size="sm" className="text-xs">
+                              View Bill
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Maintenance Bill</DialogTitle>
+                            </DialogHeader>
+                            <img
+                              src={m.billImage.url}
+                              alt="Maintenance Bill"
+                              className="max-w-full max-h-[60vh] mx-auto rounded-lg border"
+                            />
+                          </DialogContent>
+                        </Dialog>
+                      ) : (
+                        <span className="text-gray-400 text-xs">No Bill</span>
+                      )}
+                    </td>
                     {/* <td className="px-4 py-3">{m.status}</td> */}
                   </tr>
                 ))
@@ -339,6 +438,7 @@ const VehicleDetail = () => {
                 <th className="px-4 py-3 text-left">Type</th>
                 <th className="px-4 py-3 text-left">Description</th>
                 <th className="px-4 py-3 text-left">Cost (₹)</th>
+                <th className="px-4 py-3 text-left">Bill</th>
                 {/* <th className="px-4 py-3 text-left">Status</th> */}
               </tr>
             </thead>

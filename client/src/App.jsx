@@ -71,6 +71,7 @@ import UpdateTransportMode from "./components/admin/TransportMode/UpdateTranspor
 import TransportModes from "./components/admin/TransportMode/TransportModes.jsx";
 import OperationDashboard from "./components/admin/OperationDashboard.jsx";
 import VehicleDetail from "./components/admin/Vehicle/VehicleDetail.jsx";
+import VendorDetail from "./components/admin/Vendor/VendorDetail.jsx";
 
 const appRouter = createBrowserRouter([
   //Homepage Routes
@@ -466,6 +467,14 @@ const appRouter = createBrowserRouter([
         element: (
           <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
             <Vendors />
+          </RoleProtectedRoute>
+        ),
+      },
+      {
+        path: "vendors/:vendorId",
+        element: (
+          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
+            <VendorDetail />
           </RoleProtectedRoute>
         ),
       },

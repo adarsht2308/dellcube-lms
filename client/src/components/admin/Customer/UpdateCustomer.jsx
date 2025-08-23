@@ -51,6 +51,13 @@ const UpdateCustomer = () => {
     address: "",
     company: "",
     branch: "",
+    companyName: "",
+    companyContactName: "",
+    companyContactInfo: "",
+    taxType: "",
+    taxValue: "",
+    consignees: [],
+    consignors: [],
     status: true,
   });
 
@@ -70,6 +77,13 @@ const UpdateCustomer = () => {
         address: c.address || "",
         company: isBranchAdmin ? user?.company : c.company?._id || "",
         branch: "",
+        companyName: c.companyName || "",
+        companyContactName: c.companyContactName || "",
+        companyContactInfo: c.companyContactInfo || "",
+        taxType: c.taxType || "",
+        taxValue: c.taxValue || "",
+        consignees: c.consignees || [],
+        consignors: c.consignors || [],
         status: c.status === true || c.status === "active",
       });
 
@@ -182,6 +196,81 @@ const UpdateCustomer = () => {
           />
         </div>
 
+        {/* Company Information Section */}
+        <div className="col-span-2">
+          <Label className="font-semibold text-gray-700">Company Information</Label>
+        </div>
+        
+        <div>
+          <Label>Company Name</Label>
+          <Input
+            value={formData.companyName}
+            onChange={(e) =>
+              setFormData({ ...formData, companyName: e.target.value })
+            }
+          />
+        </div>
+
+        <div>
+          <Label>Company Contact Name</Label>
+          <Input
+            value={formData.companyContactName}
+            onChange={(e) =>
+              setFormData({ ...formData, companyContactName: e.target.value })
+            }
+          />
+        </div>
+
+        <div className="col-span-2">
+          <Label>Company Contact Info</Label>
+          <Input
+            value={formData.companyContactInfo}
+            onChange={(e) =>
+              setFormData({ ...formData, companyContactInfo: e.target.value })
+            }
+          />
+        </div>
+
+        {/* Tax Information Section */}
+        <div className="col-span-2">
+          <Label className="font-semibold text-gray-700">Tax Information</Label>
+        </div>
+
+        <div>
+          <Label>Tax Type</Label>
+          <Select
+            value={formData.taxType}
+            onValueChange={(value) =>
+              setFormData({ ...formData, taxType: value })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select tax type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="GST">GST</SelectItem>
+              <SelectItem value="CGST+SGST">CGST+SGST</SelectItem>
+              <SelectItem value="IGST">IGST</SelectItem>
+              <SelectItem value="Exempt">Exempt</SelectItem>
+              <SelectItem value="Other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label>Tax Value (%)</Label>
+          <Input
+            type="number"
+            min="0"
+            max="100"
+            step="0.01"
+            value={formData.taxValue}
+            onChange={(e) =>
+              setFormData({ ...formData, taxValue: e.target.value })
+            }
+          />
+        </div>
+
         <div>
           <Label>Company</Label>
           <Select
@@ -235,6 +324,127 @@ const UpdateCustomer = () => {
             }
           />
           <span>{formData.status ? "Active" : "Inactive"}</span>
+        </div>
+
+        {/* Consignee Section */}
+        <div className="col-span-2">
+          <Label className="font-semibold text-gray-700">Consignees</Label>
+          <div className="space-y-3">
+            {formData.consignees.map((consignee, index) => (
+              <div key={index} className="p-3 border border-gray-200 rounded-lg bg-gray-50">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs mb-1">Site ID</Label>
+                    <Input
+                      placeholder="Enter site ID"
+                      value={consignee.siteId}
+                      onChange={(e) => {
+                        const newConsignees = [...formData.consignees];
+                        newConsignees[index].siteId = e.target.value;
+                        setFormData({ ...formData, consignees: newConsignees });
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs mb-1">Consignee</Label>
+                    <Input
+                      placeholder="Enter consignee name"
+                      value={consignee.consignee}
+                      onChange={(e) => {
+                        const newConsignees = [...formData.consignees];
+                        newConsignees[index].consignee = e.target.value;
+                        setFormData({ ...formData, consignees: newConsignees });
+                      }}
+                    />
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 text-red-600 hover:text-red-700"
+                  onClick={() => {
+                    const newConsignees = formData.consignees.filter((_, i) => i !== index);
+                    setFormData({ ...formData, consignees: newConsignees });
+                  }}
+                >
+                  Remove Consignee
+                </Button>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setFormData({
+                  ...formData,
+                  consignees: [
+                    ...formData.consignees,
+                    {
+                      siteId: "",
+                      consignee: "",
+                    },
+                  ],
+                });
+              }}
+            >
+              Add Consignee
+            </Button>
+          </div>
+        </div>
+
+        {/* Consignor Section */}
+        <div className="col-span-2">
+          <Label className="font-semibold text-gray-700">Consignors</Label>
+          <div className="space-y-3">
+            {formData.consignors.map((consignor, index) => (
+              <div key={index} className="p-3 border border-gray-200 rounded-lg bg-gray-50">
+                <div className="grid grid-cols-1 gap-3">
+                  <div>
+                    <Label className="text-xs mb-1">Consignor</Label>
+                    <Input
+                      placeholder="Enter consignor name"
+                      value={consignor.consignor}
+                      onChange={(e) => {
+                        const newConsignors = [...formData.consignors];
+                        newConsignors[index].consignor = e.target.value;
+                        setFormData({ ...formData, consignors: newConsignors });
+                      }}
+                    />
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 text-red-600 hover:text-red-700"
+                  onClick={() => {
+                    const newConsignors = formData.consignors.filter((_, i) => i !== index);
+                    setFormData({ ...formData, consignors: newConsignors });
+                  }}
+                >
+                  Remove Consignor
+                </Button>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setFormData({
+                  ...formData,
+                  consignors: [
+                    ...formData.consignors,
+                    {
+                      consignor: "",
+                    },
+                  ],
+                });
+              }}
+            >
+              Add Consignor
+            </Button>
+          </div>
         </div>
       </div>
 

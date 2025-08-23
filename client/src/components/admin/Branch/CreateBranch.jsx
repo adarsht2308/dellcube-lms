@@ -187,7 +187,7 @@ const CreateBranch = () => {
             placeholder="Branch Address"
           />
         </div>
-        <div>
+        {/* <div>
           <Label>Country</Label>
           <Select
             value={formData.region.country}
@@ -276,7 +276,7 @@ const CreateBranch = () => {
               ))}
             </SelectContent>
           </Select>
-        </div>
+        </div> */}
         <div className="flex items-center gap-4 mt-2">
           <Label htmlFor="status-toggle">Active Status</Label>
           <Switch

@@ -223,7 +223,7 @@ const UpdateBranch = () => {
           />
         </div>
 
-        <div>
+        {/* <div>
           <Label>Country</Label>
           <Select
             value={formData.region.country}
@@ -316,7 +316,7 @@ const UpdateBranch = () => {
               ))}
             </SelectContent>
           </Select>
-        </div>
+        </div> */}
 
         <div className="flex items-center gap-4 mt-2">
           <Label>Status</Label>

@@ -40,6 +40,8 @@ const CreateVehicle = () => {
     currentDriver: "",
     company: "",
     branch: "",
+    vehicleInsuranceNo: "",
+    fitnessNo: "",
   });
 
   const [branches, setBranches] = useState([]);
@@ -206,7 +208,7 @@ const CreateVehicle = () => {
             <SelectContent>
               {driversData?.drivers?.map((driver) => (
                 <SelectItem key={driver._id} value={driver._id}>
-                  {driver.name} - {driver.mobile} 
+                  {driver.name} - {driver.mobile} - {driver.driverType}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -299,6 +301,28 @@ const CreateVehicle = () => {
                 ...formData,
                 pollutionCertificateExpiry: e.target.value,
               })
+            }
+          />
+        </div>
+
+        <div>
+          <Label className="text-gray-700 mb-1 block">Vehicle Insurance Number</Label>
+          <Input
+            placeholder="Enter vehicle insurance number"
+            value={formData.vehicleInsuranceNo}
+            onChange={(e) =>
+              setFormData({ ...formData, vehicleInsuranceNo: e.target.value })
+            }
+          />
+        </div>
+
+        <div>
+          <Label className="text-gray-700 mb-1 block">Fitness Number</Label>
+          <Input
+            placeholder="Enter fitness certificate number"
+            value={formData.fitnessNo}
+            onChange={(e) =>
+              setFormData({ ...formData, fitnessNo: e.target.value })
             }
           />
         </div>

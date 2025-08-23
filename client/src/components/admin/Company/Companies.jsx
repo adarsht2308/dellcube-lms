@@ -355,7 +355,7 @@ const Companies = () => {
                               <InfoRow label="Email" value={selectedCompany.emailId} icon={Mail} />
                               <InfoRow label="Website" value={selectedCompany.website || "N/A"} icon={Globe} />
                               <InfoRow label="GST Number" value={selectedCompany.gstNumber} icon={Building2} />
-                              <InfoRow label="GST NO" value={selectedCompany.gstNo} icon={Building2} />
+                              {/* <InfoRow label="GST NO" value={selectedCompany.gstNo} icon={Building2} /> */}
                               <InfoRow label="GST Value" value={selectedCompany.gstValue} icon={Building2} />
                               <InfoRow label="PAN" value={selectedCompany.pan} icon={Building2} />
                               <InfoRow label="SAC/HSN" value={selectedCompany.sacHsnCode} icon={Building2} />
@@ -365,11 +365,11 @@ const Companies = () => {
                             </InfoCard>
                             <InfoCard icon={MapPin} title="Address & Region">
                               <InfoRow label="Address" value={selectedCompany.address} icon={MapPin} />
-                              <InfoRow label="Country" value={selectedCompany?.region?.country?.name} icon={Globe} />
+                              {/* <InfoRow label="Country" value={selectedCompany?.region?.country?.name} icon={Globe} />
                               <InfoRow label="State" value={selectedCompany?.region?.state?.name} icon={MapPin} />
                               <InfoRow label="City" value={selectedCompany?.region?.city?.name} icon={MapPin} />
                               <InfoRow label="Locality" value={selectedCompany?.region?.locality?.name} icon={MapPin} />
-                              <InfoRow label="Pincode" value={selectedCompany?.region?.pincode?.code} icon={MapPin} />
+                              <InfoRow label="Pincode" value={selectedCompany?.region?.pincode?.code} icon={MapPin} /> */}
                             </InfoCard>
 
                             {/* Enhanced Bank Details */}

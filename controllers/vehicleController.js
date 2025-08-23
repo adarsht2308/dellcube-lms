@@ -2,6 +2,127 @@ import { Vehicle } from "../models/vehicle.js";
 import mongoose from "mongoose";
 import { v2 as cloudinary } from "cloudinary";
 import { Vendor } from "../models/vendor.js"; // Added import for Vendor
+import { User } from "../models/user.js"; // Import User model to find recipients
+import { sendVehicleExpiryNotification } from "../utils/common/sendMail.js"; // Import email function
+
+// Helper function to get recipients for vehicle notifications
+const getVehicleNotificationRecipients = async (vehicle) => {
+  try {
+    const recipients = [];
+    
+    // Get super admin users
+    const superAdmins = await User.find({ role: "superAdmin" }).select("email name");
+    recipients.push(...superAdmins);
+    
+    // Get branch admin users for this vehicle's company and branch
+    if (vehicle.company && vehicle.branch) {
+      const branchAdmins = await User.find({ 
+        role: "branchAdmin", 
+        company: vehicle.company,
+        branch: vehicle.branch 
+      }).select("email name");
+      recipients.push(...branchAdmins);
+    }
+    
+    // Get operation users for this vehicle's company and branch
+    if (vehicle.company && vehicle.branch) {
+      const operationUsers = await User.find({ 
+        role: "operation", 
+        company: vehicle.company,
+        branch: vehicle.branch 
+      }).select("email name");
+      recipients.push(...operationUsers);
+    }
+    
+    // Get driver if they have an email
+    if (vehicle.currentDriver) {
+      const driver = await User.findById(vehicle.currentDriver).select("email name");
+      if (driver && driver.email) {
+        recipients.push(driver);
+      }
+    }
+    
+    // Remove duplicates based on email
+    const uniqueRecipients = recipients.filter((recipient, index, self) => 
+      index === self.findIndex(r => r.email === recipient.email)
+    );
+    
+    return uniqueRecipients;
+  } catch (error) {
+    console.error("Error getting vehicle notification recipients:", error);
+    return [];
+  }
+};
+
+// Helper function to check document expiry and send notifications
+const checkDocumentExpiryForNotifications = async (vehicles) => {
+  const today = new Date();
+  const thirtyDaysFromNow = new Date(today.getTime() + (30 * 24 * 60 * 60 * 1000));
+  const notifications = [];
+  
+  for (const vehicle of vehicles) {
+    const checks = [
+      { type: 'Fitness Certificate', date: vehicle.fitnessCertificateExpiry, field: 'fitnessCertificateExpiry' },
+      { type: 'Insurance', date: vehicle.insuranceExpiry, field: 'insuranceExpiry' },
+      { type: 'Pollution Certificate', date: vehicle.pollutionCertificateExpiry, field: 'pollutionCertificateExpiry' }
+    ];
+    
+    for (const check of checks) {
+      if (check.date) {
+        const expiryDate = new Date(check.date);
+        const daysUntilExpiry = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+        
+        // Send notifications for documents expiring within 30 days or already expired
+        if (daysUntilExpiry <= 30) {
+          try {
+            // Get recipients for this vehicle
+            const recipients = await getVehicleNotificationRecipients(vehicle);
+            
+            if (recipients.length > 0) {
+              // Send email notification
+              const emailResult = await sendVehicleExpiryNotification(
+                recipients,
+                vehicle,
+                check.type,
+                expiryDate,
+                daysUntilExpiry
+              );
+              
+              notifications.push({
+                vehicleNumber: vehicle.vehicleNumber,
+                documentType: check.type,
+                expiryDate: expiryDate,
+                daysUntilExpiry: daysUntilExpiry,
+                status: daysUntilExpiry <= 0 ? 'expired' : 'expiring_soon',
+                company: vehicle.company?.name || 'Unknown',
+                branch: vehicle.branch?.name || 'Unknown',
+                emailSent: emailResult.success,
+                recipientsCount: recipients.length
+              });
+              
+              console.log(`Email notification sent for ${vehicle.vehicleNumber} - ${check.type}: ${emailResult.message}`);
+            }
+          } catch (error) {
+            console.error(`Error sending notification for ${vehicle.vehicleNumber} - ${check.type}:`, error);
+            notifications.push({
+              vehicleNumber: vehicle.vehicleNumber,
+              documentType: check.type,
+              expiryDate: expiryDate,
+              daysUntilExpiry: daysUntilExpiry,
+              status: daysUntilExpiry <= 0 ? 'expired' : 'expiring_soon',
+              company: vehicle.company?.name || 'Unknown',
+              branch: vehicle.branch?.name || 'Unknown',
+              emailSent: false,
+              error: error.message
+            });
+          }
+        }
+      }
+    }
+  }
+  
+  return notifications;
+};
 
 // Create a new vehicle
 export const createVehicle = async (req, res) => {
@@ -22,6 +143,8 @@ export const createVehicle = async (req, res) => {
       company,
       maintenanceHistory,
       createdBy,
+      vehicleInsuranceNo,
+      fitnessNo,
     } = req.body;
 
     if (!vehicleNumber || !type || !branch || !company) {
@@ -55,6 +178,8 @@ export const createVehicle = async (req, res) => {
       company,
       maintenanceHistory,
       createdBy,
+      vehicleInsuranceNo,
+      fitnessNo,
       // Certificate images from file uploads (Cloudinary)
       fitnessCertificateImage: req.files?.fitnessCertificateImage?.[0]
         ? {
@@ -128,6 +253,9 @@ export const getAllVehicles = async (req, res) => {
 
     const total = await Vehicle.countDocuments(query);
 
+    // Check for expiring documents and prepare notifications
+    const expiringNotifications = await checkDocumentExpiryForNotifications(vehicles);
+
     return res.status(200).json({
       success: true,
       message: "Vehicles fetched successfully",
@@ -136,6 +264,7 @@ export const getAllVehicles = async (req, res) => {
       page,
       limit,
       totalPages: Math.ceil(total / limit),
+      expiringNotifications, // Include notifications in response
     });
   } catch (error) {
     console.error("Error fetching vehicles:", error);
@@ -338,9 +467,15 @@ export const getVehiclesByBranch = async (req, res) => {
 };
 
 export const addMaintenanceController = async (req, res) => {
+  console.log("=== Add Maintenance Request ===");
+  console.log("Body:", req.body);
+  console.log("Files:", req.files);
+  console.log("Content-Type:", req.get('Content-Type'));
+  
   const { vehicleId, maintenance } = req.body;
 
   if (!vehicleId || !maintenance) {
+    console.log("Missing data - vehicleId:", vehicleId, "maintenance:", maintenance);
     return res.status(400).json({
       success: false,
       message: "Vehicle ID and maintenance data are required",
@@ -357,7 +492,31 @@ export const addMaintenanceController = async (req, res) => {
       });
     }
 
-    vehicle.maintenanceHistory.push(maintenance);
+    // Parse maintenance data if it's a JSON string
+    let maintenanceData = maintenance;
+    if (typeof maintenance === 'string') {
+      try {
+        maintenanceData = JSON.parse(maintenance);
+      } catch (parseError) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid maintenance data format",
+        });
+      }
+    }
+
+    // Handle bill image upload if present - using the same pattern as createVehicle
+    if (req.files && req.files.billImage && req.files.billImage[0]) {
+      maintenanceData.billImage = {
+        url: req.files.billImage[0].path,
+        public_id: req.files.billImage[0].filename,
+      };
+    } else {
+      // Set default empty values if no image
+      maintenanceData.billImage = { url: "", public_id: "" };
+    }
+
+    vehicle.maintenanceHistory.push(maintenanceData);
     await vehicle.save();
 
     res.status(200).json({

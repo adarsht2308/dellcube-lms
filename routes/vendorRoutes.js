@@ -1,5 +1,6 @@
 import express from "express";
 import isAuthenticated from "../middlewares/isAuthenticated.js";
+import upload from "../utils/common/Uploads.js";
 import {
   createVendor,
   getAllVendors,
@@ -8,6 +9,7 @@ import {
   deleteVendor,
   addVehicleController,
   updateVendorVehicleStatus, // <-- import the new controller
+  addVendorVehicleMaintenance, // <-- import the new controller
   //   getVehiclesByVendor,
 } from "../controllers/vendorController.js";
 
@@ -29,7 +31,8 @@ router.delete("/delete", isAuthenticated, deleteVendor);
 
 // router.post("/vehicle-by-vendor", isAuthenticated, getVehiclesByVendor);
 
-router.put("/vendor/vehicles", isAuthenticated, addVehicleController);
+router.put("/vendor/vehicles", isAuthenticated, upload, addVehicleController);
 router.put("/vendor/vehicle/status", isAuthenticated, updateVendorVehicleStatus);
+router.put("/vendor/vehicle/maintenance", isAuthenticated, upload, addVendorVehicleMaintenance);
 
 export default router;

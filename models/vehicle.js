@@ -37,6 +37,15 @@ const vehicleSchema = new mongoose.Schema(
     pollutionCertificateExpiry: {
       type: Date,
     },
+    // Added new fields for document numbers
+    vehicleInsuranceNo: {
+      type: String,
+      trim: true,
+    },
+    fitnessNo: {
+      type: String,
+      trim: true,
+    },
     status: {
       type: String,
       enum: ["active", "under_maintenance", "inactive", "decommissioned"],
@@ -67,6 +76,11 @@ const vehicleSchema = new mongoose.Schema(
           trim: true,
         },
         files: [String],
+        // Added bill upload field
+        billImage: {
+          url: { type: String, default: "" },
+          public_id: { type: String, default: "" },
+        },
       },
     ],
     // Certificate images

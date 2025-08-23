@@ -26,6 +26,14 @@ const imageFields = [
   "pollutionCertificateImage",
   "registrationCertificateImage",
   "insuranceImage",
+  // Vehicle maintenance bill image
+  "billImage",
+  // Vendor vehicle certificate images
+  "vendorVehicleFitnessCertificateImage",
+  "vendorVehiclePollutionCertificateImage",
+  "vendorVehicleRegistrationCertificateImage",
+  "vendorVehicleInsuranceImage",
+  "vendorVehicleBillImage",
 ];
 
 const videoFields = ["videoUpload"];
@@ -82,6 +90,14 @@ const upload = multer({
   { name: "pollutionCertificateImage", maxCount: 1 },
   { name: "registrationCertificateImage", maxCount: 1 },
   { name: "insuranceImage", maxCount: 1 },
+  // Vehicle maintenance bill image
+  { name: "billImage", maxCount: 1 },
+  // Vendor vehicle certificate images
+  { name: "vendorVehicleFitnessCertificateImage", maxCount: 1 },
+  { name: "vendorVehiclePollutionCertificateImage", maxCount: 1 },
+  { name: "vendorVehicleRegistrationCertificateImage", maxCount: 1 },
+  { name: "vendorVehicleInsuranceImage", maxCount: 1 },
+  { name: "vendorVehicleBillImage", maxCount: 1 },
 ]);
 
 export default upload;

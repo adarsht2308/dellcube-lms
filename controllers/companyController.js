@@ -33,18 +33,13 @@ export const createCompany = async (req, res) => {
       !companyCode ||
       !emailId ||
       !gstNumber ||
-      !gstNo ||
+      
       !gstValue ||
       !pan ||
       !sacHsnCode ||
       !companyType ||
       !address ||
-      !contactPhone ||
-      !country ||
-      !state ||
-      !city ||
-      !locality ||
-      !pincode
+      !contactPhone 
     ) {
       return res.status(400).json({
         success: false,
@@ -109,13 +104,7 @@ export const createCompany = async (req, res) => {
       companyLogoUrl: logoUrl,
       companyLogoUrlPublicId: logoPublicId,
       status: status !== undefined ? status : true,
-      region: {
-        country,
-        state,
-        city,
-        locality,
-        pincode,
-      },
+      
     });
 
     return res.status(201).json({
@@ -224,7 +213,6 @@ export const updateCompany = async (req, res) => {
       emailId,
       website,
       gstNumber,
-      gstNo,
       gstValue,
       pan,
       sacHsnCode,
@@ -237,11 +225,7 @@ export const updateCompany = async (req, res) => {
       emergencyContactName,
       emergencyContactMobile,
       status,
-      country,
-      state,
-      city,
-      locality,
-      pincode,
+      
     } = req.body;
 
     const company = await Company.findById(companyId);
@@ -266,7 +250,6 @@ export const updateCompany = async (req, res) => {
     company.emailId = emailId || company.emailId;
     company.website = website || company.website;
     company.gstNumber = gstNumber || company.gstNumber;
-    company.gstNo = gstNo || company.gstNo;
     company.gstValue =
       gstValue !== undefined && gstValue !== null && gstValue !== ""
         ? parseFloat(gstValue)
@@ -286,12 +269,7 @@ export const updateCompany = async (req, res) => {
       mobile: emergencyContactMobile || company.emergencyContact?.mobile || "",
     };
     company.status = status !== undefined ? status : company.status;
-    company.region.country = country || company.region.country;
-    company.region.state = state || company.region.state;
-    company.region.city = city || company.region.city;
-    company.region.locality = locality || company.region.locality;
-    company.region.pincode = pincode || company.region.pincode;
-
+    
     const updatedCompany = await company.save();
 
     return res.status(200).json({

@@ -31,18 +31,27 @@ const CreateCustomer = () => {
     address: "",
     company: "",
     branch: "",
+    companyName: "",
+    companyContactName: "",
+    companyContactInfo: "",
+    taxType: "",
+    taxValue: "",
+    consignees: [],
+    consignors: [],
   });
 
   useEffect(() => {
     if (isBranchAdmin && user?.company && user?.branch) {
-      console.log(user.branch);
+      console.log("Setting company and branch for branch admin:", user.company._id, user.branch._id);
       setFormData((prev) => ({
         ...prev,
-        company: String(user?.company?._id),
-        branch: String(user?.branch?._id),
+        company: String(user.company._id),
+        branch: String(user.branch._id),
       }));
+      // Also set branches for branch admin
+      setBranches([{ _id: user.branch._id, name: user.branch.name }]);
     }
-  }, [user]);
+  }, [user, isBranchAdmin]);
 
   const [branches, setBranches] = useState([]);
   const { data: companies = [] } = useGetAllCompaniesQuery({ status: "true" });
@@ -158,6 +167,85 @@ const CreateCustomer = () => {
           />
         </div>
 
+        {/* Company Information Section */}
+        <div className="md:col-span-2">
+          <Label className="text-sm mb-1 font-semibold text-gray-700">Company Information</Label>
+        </div>
+        
+        <div>
+          <Label className="text-sm mb-1">Company Name</Label>
+          <Input
+            placeholder="Enter company name"
+            value={formData.companyName}
+            onChange={(e) =>
+              setFormData({ ...formData, companyName: e.target.value })
+            }
+          />
+        </div>
+
+        <div>
+          <Label className="text-sm mb-1">Company Contact Name</Label>
+          <Input
+            placeholder="Enter contact person name"
+            value={formData.companyContactName}
+            onChange={(e) =>
+              setFormData({ ...formData, companyContactName: e.target.value })
+            }
+          />
+        </div>
+
+        <div className="md:col-span-2">
+          <Label className="text-sm mb-1">Company Contact Info</Label>
+          <Input
+            placeholder="Enter contact information"
+            value={formData.companyContactInfo}
+            onChange={(e) =>
+              setFormData({ ...formData, companyContactInfo: e.target.value })
+            }
+          />
+        </div>
+
+        {/* Tax Information Section */}
+        <div className="md:col-span-2">
+          <Label className="text-sm mb-1 font-semibold text-gray-700">Tax Information</Label>
+        </div>
+
+        <div>
+          <Label className="text-sm mb-1">Tax Type</Label>
+          <Select
+            value={formData.taxType}
+            onValueChange={(value) =>
+              setFormData({ ...formData, taxType: value })
+            }
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select tax type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="GST">GST</SelectItem>
+              <SelectItem value="CGST+SGST">CGST+SGST</SelectItem>
+              <SelectItem value="IGST">IGST</SelectItem>
+              <SelectItem value="Exempt">Exempt</SelectItem>
+              <SelectItem value="Other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label className="text-sm mb-1">Tax Value (%)</Label>
+          <Input
+            type="number"
+            min="0"
+            max="100"
+            step="0.01"
+            placeholder="Enter tax percentage"
+            value={formData.taxValue}
+            onChange={(e) =>
+              setFormData({ ...formData, taxValue: e.target.value })
+            }
+          />
+        </div>
+
         {!isBranchAdmin && (
           <div>
             <Label className="text-sm mb-1">Company</Label>
@@ -201,6 +289,127 @@ const CreateCustomer = () => {
             </Select>
           </div>
         )}
+
+        {/* Consignee Section */}
+        <div className="md:col-span-2">
+          <Label className="text-sm mb-1 font-semibold text-gray-700">Consignees</Label>
+          <div className="space-y-3">
+            {formData.consignees.map((consignee, index) => (
+              <div key={index} className="p-3 border border-gray-200 rounded-lg bg-gray-50">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs mb-1">Site ID</Label>
+                    <Input
+                      placeholder="Enter site ID"
+                      value={consignee.siteId}
+                      onChange={(e) => {
+                        const newConsignees = [...formData.consignees];
+                        newConsignees[index].siteId = e.target.value;
+                        setFormData({ ...formData, consignees: newConsignees });
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs mb-1">Consignee</Label>
+                    <Input
+                      placeholder="Enter consignee name"
+                      value={consignee.consignee}
+                      onChange={(e) => {
+                        const newConsignees = [...formData.consignees];
+                        newConsignees[index].consignee = e.target.value;
+                        setFormData({ ...formData, consignees: newConsignees });
+                      }}
+                    />
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 text-red-600 hover:text-red-700"
+                  onClick={() => {
+                    const newConsignees = formData.consignees.filter((_, i) => i !== index);
+                    setFormData({ ...formData, consignees: newConsignees });
+                  }}
+                >
+                  Remove Consignee
+                </Button>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setFormData({
+                  ...formData,
+                  consignees: [
+                    ...formData.consignees,
+                    {
+                      siteId: "",
+                      consignee: "",
+                    },
+                  ],
+                });
+              }}
+            >
+              Add Consignee
+            </Button>
+          </div>
+        </div>
+
+        {/* Consignor Section */}
+        <div className="md:col-span-2">
+          <Label className="text-sm mb-1 font-semibold text-gray-700">Consignors</Label>
+          <div className="space-y-3">
+            {formData.consignors.map((consignor, index) => (
+              <div key={index} className="p-3 border border-gray-200 rounded-lg bg-gray-50">
+                <div className="grid grid-cols-1 gap-3">
+                  <div>
+                    <Label className="text-xs mb-1">Consignor</Label>
+                    <Input
+                      placeholder="Enter consignor name"
+                      value={consignor.consignor}
+                      onChange={(e) => {
+                        const newConsignors = [...formData.consignors];
+                        newConsignors[index].consignor = e.target.value;
+                        setFormData({ ...formData, consignors: newConsignors });
+                      }}
+                    />
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 text-red-600 hover:text-red-700"
+                  onClick={() => {
+                    const newConsignors = formData.consignors.filter((_, i) => i !== index);
+                    setFormData({ ...formData, consignors: newConsignors });
+                  }}
+                >
+                  Remove Consignor
+                </Button>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setFormData({
+                  ...formData,
+                  consignors: [
+                    ...formData.consignors,
+                    {
+                      consignor: "",
+                    },
+                  ],
+                });
+              }}
+            >
+              Add Consignor
+            </Button>
+          </div>
+        </div>
       </div>
 
       <div className="flex gap-2 mt-6">

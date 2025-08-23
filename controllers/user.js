@@ -266,12 +266,46 @@ export const logoutController = async (req, res) => {
 // === BRANCH ADMIN CONTROLLERS ===
 export const createBranchAdminController = async (req, res) => {
   try {
-    const { name, email, password, company, branch } = req.body;
+    const { 
+      name, 
+      email, 
+      password, 
+      company, 
+      branch, 
+      aadharNumber, 
+      panNumber, 
+      bankDetails 
+    } = req.body;
 
-    if (!name || !email || !password || !company || !branch) {
+    if (!name || !email || !password || !company || !branch || !aadharNumber || !panNumber || !bankDetails) {
       return res.status(400).json({
         success: false,
-        message: "All fields are required.",
+        message: "All fields are required including Aadhar, PAN, and Bank details.",
+      });
+    }
+
+    // Validate bank details
+    if (!bankDetails.accountNumber || !bankDetails.ifscCode || !bankDetails.bankName || !bankDetails.accountHolderName) {
+      return res.status(400).json({
+        success: false,
+        message: "All bank details are required: account number, IFSC code, bank name, and account holder name.",
+      });
+    }
+
+    // Check for existing users with same Aadhar or PAN
+    const existingAadhar = await User.findOne({ aadharNumber });
+    if (existingAadhar) {
+      return res.status(400).json({
+        success: false,
+        message: "User with this Aadhar number already exists.",
+      });
+    }
+
+    const existingPAN = await User.findOne({ panNumber });
+    if (existingPAN) {
+      return res.status(400).json({
+        success: false,
+        message: "User with this PAN number already exists.",
       });
     }
 
@@ -292,6 +326,9 @@ export const createBranchAdminController = async (req, res) => {
       role: "branchAdmin",
       company,
       branch,
+      aadharNumber,
+      panNumber,
+      bankDetails,
       status: true,
     });
 
@@ -419,7 +456,17 @@ export const deleteBranchAdminController = async (req, res) => {
 
 export const updateBranchAdminController = async (req, res) => {
   try {
-    const { userId, name,email, company, branch, status } = req.body;
+    const { 
+      userId, 
+      name, 
+      email, 
+      company, 
+      branch, 
+      status, 
+      aadharNumber, 
+      panNumber, 
+      bankDetails 
+    } = req.body;
 
     if (!userId || !name) {
       return res.status(400).json({
@@ -437,6 +484,27 @@ export const updateBranchAdminController = async (req, res) => {
       });
     }
 
+    // Check for existing users with same Aadhar or PAN (excluding current user)
+    if (aadharNumber && aadharNumber !== user.aadharNumber) {
+      const existingAadhar = await User.findOne({ aadharNumber, _id: { $ne: userId } });
+      if (existingAadhar) {
+        return res.status(400).json({
+          success: false,
+          message: "User with this Aadhar number already exists.",
+        });
+      }
+    }
+
+    if (panNumber && panNumber !== user.panNumber) {
+      const existingPAN = await User.findOne({ panNumber, _id: { $ne: userId } });
+      if (existingPAN) {
+        return res.status(400).json({
+          success: false,
+          message: "User with this PAN number already exists.",
+        });
+      }
+    }
+
     let photoUrl, photoUrlPublicId;
 
     if (req.files?.profilePhoto) {
@@ -447,12 +515,28 @@ export const updateBranchAdminController = async (req, res) => {
       photoUrlPublicId = req.files.profilePhoto[0].filename;
     }
 
+    // Parse bankDetails if it's a JSON string
+    let parsedBankDetails = bankDetails;
+    if (typeof bankDetails === 'string') {
+      try {
+        parsedBankDetails = JSON.parse(bankDetails);
+      } catch (error) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid bank details format",
+        });
+      }
+    }
+
     const updatedData = {
       name,
       email,
       ...(company && { company }),
       ...(branch && { branch }),
       ...(status !== undefined && { status }),
+      ...(aadharNumber && { aadharNumber }),
+      ...(panNumber && { panNumber }),
+      ...(parsedBankDetails && { bankDetails: parsedBankDetails }),
       ...(photoUrl && {
         photoUrl,
         photoUrlPublicId,
@@ -481,14 +565,54 @@ export const updateBranchAdminController = async (req, res) => {
 // === OPERATION USER CONTROLLERS ===
 export const createOperationUserController = async (req, res) => {
   try {
-    const { name, email, password, company, branch } = req.body;
-    if (!name || !email || !password || !company || !branch) {
-      return res.status(400).json({ success: false, message: "All fields are required." });
+    const { 
+      name, 
+      email, 
+      password, 
+      company, 
+      branch, 
+      aadharNumber, 
+      panNumber, 
+      bankDetails 
+    } = req.body;
+    
+    if (!name || !email || !password || !company || !branch || !aadharNumber || !panNumber || !bankDetails) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "All fields are required including Aadhar, PAN, and Bank details." 
+      });
     }
+
+    // Validate bank details
+    if (!bankDetails.accountNumber || !bankDetails.ifscCode || !bankDetails.bankName || !bankDetails.accountHolderName) {
+      return res.status(400).json({
+        success: false,
+        message: "All bank details are required: account number, IFSC code, bank name, and account holder name.",
+      });
+    }
+
+    // Check for existing users with same Aadhar or PAN
+    const existingAadhar = await User.findOne({ aadharNumber });
+    if (existingAadhar) {
+      return res.status(400).json({
+        success: false,
+        message: "User with this Aadhar number already exists.",
+      });
+    }
+
+    const existingPAN = await User.findOne({ panNumber });
+    if (existingPAN) {
+      return res.status(400).json({
+        success: false,
+        message: "User with this PAN number already exists.",
+      });
+    }
+
     const existing = await User.findOne({ email });
     if (existing) {
       return res.status(400).json({ success: false, message: "User with this email already exists." });
     }
+    
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = await User.create({
       name,
@@ -497,6 +621,9 @@ export const createOperationUserController = async (req, res) => {
       role: "operation",
       company,
       branch,
+      aadharNumber,
+      panNumber,
+      bankDetails,
       status: true,
     });
     return res.status(201).json({ success: true, message: "Operation User created successfully.", user: newUser });
@@ -578,14 +705,47 @@ export const deleteOperationUserController = async (req, res) => {
 
 export const updateOperationUserController = async (req, res) => {
   try {
-    const { userId, name, company, branch, status } = req.body;
+    const { 
+      userId, 
+      name, 
+      company, 
+      branch, 
+      status, 
+      aadharNumber, 
+      panNumber, 
+      bankDetails 
+    } = req.body;
+    
     if (!userId || !name) {
       return res.status(400).json({ success: false, message: "User ID and Name are required" });
     }
+    
     const user = await User.findById(userId);
     if (!user || user.role !== "operation") {
       return res.status(404).json({ success: false, message: "Operation User not found" });
     }
+
+    // Check for existing users with same Aadhar or PAN (excluding current user)
+    if (aadharNumber && aadharNumber !== user.aadharNumber) {
+      const existingAadhar = await User.findOne({ aadharNumber, _id: { $ne: userId } });
+      if (existingAadhar) {
+        return res.status(400).json({
+          success: false,
+          message: "User with this Aadhar number already exists.",
+        });
+      }
+    }
+
+    if (panNumber && panNumber !== user.panNumber) {
+      const existingPAN = await User.findOne({ panNumber, _id: { $ne: userId } });
+      if (existingPAN) {
+        return res.status(400).json({
+          success: false,
+          message: "User with this PAN number already exists.",
+        });
+      }
+    }
+
     let photoUrl, photoUrlPublicId;
     if (req.files?.profilePhoto) {
       if (user.photoUrlPublicId) {
@@ -594,13 +754,31 @@ export const updateOperationUserController = async (req, res) => {
       photoUrl = req.files.profilePhoto[0].path;
       photoUrlPublicId = req.files.profilePhoto[0].filename;
     }
+
+    // Parse bankDetails if it's a JSON string
+    let parsedBankDetails = bankDetails;
+    if (typeof bankDetails === 'string') {
+      try {
+        parsedBankDetails = JSON.parse(bankDetails);
+      } catch (error) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid bank details format",
+        });
+      }
+    }
+
     const updatedData = {
       name,
       ...(company && { company }),
       ...(branch && { branch }),
       ...(status !== undefined && { status }),
+      ...(aadharNumber && { aadharNumber }),
+      ...(panNumber && { panNumber }),
+      ...(parsedBankDetails && { bankDetails: parsedBankDetails }),
       ...(photoUrl && { photoUrl, photoUrlPublicId }),
     };
+    
     const updatedUser = await User.findByIdAndUpdate(userId, updatedData, { new: true }).select("-password");
     return res.status(200).json({ success: true, message: "Operation User updated successfully", updatedUser });
   } catch (error) {
@@ -612,12 +790,71 @@ export const updateOperationUserController = async (req, res) => {
 // === DRIVER CONTROLLERS ===
 export const createDriverController = async (req, res) => {
   try {
-    const { name, mobile, password, company, branch, licenseNumber, experienceYears } = req.body;
+    const { 
+      name, 
+      mobile, 
+      password, 
+      company, 
+      branch, 
+      licenseNumber, 
+      experienceYears,
+      driverType,
+      aadharNumber,
+      panNumber,
+      bankDetails
+    } = req.body;
 
-    if (!name || !mobile || !password || !company || !branch || !licenseNumber || !experienceYears) {
+    if (!name || !mobile || !password || !company || !branch || !licenseNumber || !experienceYears || !driverType) {
       return res.status(400).json({
         success: false,
-        message: "All fields are required.",
+        message: "All required fields are required.",
+      });
+    }
+
+    // Driver type validation
+    if (!["dellcube", "vendor", "temporary"].includes(driverType)) {
+      return res.status(400).json({
+        success: false,
+        message: "Driver type must be one of: dellcube, vendor, temporary.",
+      });
+    }
+
+    // License number validation
+    if (licenseNumber.length < 5) {
+      return res.status(400).json({
+        success: false,
+        message: "License number must be at least 5 characters long.",
+      });
+    }
+
+    if (licenseNumber.length > 20) {
+      return res.status(400).json({
+        success: false,
+        message: "License number must not exceed 20 characters.",
+      });
+    }
+
+    // License number format validation (alphanumeric, hyphens, spaces only)
+    if (!/^[A-Za-z0-9\-\s]+$/.test(licenseNumber)) {
+      return res.status(400).json({
+        success: false,
+        message: "License number can only contain letters, numbers, hyphens, and spaces.",
+      });
+    }
+
+    // Mobile number validation
+    if (mobile.length !== 10 || !/^\d{10}$/.test(mobile)) {
+      return res.status(400).json({
+        success: false,
+        message: "Mobile number must be exactly 10 digits.",
+      });
+    }
+
+    // Experience validation
+    if (experienceYears < 0 || experienceYears > 50) {
+      return res.status(400).json({
+        success: false,
+        message: "Experience years must be between 0 and 50.",
       });
     }
 
@@ -627,6 +864,27 @@ export const createDriverController = async (req, res) => {
         success: false,
         message: "User with this mobile already exists.",
       });
+    }
+
+    // Check for existing users with same Aadhar or PAN if provided
+    if (aadharNumber) {
+      const existingAadhar = await User.findOne({ aadharNumber });
+      if (existingAadhar) {
+        return res.status(400).json({
+          success: false,
+          message: "User with this Aadhar number already exists.",
+        });
+      }
+    }
+
+    if (panNumber) {
+      const existingPAN = await User.findOne({ panNumber });
+      if (existingPAN) {
+        return res.status(400).json({
+          success: false,
+          message: "User with this PAN number already exists.",
+        });
+      }
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -640,6 +898,10 @@ export const createDriverController = async (req, res) => {
       branch,
       licenseNumber,
       experienceYears,
+      driverType,
+      ...(aadharNumber && { aadharNumber }),
+      ...(panNumber && { panNumber }),
+      ...(bankDetails && { bankDetails }),
       status: true,
     });
 
@@ -659,7 +921,7 @@ export const createDriverController = async (req, res) => {
 
 export const getAllDriversController = async (req, res) => {
   try {
-    let { page, limit, search, company, branch, status } = req.query;
+    let { page, limit, search, company, branch, status, driverType } = req.query;
     console.log(req.query)
     page = parseInt(page) || 1;
     limit = parseInt(limit) || 10;
@@ -670,6 +932,7 @@ export const getAllDriversController = async (req, res) => {
     if (company) query.company = company;
     if (branch) query.branch = branch;
     if (status !== "") query.status = status === "true";
+    if (driverType) query.driverType = driverType;
 
     const drivers = await User.find(query)
       .populate("company", "name")
@@ -730,12 +993,72 @@ export const getDriverByIdController = async (req, res) => {
 
 export const updateDriverController = async (req, res) => {
   try {
-    const { userId, name, mobile, licenseNumber, experienceYears, company, branch, status } = req.body;
+    const { 
+      userId, 
+      name, 
+      mobile, 
+      licenseNumber, 
+      experienceYears, 
+      company, 
+      branch, 
+      status,
+      driverType,
+      aadharNumber,
+      panNumber,
+      bankDetails
+    } = req.body;
 
     if (!userId || !name || !mobile) {
       return res.status(400).json({
         success: false,
         message: "User ID, name, and mobile are required",
+      });
+    }
+
+    // Driver type validation
+    if (driverType && !["dellcube", "vendor", "temporary"].includes(driverType)) {
+      return res.status(400).json({
+        success: false,
+        message: "Driver type must be one of: dellcube, vendor, temporary.",
+      });
+    }
+
+    // License number validation
+    if (licenseNumber && licenseNumber.length < 5) {
+      return res.status(400).json({
+        success: false,
+        message: "License number must be at least 5 characters long.",
+      });
+    }
+
+    if (licenseNumber && licenseNumber.length > 20) {
+      return res.status(400).json({
+        success: false,
+        message: "License number must not exceed 20 characters.",
+      });
+    }
+
+    // License number format validation (alphanumeric, hyphens, spaces only)
+    if (licenseNumber && !/^[A-Za-z0-9\-\s]+$/.test(licenseNumber)) {
+      return res.status(400).json({
+        success: false,
+        message: "License number can only contain letters, numbers, hyphens, and spaces.",
+      });
+    }
+
+    // Mobile number validation
+    if (mobile.length !== 10 || !/^\d{10}$/.test(mobile)) {
+      return res.status(400).json({
+        success: false,
+        message: "Mobile number must be exactly 10 digits.",
+      });
+    }
+
+    // Experience validation
+    if (experienceYears && (experienceYears < 0 || experienceYears > 50)) {
+      return res.status(400).json({
+        success: false,
+        message: "Experience years must be between 0 and 50.",
       });
     }
 
@@ -745,6 +1068,27 @@ export const updateDriverController = async (req, res) => {
         success: false,
         message: "Driver not found",
       });
+    }
+
+    // Check for existing users with same Aadhar or PAN (excluding current user)
+    if (aadharNumber && aadharNumber !== user.aadharNumber) {
+      const existingAadhar = await User.findOne({ aadharNumber, _id: { $ne: userId } });
+      if (existingAadhar) {
+        return res.status(400).json({
+          success: false,
+          message: "User with this Aadhar number already exists.",
+        });
+      }
+    }
+
+    if (panNumber && panNumber !== user.panNumber) {
+      const existingPAN = await User.findOne({ panNumber, _id: { $ne: userId } });
+      if (existingPAN) {
+        return res.status(400).json({
+          success: false,
+          message: "User with this PAN number already exists.",
+        });
+      }
     }
 
     let photoUrl, photoUrlPublicId;
@@ -757,6 +1101,19 @@ export const updateDriverController = async (req, res) => {
       photoUrlPublicId = req.files.profilePhoto[0].filename;
     }
 
+    // Parse bankDetails if it's a JSON string
+    let parsedBankDetails = bankDetails;
+    if (typeof bankDetails === 'string') {
+      try {
+        parsedBankDetails = JSON.parse(bankDetails);
+      } catch (error) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid bank details format",
+        });
+      }
+    }
+
     const updatedData = {
       name,
       mobile,
@@ -765,6 +1122,10 @@ export const updateDriverController = async (req, res) => {
       ...(company && { company }),
       ...(branch && { branch }),
       ...(status !== undefined && { status }),
+      ...(driverType && { driverType }),
+      ...(aadharNumber && { aadharNumber }),
+      ...(panNumber && { panNumber }),
+      ...(parsedBankDetails && { bankDetails: parsedBankDetails }),
       ...(photoUrl && {
         photoUrl,
         photoUrlPublicId,

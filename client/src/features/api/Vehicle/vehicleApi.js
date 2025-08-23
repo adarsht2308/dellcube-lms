@@ -8,6 +8,13 @@ export const vehicleApi = createApi({
   baseQuery: fetchBaseQuery({
     baseUrl: VEHICLE_API,
     credentials: "include",
+    prepareHeaders: (headers, { getState, endpoint }) => {
+      // Log headers for debugging
+      console.log("=== RTK Query Headers ===");
+      console.log("endpoint:", endpoint);
+      console.log("headers:", headers);
+      return headers;
+    },
   }),
   tagTypes: ["Vehicle"],
   endpoints: (builder) => ({
@@ -70,13 +77,20 @@ export const vehicleApi = createApi({
     }),
 
     addMaintenance: builder.mutation({
-  query: ({ vehicleId, maintenance }) => ({
-    url: "/vehicle/maintenance",
-    method: "PUT",
-    body: { vehicleId, maintenance },
-  }),
-  invalidatesTags: ["Vehicle"],
-}),
+      query: (payload) => {
+        // Check if payload is FormData (for file uploads)
+        const isFormData = payload instanceof FormData;
+        
+        return {
+          url: "/vehicle/maintenance",
+          method: "PUT",
+          body: payload,
+          // Don't set Content-Type for FormData, let the browser set it with boundary
+          ...(isFormData ? {} : { headers: { 'Content-Type': 'application/json' } }),
+        };
+      },
+      invalidatesTags: ["Vehicle"],
+    }),
 
     getVehiclesByBranch: builder.query({
         query: (branchId) => `branch/${branchId}`,

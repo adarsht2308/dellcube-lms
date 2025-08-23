@@ -564,7 +564,50 @@ const Customers = () => {
                 <InfoCard icon={Building2} title="Organizational Details">
                   <InfoRow label="Company" value={selectedCustomer.company?.name} icon={Building2} />
                   <InfoRow label="Branch" value={selectedCustomer.branch?.name} icon={MapPin} />
+                  {selectedCustomer.companyName && <InfoRow label="Company Name" value={selectedCustomer.companyName} />}
+                  {selectedCustomer.companyContactName && <InfoRow label="Contact Person" value={selectedCustomer.companyContactName} />}
+                  {selectedCustomer.companyContactInfo && <InfoRow label="Contact Info" value={selectedCustomer.companyContactInfo} />}
                 </InfoCard>
+
+                {/* Tax Information */}
+                {(selectedCustomer.taxType || selectedCustomer.taxValue) && (
+                  <InfoCard icon={Building2} title="Tax Information">
+                    {selectedCustomer.taxType && <InfoRow label="Tax Type" value={selectedCustomer.taxType} />}
+                    {selectedCustomer.taxValue && <InfoRow label="Tax Value" value={`${selectedCustomer.taxValue}%`} />}
+                  </InfoCard>
+                )}
+
+                {/* Consignees */}
+                {selectedCustomer.consignees && selectedCustomer.consignees.length > 0 && (
+                  <InfoCard icon={MapPin} title="Consignees">
+                    <div className="space-y-3">
+                      {selectedCustomer.consignees.map((consignee, index) => (
+                        <div key={index} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border">
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            <div><span className="font-medium">Site ID:</span> {consignee.siteId}</div>
+                            <div><span className="font-medium">Consignee:</span> {consignee.consignee}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </InfoCard>
+                )}
+
+                {/* Consignors */}
+                {selectedCustomer.consignors && selectedCustomer.consignors.length > 0 && (
+                  <InfoCard icon={MapPin} title="Consignors">
+                    <div className="space-y-2">
+                      {selectedCustomer.consignors.map((consignor, index) => (
+                        <div key={index} className="p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg border">
+                          <div className="text-sm">
+                            <span className="font-medium">Consignor:</span> {consignor.consignor}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </InfoCard>
+                )}
+
                 {selectedCustomer.address && (
                   <InfoCard icon={MapPin} title="Address">
                     <div className="text-gray-800 dark:text-gray-200 text-left">

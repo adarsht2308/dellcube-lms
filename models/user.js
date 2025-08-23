@@ -58,6 +58,82 @@ const user = new mongoose.Schema(
         return this.role === "driver";
       },
     },
+    driverType: {
+      type: String,
+      enum: ["dellcube", "vendor", "temporary"],
+      required: function () {
+        return this.role === "driver";
+      },
+      default: "dellcube",
+    },
+
+    // Branch Admin specific fields
+    aadharNumber: {
+      type: String,
+      required: function () {
+        return this.role === "branchAdmin";
+      },
+      unique: true,
+      sparse: true,
+      validate: {
+        validator: function(v) {
+          return /^\d{12}$/.test(v);
+        },
+        message: 'Aadhar number must be exactly 12 digits'
+      }
+    },
+    panNumber: {
+      type: String,
+      required: function () {
+        return this.role === "branchAdmin";
+      },
+      unique: true,
+      sparse: true,
+      validate: {
+        validator: function(v) {
+          return /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(v);
+        },
+        message: 'PAN number must be in format: ABCDE1234F'
+      }
+    },
+    bankDetails: {
+      accountNumber: {
+        type: String,
+        required: function () {
+          return this.role === "branchAdmin";
+        },
+        validate: {
+          validator: function(v) {
+            return /^\d{9,18}$/.test(v);
+          },
+          message: 'Account number must be between 9-18 digits'
+        }
+      },
+      ifscCode: {
+        type: String,
+        required: function () {
+          return this.role === "branchAdmin";
+        },
+        validate: {
+          validator: function(v) {
+            return /^[A-Z]{4}0[A-Z0-9]{6}$/.test(v);
+          },
+          message: 'IFSC code must be in format: ABCD0123456'
+        }
+      },
+      bankName: {
+        type: String,
+        required: function () {
+          return this.role === "branchAdmin";
+        }
+      },
+      accountHolderName: {
+        type: String,
+        required: function () {
+          return this.role === "branchAdmin";
+        }
+      }
+    },
 
     // assignedOrders: [
     //   {
@@ -107,6 +183,8 @@ const user = new mongoose.Schema(
 );
 
 user.index({ company: 1, branch: 1 });
+user.index({ aadharNumber: 1 }, { unique: true, sparse: true });
+user.index({ panNumber: 1 }, { unique: true, sparse: true });
 // user.index({ email: 1 }, { unique: true });
   
 export const User = mongoose.model("User", user);

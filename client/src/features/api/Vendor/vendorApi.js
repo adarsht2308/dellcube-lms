@@ -77,11 +77,24 @@ export const vendorApi = createApi({
     // 6. Add a vehicle to a vendor's fleet (PUT /api/vendors/vendor/vehicles)
     // This is now correctly inside the endpoints object
     addVehicle: builder.mutation({
-      query: ({ vendorId, vehicle }) => ({
-        url: "/vendor/vehicles", // Ensure this matches your backend route
-        method: "PUT", // Or POST, depending on how your backend handles adding to an array
-        body: { vendorId, vehicle },
-      }),
+      query: ({ vehicle }) => {
+        // If vehicle is FormData, send it directly (vendorId should already be appended)
+        if (vehicle instanceof FormData) {
+          return {
+            url: "/vendor/vehicles",
+            method: "PUT",
+            body: vehicle,
+            // Don't set Content-Type header for FormData, let the browser set it with boundary
+          };
+        } else {
+          // Regular JSON payload (fallback)
+          return {
+            url: "/vendor/vehicles",
+            method: "PUT",
+            body: vehicle,
+          };
+        }
+      },
       invalidatesTags: ["Vendor"], // Invalidate 'Vendor' cache as its vehicles array has changed
     }),
 
@@ -92,6 +105,28 @@ export const vendorApi = createApi({
         method: "PUT",
         body: { vendorId, vehicleId, status },
       }),
+      invalidatesTags: ["Vendor"],
+    }),
+
+    // 8. Add maintenance record to a vendor vehicle
+    addVendorVehicleMaintenance: builder.mutation({
+      query: ({ maintenance }) => {
+        // If maintenance is FormData, send it directly (vendorId and vehicleId should already be appended)
+        if (maintenance instanceof FormData) {
+          return {
+            url: "/vendor/vehicle/maintenance",
+            method: "PUT",
+            body: maintenance,
+          };
+        } else {
+          // Regular JSON payload (fallback)
+          return {
+            url: "/vendor/vehicle/maintenance",
+            method: "PUT",
+            body: maintenance,
+          };
+        }
+      },
       invalidatesTags: ["Vendor"],
     }),
   }), // <--- End of endpoints object
@@ -106,4 +141,5 @@ export const {
   useDeleteVendorMutation,
   useAddVehicleMutation, // Export the new hook
   useUpdateVendorVehicleStatusMutation,
+  useAddVendorVehicleMaintenanceMutation, // Export the new maintenance hook
 } = vendorApi;

@@ -370,11 +370,11 @@ const Branches = () => {
                             </InfoCard>
                             <InfoCard icon={MapPin} title="Address & Region">
                               <InfoRow label="Address" value={selectedBranch.address} icon={MapPin} />
-                              <InfoRow label="Country" value={selectedBranch?.region?.country?.name} icon={Globe} />
+                              {/* <InfoRow label="Country" value={selectedBranch?.region?.country?.name} icon={Globe} />
                               <InfoRow label="State" value={selectedBranch?.region?.state?.name} icon={MapPin} />
                               <InfoRow label="City" value={selectedBranch?.region?.city?.name} icon={MapPin} />
                               <InfoRow label="Locality" value={selectedBranch?.region?.locality?.name} icon={MapPin} />
-                              <InfoRow label="Pincode" value={selectedBranch?.region?.pincode?.code} icon={MapPin} />
+                              <InfoRow label="Pincode" value={selectedBranch?.region?.pincode?.code} icon={MapPin} /> */}
                             </InfoCard>
                           </div>
                         )}

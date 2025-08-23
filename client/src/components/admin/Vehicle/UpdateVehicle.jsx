@@ -39,6 +39,8 @@ const UpdateVehicle = () => {
   const [branchId, setBranchId] = useState("");
   const [status, setStatus] = useState("active");
   const [currentDriver, setCurrentDriver] = useState("");
+  const [vehicleInsuranceNo, setVehicleInsuranceNo] = useState("");
+  const [fitnessNo, setFitnessNo] = useState("");
 
   const [certFiles, setCertFiles] = useState({
     fitnessCertificateImage: null,
@@ -103,6 +105,8 @@ const UpdateVehicle = () => {
         registrationCertificateImage: v.registrationCertificateImage?.url || null,
         insuranceImage: v.insuranceImage?.url || null,
       });
+      setVehicleInsuranceNo(v.vehicleInsuranceNo || "");
+      setFitnessNo(v.fitnessNo || "");
     }
   }, [isSuccess, viewData]);
 
@@ -133,6 +137,8 @@ const UpdateVehicle = () => {
     payload.append("currentDriver", currentDriver);
     payload.append("company", companyId);
     payload.append("branch", branchId);
+    payload.append("vehicleInsuranceNo", vehicleInsuranceNo);
+    payload.append("fitnessNo", fitnessNo);
     // Only append changed cert files
     Object.entries(certFiles).forEach(([key, file]) => {
       if (file) payload.append(key, file);
@@ -239,6 +245,24 @@ const UpdateVehicle = () => {
         </div>
 
         <div>
+          <Label className="mb-1 block">Vehicle Insurance Number</Label>
+          <Input
+            value={vehicleInsuranceNo}
+            onChange={(e) => setVehicleInsuranceNo(e.target.value)}
+            placeholder="Enter vehicle insurance number"
+          />
+        </div>
+
+        <div>
+          <Label className="mb-1 block">Fitness Number</Label>
+          <Input
+            value={fitnessNo}
+            onChange={(e) => setFitnessNo(e.target.value)}
+            placeholder="Enter fitness certificate number"
+          />
+        </div>
+
+        <div>
           <Label className="mb-1 block">Status</Label>
           <Select value={status} onValueChange={setStatus}>
             <SelectTrigger>
@@ -272,7 +296,7 @@ const UpdateVehicle = () => {
             <SelectContent>
               {driversData?.drivers?.map((driver) => (
                 <SelectItem key={driver._id} value={driver._id}>
-                  {driver.name} {driver.mobile ? `(${driver.mobile})` : ""}
+                    {driver.name} - {driver.mobile} - {driver.driverType}
                 </SelectItem>
               ))}
             </SelectContent>

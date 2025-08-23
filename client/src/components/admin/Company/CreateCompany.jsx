@@ -123,7 +123,7 @@ const { data: countries } = useGetAllCountriesQuery({
     if (!companyCode.trim()) return toast.error("Company code is required.");
     if (!emailId.trim()) return toast.error("Email ID is required.");
     if (!gstNumber.trim()) return toast.error("GST number is required.");
-    if (!gstNo.trim()) return toast.error("GST NO is required.");
+    // if (!gstNo.trim()) return toast.error("GST NO is required.");
     if (!gstValue || gstValue <= 0) return toast.error("GST Value is required and must be greater than 0.");
     if (!pan.trim()) return toast.error("PAN is required.");
     if (!sacHsnCode.trim()) return toast.error("SAC/HSN code is required.");
@@ -232,7 +232,7 @@ const { data: countries } = useGetAllCountriesQuery({
             placeholder="GSTIN"
           />
         </div>
-        <div>
+        {/* <div>
           <Label>GST NO</Label>
           <Input
             name="gstNo"
@@ -240,7 +240,7 @@ const { data: countries } = useGetAllCountriesQuery({
             onChange={handleInputChange}
             placeholder="GST NO"
           />
-        </div>
+        </div> */}
         <div>
           <Label>GST Value</Label>
           <Input
@@ -317,7 +317,7 @@ const { data: countries } = useGetAllCountriesQuery({
         </div>
 
         {/* Region Selectors */}
-        <div>
+        {/* <div>
           <Label>Country</Label>
           <Select
             value={formData.region.country}
@@ -406,7 +406,7 @@ const { data: countries } = useGetAllCountriesQuery({
               ))}
             </SelectContent>
           </Select>
-        </div>
+        </div> */}
 
         <div className="flex items-center gap-4 mt-2">
           <Label htmlFor="status-toggle">Active Status</Label>

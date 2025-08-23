@@ -36,7 +36,6 @@ const companySchema = new mongoose.Schema(
     },
     gstNo: {
       type: String,
-      required: true,
     },
     gstValue: {
       type: Number,

@@ -296,6 +296,8 @@ const BranchAdmins = () => {
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">No</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Name</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Email</th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Aadhar</th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">PAN</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Company</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Branch</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Status</th>
@@ -305,7 +307,7 @@ const BranchAdmins = () => {
             <tbody className="divide-y divide-gray-200 text-center">
               {isLoading ? (
                 <tr>
-                  <td colSpan="7" className="text-center py-6">
+                  <td colSpan="9" className="text-center py-6">
                     <Loader2 className="animate-spin mx-auto text-[#FFD249]" /> Loading...
                   </td>
                 </tr>
@@ -323,6 +325,8 @@ const BranchAdmins = () => {
                     <td className="p-3 font-medium text-[#202020] dark:text-[#FFD249] text-center">{limit * (currentPage - 1) + (i + 1)}</td>
                     <td className="p-3 text-[#202020] dark:text-[#FFD249] font-semibold">{admin.name}</td>
                     <td className="p-3 text-[#202020] dark:text-[#FFD249]">{admin.email}</td>
+                    <td className="p-3 text-[#202020] dark:text-[#FFD249] font-mono text-xs">{admin.aadharNumber || <span className="text-gray-400">N/A</span>}</td>
+                    <td className="p-3 text-[#202020] dark:text-[#FFD249] font-mono text-xs">{admin.panNumber || <span className="text-gray-400">N/A</span>}</td>
                     <td className="p-3 text-[#202020] dark:text-[#FFD249]">{admin.company?.name || <span className="text-gray-400">N/A</span>}</td>
                     <td className="p-3 text-[#202020] dark:text-[#FFD249]">{admin.branch?.name || <span className="text-gray-400">N/A</span>}</td>
                     <td className="p-3 text-center">
@@ -379,7 +383,7 @@ const BranchAdmins = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="7" className="text-center py-10 text-gray-500">
+                  <td colSpan="9" className="text-center py-10 text-gray-500">
                     <User className="w-8 h-8 mx-auto text-[#828083]" />
                     <p className="text-[#828083] font-medium">No Branch Admins Available</p>
                     <p className="text-sm text-[#828083]">Add a new branch admin to begin</p>
@@ -393,6 +397,8 @@ const BranchAdmins = () => {
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">No</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Name</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Email</th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Aadhar</th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">PAN</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Company</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Branch</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Status</th>
@@ -503,6 +509,42 @@ const BranchAdmins = () => {
                   label="Branch"
                   value={selectedAdmin.branch?.name}
                   icon={MapPin}
+                />
+              </InfoCard>
+
+              <InfoCard icon={User} title="Identity Documents">
+                <InfoRow 
+                  label="Aadhar Number" 
+                  value={selectedAdmin.aadharNumber} 
+                  icon={User} 
+                />
+                <InfoRow 
+                  label="PAN Number" 
+                  value={selectedAdmin.panNumber} 
+                  icon={User} 
+                />
+              </InfoCard>
+
+              <InfoCard icon={Briefcase} title="Bank Account Details">
+                <InfoRow 
+                  label="Account Holder" 
+                  value={selectedAdmin.bankDetails?.accountHolderName} 
+                  icon={User} 
+                />
+                <InfoRow 
+                  label="Bank Name" 
+                  value={selectedAdmin.bankDetails?.bankName} 
+                  icon={Building2} 
+                />
+                <InfoRow 
+                  label="Account Number" 
+                  value={selectedAdmin.bankDetails?.accountNumber} 
+                  icon={User} 
+                />
+                <InfoRow 
+                  label="IFSC Code" 
+                  value={selectedAdmin.bankDetails?.ifscCode} 
+                  icon={User} 
                 />
               </InfoCard>
             </div>

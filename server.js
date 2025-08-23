@@ -75,4 +75,15 @@ const PORT = process.env.PORT || 8080;
 
 app.listen(PORT, () => {
   console.log(`Server is running at ${PORT}`);
+  
+  // Initialize scheduled tasks (vehicle expiry checks, etc.)
+  import("./utils/common/scheduler.js").then(async ({ initializeScheduler }) => {
+    try {
+      await initializeScheduler();
+    } catch (error) {
+      console.error("Failed to initialize scheduler:", error);
+    }
+  }).catch(error => {
+    console.error("Failed to load scheduler:", error);
+  });
 });

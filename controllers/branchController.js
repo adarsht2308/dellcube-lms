@@ -2,7 +2,7 @@ import { Branch } from "../models/branch.js";
 
 export const createBranch = async (req, res) => {
   try {
-    const { name, branchCode, company, address, status, region, gstNo, branchNo } = req.body;
+    const { name, branchCode, company, address, status, gstNo, branchNo } = req.body;
 
     if (!name || !branchCode || !company || !address) {
       return res.status(400).json({ message: "Required fields are missing" });
@@ -20,7 +20,6 @@ export const createBranch = async (req, res) => {
       branchCode,
       company,
       address,
-      region,
       status: status !== undefined ? status : true,
       gstNo: gstNo || "",
       branchNo: branchNo || "",
@@ -122,7 +121,7 @@ export const getBranchById = async (req, res) => {
 
 export const updateBranch = async (req, res) => {
   try {
-    const { branchId, name, branchCode, company, address, status, region, gstNo, branchNo } =
+    const { branchId, name, branchCode, company, address, status, gstNo, branchNo } =
       req.body;
 
     const branch = await Branch.findById(branchId);
@@ -136,7 +135,7 @@ export const updateBranch = async (req, res) => {
     if (branchCode) branch.branchCode = branchCode;
     if (company) branch.company = company;
     if (address) branch.address = address;
-    if (region) branch.region = region;
+    
     if (status !== undefined) branch.status = status;
     if (gstNo !== undefined) branch.gstNo = gstNo;
     if (branchNo !== undefined) branch.branchNo = branchNo;

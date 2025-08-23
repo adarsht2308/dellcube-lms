@@ -15,10 +15,9 @@ const FieldInputView = ({ value, style }) => (
       {
         borderWidth: 1,
         borderColor: "#ccc",
-        // borderRadius: 3,
-        paddingVertical: 2,
-        paddingHorizontal: 4,
-        minHeight: 16,
+        paddingVertical: 1,
+        paddingHorizontal: 2,
+        minHeight: 12,
         justifyContent: "center",
         backgroundColor: "#f9f9f9",
         alignItems: "center",
@@ -27,7 +26,7 @@ const FieldInputView = ({ value, style }) => (
       style,
     ]}
   >
-    <Text style={{ fontSize: 8, textAlign: "center", width: "100%" }}>
+    <Text style={{ fontSize: 7, textAlign: "center", width: "100%" }}>
       {value}
     </Text>
   </View>
@@ -44,15 +43,15 @@ const styles = StyleSheet.create({
     minHeight: "100%",
     flexDirection: "column",
     alignItems: "center",
-    padding: "0.5mm",
-    gap: "0.5mm",
+    padding: "0.3mm",
+    gap: "0.3mm",
   },
   docketCopy: {
     backgroundColor: "#fff",
     border: "2px solid #000",
     width: "100%",
     margin: "auto",
-    padding: "2.5mm",
+    padding: "1.5mm",
     boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
@@ -65,9 +64,8 @@ const styles = StyleSheet.create({
   headerSection: {
     flexDirection: "row",
     alignItems: "flex-start",
-    marginBottom: "1mm",
-    // borderBottom: "1px solid #000",
-    paddingBottom: "1mm",
+    marginBottom: "0.5mm",
+    paddingBottom: "0.5mm",
   },
   logoSection: {
     width: "15%",
@@ -80,25 +78,25 @@ const styles = StyleSheet.create({
   companySection: {
     width: "70%",
     alignItems: "center",
-    paddingHorizontal: "2mm",
+    paddingHorizontal: "1mm",
   },
   companyName: {
     fontSize: 10,
     fontWeight: "bold",
     textAlign: "center",
-    marginBottom: "0.5mm",
+    marginBottom: "0.3mm",
     textTransform: "uppercase",
   },
   companyAddress: {
     fontSize: 6,
     textAlign: "center",
-    lineHeight: 1.2,
-    marginBottom: "0.3mm",
+    lineHeight: 1.1,
+    marginBottom: "0.2mm",
   },
   companyContact: {
     fontSize: 5,
     textAlign: "center",
-    lineHeight: 1.1,
+    lineHeight: 1.0,
   },
   copyTypeSection: {
     width: "15%",
@@ -108,7 +106,7 @@ const styles = StyleSheet.create({
     fontSize: 7,
     fontWeight: "bold",
     border: "1px solid #000",
-    padding: "1mm",
+    padding: "0.5mm",
     textAlign: "center",
     backgroundColor: "#f0f0f0",
   },
@@ -116,23 +114,22 @@ const styles = StyleSheet.create({
     fontSize: 6,
     fontWeight: "bold",
     border: "2px solid #000",
-    padding: "1mm",
+    padding: "0.5mm",
     textAlign: "center",
-    marginTop: "1mm",
+    marginTop: "0.5mm",
     backgroundColor: "#fff",
-    // letterSpacing: 1,
   },
 
   // Company Details Row - Updated layout
   companyDetailsRow: {
     flexDirection: "row",
-    marginBottom: "1mm",
+    marginBottom: "0.5mm",
   },
   leftDetails: {
     width: "15%",
     flexDirection: "column",
     alignItems: "center",
-    gap: "0.5mm",
+    gap: "0.3mm",
   },
   centerDetails: {
     width: "70%",
@@ -156,62 +153,62 @@ const styles = StyleSheet.create({
   riskContainer: {
     backgroundColor: "#f0f0f0",
     border: "1px solid #000",
-    padding: "1mm",
+    padding: "0.5mm",
     fontSize: 6,
     textAlign: "center",
     fontWeight: "bold",
-    marginBottom: "2mm",
+    marginBottom: "1mm",
   },
   riskTitle: {
     fontSize: 7,
     fontWeight: "bold",
-    marginBottom: "0.5mm",
+    marginBottom: "0.3mm",
   },
   riskNote: {
     fontSize: 5,
     fontWeight: "normal",
-    lineHeight: 1.2,
+    lineHeight: 1.1,
   },
 
   // Delivery Container - New separate container
   deliveryContainer: {
     border: "1px solid #000",
-    padding: "1.5mm",
-    marginBottom: "2mm",
+    padding: "1mm",
+    marginBottom: "1mm",
     backgroundColor: "#f9f9f9",
   },
   deliverySection: {
     flexDirection: "row",
-    gap: "1mm",
+    gap: "0.5mm",
   },
   deliveryColumn: {
     width: "50%",
     flexDirection: "column",
-    gap: "0.5mm",
+    gap: "0.3mm",
   },
   deliveryLabel: {
     fontSize: 6,
     fontWeight: "bold",
-    marginBottom: "0.2mm",
+    marginBottom: "0.1mm",
   },
   deliveryInput: {
     border: "1px solid #000",
-    padding: "1mm",
+    padding: "0.5mm",
     fontSize: 6,
-    minHeight: "4mm",
+    minHeight: "3mm",
     backgroundColor: "#fff",
   },
 
   // Main Content Area
   contentArea: {
     flexDirection: "row",
-    gap: "1mm",
-    marginBottom: "1mm",
+    gap: "0.5mm",
+    marginBottom: "0.5mm",
   },
   leftColumn: {
     width: "75%",
     flexDirection: "column",
-    gap: "1mm",
+    gap: "0.5mm",
   },
   rightColumn: {
     width: "25%",
@@ -229,7 +226,7 @@ const styles = StyleSheet.create({
     borderBottom: "1px solid #000",
   },
   tableHeaderCell: {
-    padding: "0.8mm",
+    padding: "0.5mm",
     fontSize: 6,
     fontWeight: "bold",
     textAlign: "center",
@@ -240,13 +237,13 @@ const styles = StyleSheet.create({
     borderBottom: "1px solid #000",
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 24,
+    minHeight: 20,
   },
   tableCell: {
-    padding: "0.8mm",
+    padding: "0.5mm",
     fontSize: 6,
     borderRight: "1px solid #000",
-    minHeight: "4mm",
+    minHeight: "3mm",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -256,7 +253,7 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 5,
     fontWeight: "bold",
-    marginBottom: "0.2mm",
+    marginBottom: "0.1mm",
     textAlign: "center",
     width: "100%",
   },
@@ -271,7 +268,7 @@ const styles = StyleSheet.create({
   },
   freightHeader: {
     backgroundColor: "#e8e8e8",
-    padding: "0.8mm",
+    padding: "0.5mm",
     fontSize: 6,
     fontWeight: "bold",
     textAlign: "center",
@@ -283,7 +280,7 @@ const styles = StyleSheet.create({
   },
   freightLabel: {
     width: "60%",
-    padding: "0.5mm",
+    padding: "0.3mm",
     fontSize: 5,
     borderRight: "1px solid #000",
     fontWeight: "bold",
@@ -291,7 +288,7 @@ const styles = StyleSheet.create({
   },
   freightValue: {
     width: "40%",
-    padding: "0.5mm",
+    padding: "0.3mm",
     fontSize: 5,
     textAlign: "right",
   },
@@ -304,26 +301,26 @@ const styles = StyleSheet.create({
   footerSection: {
     flexDirection: "row",
     borderTop: "1px solid #000",
-    paddingTop: "1mm",
-    gap: "2mm",
+    paddingTop: "0.5mm",
+    gap: "1mm",
   },
   receiverSection: {
     width: "75%",
     border: "1px solid #000",
-    padding: "1mm",
+    padding: "0.5mm",
     fontSize: 6,
   },
   receiverHeader: {
     fontSize: 7,
     fontWeight: "bold",
-    marginBottom: "1mm",
+    marginBottom: "0.5mm",
     textAlign: "center",
     backgroundColor: "#f0f0f0",
-    padding: "0.5mm",
+    padding: "0.3mm",
   },
   receiverRow: {
     flexDirection: "row",
-    marginBottom: "0.5mm",
+    marginBottom: "0.3mm",
   },
   receiverLabel: {
     fontSize: 6,
@@ -336,9 +333,9 @@ const styles = StyleSheet.create({
   },
   signatureBox: {
     maxWidth: 200,
-    height: "30",
+    height: "25",
     border: "1px solid #000",
-    marginTop: "1mm",
+    marginTop: "0.5mm",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -348,13 +345,13 @@ const styles = StyleSheet.create({
   signatureImg: {
     width: "auto",
     maxWidth: "100",
-    maxHeight: "40",
+    maxHeight: "35",
     height: "auto",
   },
   authSection: {
     width: "25%",
     border: "1px solid #000",
-    padding: "1mm",
+    padding: "0.5mm",
     textAlign: "center",
     fontSize: 6,
     justifyContent: "space-between",
@@ -362,12 +359,12 @@ const styles = StyleSheet.create({
   authHeader: {
     fontSize: 6,
     fontWeight: "bold",
-    marginBottom: "2mm",
+    marginBottom: "1mm",
   },
   authSignatory: {
     fontSize: 6,
     marginTop: "auto",
-    paddingTop: "4mm",
+    paddingTop: "3mm",
   },
 });
 

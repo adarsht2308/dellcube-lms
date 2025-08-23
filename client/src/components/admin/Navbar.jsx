@@ -139,7 +139,7 @@ const Navbar = () => {
 
         {/* Center Section - Logo & Search */}
         <div className="flex items-center gap-6">
-          <Link to="/" className="flex items-center justify-center group">
+          <Link to="/admin/dashboard" className="flex items-center justify-center group">
             <img
               src="/images/dellcube_logo-og.png"
               alt="Dellcube logo"

@@ -19,6 +19,8 @@ import { Truck } from "lucide-react";
 import { Hash } from "lucide-react";
 import { FileText } from "lucide-react";
 import { AlertCircle } from "lucide-react";
+import { Plus, Building2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 // API imports
 import {
@@ -41,7 +43,7 @@ import {
   useGetAllVendorsQuery,
   useGetVendorByIdMutation,
 } from "@/features/api/Vendor/vendorApi.js";
-import { useGetAllDriversQuery } from "@/features/api/authApi";
+import { useGetAllDriversQuery, useCreateDriverMutation } from "@/features/api/authApi";
 import { useGetAllSiteTypesQuery } from "@/features/api/SiteType/siteTypeApi.js";
 import { useGetAllTransportModesQuery } from "@/features/api/TransportMode/transportModeApi.js";
 import { imageUrlToBase64 } from "@/utils/imageUrlToBase64.js";
@@ -154,6 +156,26 @@ const UpdateInvoice = () => {
   const [currentDriverContact, setCurrentDriverContact] = useState("");
   const [currentVehicleType, setCurrentVehicleType] = useState("");
 
+  // Add new state for consignor/consignee dropdowns
+  const [selectedConsignor, setSelectedConsignor] = useState("");
+  const [selectedConsignee, setSelectedConsignee] = useState("");
+  const [availableConsignors, setAvailableConsignors] = useState([]);
+  const [availableConsignees, setAvailableConsignees] = useState([]);
+  
+  // Add driver creation state
+  const [showAddDriverDialog, setShowAddDriverDialog] = useState(false);
+  const [newDriverData, setNewDriverData] = useState({
+    name: "",
+    mobile: "",
+    password: "",
+    licenseNumber: "",
+    experienceYears: "",
+    driverType: "dellcube"
+  });
+  
+  // Add driver creation mutation
+  const [createDriver, { isLoading: isCreatingDriver }] = useCreateDriverMutation();
+
   // All API hooks (mutations/queries)
   const [getInvoiceById, { data: fetchedInvoiceData, isLoading: isInvoiceLoading, isError: isInvoiceError, error: invoiceError }] = useGetInvoiceByIdMutation();
   const { data: companies } = useGetAllCompaniesQuery({});
@@ -209,13 +231,11 @@ const UpdateInvoice = () => {
   const isFormDisabled = isInvoiceLoading || !fetchedInvoiceData?.invoice;
   
   // Only after all hooks:
-  
+ 
 
   useEffect(() => {
     getInvoiceById(invoiceId);
-  }, [invoiceId, getInvoiceById]);
-
-  //fetch invoice by ID
+  }, [invoiceId, getInvoiceById]); 
   useEffect(() => {
     if (fetchedInvoiceData && fetchedInvoiceData.invoice) {
       const invoice = fetchedInvoiceData.invoice;
@@ -762,7 +782,86 @@ const UpdateInvoice = () => {
     search();
   }, [debouncedSearchTerm, branchId, searchVehicles, searchedVehicle]);
 
+  // Effect to update consignor/consignee lists when customer changes
+  useEffect(() => {
+    if (customerId && customersData?.customers) {
+      const selectedCustomer = customersData.customers.find(c => c._id === customerId);
+      if (selectedCustomer) {
+        setAvailableConsignors(selectedCustomer.consignors || []);
+        setAvailableConsignees(selectedCustomer.consignees || []);
+      }
+    }
+  }, [customerId, customersData]);
 
+  // Effect to auto-fill consignee when site ID changes
+  useEffect(() => {
+    if (siteId && availableConsignees.length > 0) {
+      const matchingConsignee = availableConsignees.find(c => c.siteId === siteId);
+      if (matchingConsignee) {
+        setSelectedConsignee(matchingConsignee._id);
+        setConsignee(matchingConsignee.consignee);
+      }
+    }
+  }, [siteId, availableConsignees]);
+
+  // Effect to update consignor/consignee text when dropdowns change
+  useEffect(() => {
+    if (selectedConsignor && availableConsignors.length > 0) {
+      const consignorObj = availableConsignors.find(c => c._id === selectedConsignor);
+      if (consignorObj) {
+        setConsignor(consignorObj.consignor);
+      }
+    }
+  }, [selectedConsignor, availableConsignors]);
+
+  useEffect(() => {
+    if (selectedConsignee && availableConsignees.length > 0) {
+      const consigneeObj = availableConsignees.find(c => c._id === selectedConsignee);
+      if (consigneeObj) {
+        setConsignee(consigneeObj.consignee);
+      }
+    }
+  }, [selectedConsignee, availableConsignees]);
+
+  // Handle driver creation
+  const handleCreateDriver = async () => {
+    if (!newDriverData.name || !newDriverData.mobile || !newDriverData.password || !newDriverData.licenseNumber || !newDriverData.experienceYears) {
+      toast.error("Driver name, mobile, password, license number, and experience years are required");
+      return;
+    }
+
+    // Validate mobile number format (10 digits)
+    if (!/^\d{10}$/.test(newDriverData.mobile)) {
+      toast.error("Mobile number must be exactly 10 digits");
+      return;
+    }
+
+    // Validate experience years (0-50)
+    const expYears = Number(newDriverData.experienceYears);
+    if (expYears < 0 || expYears > 50) {
+      toast.error("Experience years must be between 0 and 50");
+      return;
+    }
+
+    try {
+      const result = await createDriver({
+        ...newDriverData,
+        experienceYears: Number(newDriverData.experienceYears),
+        company: companyId,
+        branch: branchId,
+      }).unwrap();
+
+      if (result?.success) {
+        toast.success("Driver created successfully");
+        setShowAddDriverDialog(false);
+        setNewDriverData({ name: "", mobile: "", password: "", licenseNumber: "", experienceYears: "", driverType: "dellcube" });
+        // Refresh drivers list
+        // Note: You might need to add a refetch function to the drivers query
+      }
+    } catch (error) {
+      toast.error(error?.data?.message || "Failed to create driver");
+    }
+  };
 
   if (!invoiceId) {
     return (
@@ -783,40 +882,40 @@ const UpdateInvoice = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="container mx-auto px-4 py-6">
+      <div className="container mx-auto px-4 py-4 md:py-6">
         {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
+        <div className="mb-4 md:mb-6">
+          <div className="flex items-center gap-2 md:gap-3 mb-2">
             <Button
               variant="ghost"
               onClick={() => navigate("/admin/invoices")}
               className="text-gray-600 hover:text-gray-900"
             >
               {/* You can use an icon here if desired */}
-              Back to Invoices
+              Back to Dockets
             </Button>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Update Invoice
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
+            Update Docket
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Edit the details below to update the invoice
+          <p className="text-sm md:text-base text-gray-600 dark:text-gray-400 mt-1">
+            Edit the details below to update the docket
           </p>
         </div>
 
-        {/* Two-sided layout */}
-        <div className="flex gap-6">
-          {/* Left side - Main form (70%) */}
-          <div className="flex-1 space-y-6">
+        {/* Single column layout for mobile, two-sided for desktop */}
+        <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
+          {/* Left side - Main form (100% on mobile, 70% on desktop) */}
+          <div className="w-full lg:flex-1 space-y-4 md:space-y-6">
             {/* 1. Basic Information */}
             <Card className="shadow-sm border border-gray-200">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2 text-lg">
+              <CardHeader className="pb-3 md:pb-4">
+                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
                   Basic Information
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                   {isSuperAdmin && (
                     <>
                       <div className="space-y-2">
@@ -891,7 +990,7 @@ const UpdateInvoice = () => {
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-medium flex items-center gap-2">
-                      Invoice Date
+                    Docket Date
                     </Label>
                     <Input
                       type="date"
@@ -925,7 +1024,7 @@ const UpdateInvoice = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                   <div className="space-y-2">
                     <Label className="text-sm font-medium flex items-center gap-2">
                       Pickup Address
@@ -952,7 +1051,7 @@ const UpdateInvoice = () => {
                   </div>
                 </div>
                 {/* Add Pickup/Delivery Address region fields side by side */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
                   <AddressFields
                     type="from"
                     region={fromRegion}
@@ -977,29 +1076,48 @@ const UpdateInvoice = () => {
                   />
                 </div>
                 {/* Remaining Delivery Details fields */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 mt-4">
                   <div className="space-y-2">
                     <Label className="text-sm font-medium flex items-center gap-2">
                       Consignor/Sender
                     </Label>
-                    <Input
-                      type="text"
-                      value={consignor}
-                      onChange={e => setConsignor(e.target.value)}
-                      placeholder="Enter consignor/sender"
-                      className="w-full"
-                      disabled={isFormDisabled}
-                    />
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Select 
+                        value={selectedConsignor} 
+                        onValueChange={setSelectedConsignor}
+                        disabled={!customerId || isFormDisabled}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder={customerId ? "Select Consignor" : "Select Customer First"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableConsignors.map((consignor) => (
+                            <SelectItem key={consignor._id} value={consignor._id}>
+                              {consignor.consignor}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate("/admin/customers")}
+                        className="px-3 whitespace-nowrap"
+                        title="Add New Consignor"
+                        disabled={isFormDisabled}
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span className="hidden sm:inline ml-1">Add</span>
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-medium flex items-center gap-2">
+                      <Building2 className="w-4 h-4" />
                       Site Type
                     </Label>
-                    <Select
-                      value={selectedSiteType}
-                      onValueChange={setSelectedSiteType}
-                      disabled={isFormDisabled}
-                    >
+                    <Select value={selectedSiteType} onValueChange={setSelectedSiteType} disabled={isFormDisabled}>
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select Site Type" />
                       </SelectTrigger>
@@ -1014,6 +1132,7 @@ const UpdateInvoice = () => {
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-medium flex items-center gap-2">
+                      <Hash className="w-4 h-4" />
                       Site ID
                     </Label>
                     <Input
@@ -1029,14 +1148,36 @@ const UpdateInvoice = () => {
                     <Label className="text-sm font-medium flex items-center gap-2">
                       Consignee/Receiver
                     </Label>
-                    <Input
-                      type="text"
-                      value={consignee}
-                      onChange={e => setConsignee(e.target.value)}
-                      placeholder="Enter consignee/receiver"
-                      className="w-full"
-                      disabled={isFormDisabled}
-                    />
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Select 
+                        value={selectedConsignee} 
+                        onValueChange={setSelectedConsignee}
+                        disabled={!customerId || isFormDisabled}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder={customerId ? "Select Consignee" : "Select Customer First"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableConsignees.map((consignee) => (
+                            <SelectItem key={consignee._id} value={consignee._id}>
+                              {consignee.siteId} - {consignee.consignee}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate("/admin/customers")}
+                        className="px-3 whitespace-nowrap"
+                        title="Add New Consignee"
+                        disabled={isFormDisabled}
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span className="hidden sm:inline ml-1">Add</span>
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -1050,7 +1191,7 @@ const UpdateInvoice = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                   <div className="space-y-2">
                     <Label className="text-sm font-medium flex items-center gap-2">
                       Goods Type
@@ -1151,7 +1292,7 @@ const UpdateInvoice = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                   {/* Current Vehicle Information (Read-only) */}
                   {currentVehicleNumber && (
                     <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
@@ -1162,7 +1303,7 @@ const UpdateInvoice = () => {
                         </Label>
                       </div>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                         <div className="space-y-2">
                           <Label className="text-xs font-medium text-gray-600">
                             Current Vehicle Number
@@ -1339,25 +1480,38 @@ const UpdateInvoice = () => {
                       {/* Only show dropdown if driver is missing */}
                       {!searchedVehicle.currentDriver && (
                         <div className="space-y-2">
-                          <Label className="text-sm font-medium flex items-center gap-2">
-                            Assign Driver
-                          </Label>
-                          <Select 
-                            value={selectedDriver} 
-                            onValueChange={setSelectedDriver}
-                            disabled={isFormDisabled}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Select a Driver" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {driversData?.drivers?.map((driver) => (
-                                <SelectItem key={driver._id} value={driver._id}>
-                                  {driver.name} ({driver.mobile})
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <Label className="text-sm font-medium">Assign Driver</Label>
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            <Select 
+                              value={selectedDriver} 
+                              onValueChange={setSelectedDriver}
+                              disabled={isFormDisabled}
+                              className="w-full"
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a Driver" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {driversData?.drivers?.map((driver) => (
+                                  <SelectItem key={driver._id} value={driver._id}>
+                                    {driver.name} - {driver.mobile} - {driver.driverType}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowAddDriverDialog(true)}
+                              className="px-3 whitespace-nowrap"
+                              title="Add New Driver"
+                              disabled={isFormDisabled}
+                            >
+                              <Plus className="w-4 h-4" />
+                              <span className="hidden sm:inline ml-1">Add</span>
+                            </Button>
+                          </div>
                         </div>
                       )}
                       {/* Driver Contact always shown */}
@@ -1379,13 +1533,13 @@ const UpdateInvoice = () => {
             </Card>
           </div>
 
-          {/* Right side - Invoice Details (previously Additional Details) and submit (30%) */}
-          <div className="w-80 space-y-6">
+          {/* Right side - Invoice Details and submit (100% on mobile, 30% on desktop) */}
+          <div className="w-full lg:w-80 space-y-4 md:space-y-6 mt-4 lg:mt-0">
             {/* 5. Invoice Details */}
             <Card className="shadow-sm border border-gray-200">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-2 text-lg">
-                  Invoice Details
+                Docket Details
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -1533,11 +1687,11 @@ const UpdateInvoice = () => {
                   {isUpdating ? (
                     <span className="flex items-center gap-2">
                       <Loader2 className="animate-spin w-4 h-4" />
-                      Updating Invoice...
+                      Updating Docket...
                     </span>
                   ) : (
                     <span className="flex items-center gap-2">
-                      Update Invoice
+                      Update Docket
                     </span>
                   )}
                 </Button>
@@ -1546,6 +1700,101 @@ const UpdateInvoice = () => {
           </div>
         </div>
       </div>
+
+      {/* Add Driver Dialog */}
+      <Dialog open={showAddDriverDialog} onOpenChange={setShowAddDriverDialog}>
+        <DialogContent className="max-w-md mx-4">
+          <DialogHeader>
+            <DialogTitle>Add New Driver</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Driver Name *</Label>
+              <Input
+                value={newDriverData.name}
+                onChange={(e) => setNewDriverData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Enter driver name"
+              />
+            </div>
+                          <div className="space-y-2">
+                <Label>Mobile Number * (10 digits)</Label>
+                <Input
+                  value={newDriverData.mobile}
+                  placeholder="Enter 10 digit mobile number"
+                  onChange={(e) => setNewDriverData(prev => ({ ...prev, mobile: e.target.value }))}
+                  maxLength={10}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Password *</Label>
+                <Input
+                  type="password"
+                  value={newDriverData.password}
+                  onChange={(e) => setNewDriverData(prev => ({ ...prev, password: e.target.value }))}
+                  placeholder="Enter password"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>License Number *</Label>
+                <Input
+                  value={newDriverData.licenseNumber}
+                  onChange={(e) => setNewDriverData(prev => ({ ...prev, licenseNumber: e.target.value }))}
+                  placeholder="Enter license number"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Experience Years * (0-50)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="50"
+                  value={newDriverData.experienceYears}
+                  onChange={(e) => setNewDriverData(prev => ({ ...prev, experienceYears: e.target.value }))}
+                  placeholder="Enter experience years (0-50)"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Driver Type</Label>
+              <Select 
+                value={newDriverData.driverType} 
+                onValueChange={(value) => setNewDriverData(prev => ({ ...prev, driverType: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="dellcube">Dellcube</SelectItem>
+                  <SelectItem value="vendor">Vendor</SelectItem>
+                  <SelectItem value="temporary">Temporary</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setShowAddDriverDialog(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleCreateDriver}
+                disabled={isCreatingDriver}
+                className="flex-1 bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020]"
+              >
+                {isCreatingDriver ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Creating...
+                  </>
+                ) : (
+                  "Create Driver"
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
