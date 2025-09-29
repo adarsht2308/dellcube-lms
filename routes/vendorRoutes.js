@@ -10,6 +10,11 @@ import {
   addVehicleController,
   updateVendorVehicleStatus, // <-- import the new controller
   addVendorVehicleMaintenance, // <-- import the new controller
+  getVendorVehicles,
+  getVendorInvoices,
+  getVendorProfile,
+  updateVendorProfile,
+  testVendorInvoices,
   //   getVehiclesByVendor,
 } from "../controllers/vendorController.js";
 
@@ -29,10 +34,26 @@ router.put("/update", isAuthenticated, updateVendor);
 // Delete vendor by ID
 router.delete("/delete", isAuthenticated, deleteVendor);
 
+// Vendor-specific routes
+router.get("/my-vehicles", isAuthenticated, getVendorVehicles);
+router.get("/my-invoices", isAuthenticated, getVendorInvoices);
+router.get("/my-profile", isAuthenticated, getVendorProfile);
+router.put("/my-profile", isAuthenticated, updateVendorProfile);
+router.get("/test-invoices", isAuthenticated, testVendorInvoices);
+
 // router.post("/vehicle-by-vendor", isAuthenticated, getVehiclesByVendor);
 
 router.put("/vendor/vehicles", isAuthenticated, upload, addVehicleController);
-router.put("/vendor/vehicle/status", isAuthenticated, updateVendorVehicleStatus);
-router.put("/vendor/vehicle/maintenance", isAuthenticated, upload, addVendorVehicleMaintenance);
+router.put(
+  "/vendor/vehicle/status",
+  isAuthenticated,
+  updateVendorVehicleStatus
+);
+router.put(
+  "/vendor/vehicle/maintenance",
+  isAuthenticated,
+  upload,
+  addVendorVehicleMaintenance
+);
 
 export default router;

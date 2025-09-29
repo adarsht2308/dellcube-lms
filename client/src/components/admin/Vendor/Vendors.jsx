@@ -89,20 +89,26 @@ const InfoCard = ({ icon: Icon, title, children, className = "" }) => (
 const InfoRow = ({ label, value, icon: Icon }) => (
   <div className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors duration-200">
     <div className="flex items-center gap-2 min-w-0">
-      {Icon && <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />}
-      <span className="text-sm font-medium text-gray-600 dark:text-gray-300 truncate">{label}:</span>
+      {Icon && (
+        <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+      )}
+      <span className="text-sm font-medium text-gray-600 dark:text-gray-300 truncate">
+        {label}:
+      </span>
     </div>
     <div className="flex-shrink-0 ml-3">
-      <span className="text-sm text-gray-800 dark:text-gray-200 font-medium">{value || <span className="text-gray-400 italic">N/A</span>}</span>
+      <span className="text-sm text-gray-800 dark:text-gray-200 font-medium">
+        {value || <span className="text-gray-400 italic">N/A</span>}
+      </span>
     </div>
   </div>
 );
 
 // Dellcube color theme constants
 const DELLCUBE_COLORS = {
-  gold: '#FFD249',
-  dark: '#202020',
-  gray: '#828083',
+  gold: "#FFD249",
+  dark: "#202020",
+  gray: "#828083",
 };
 
 const Vendors = () => {
@@ -141,7 +147,8 @@ const Vendors = () => {
   const [addVehicleToVendor] = useAddVehicleMutation();
   const [updateVendor] = useUpdateVendorMutation();
   const [updateVendorVehicleStatus] = useUpdateVendorVehicleStatusMutation();
-  const [addVendorVehicleMaintenance] = useAddVendorVehicleMaintenanceMutation();
+  const [addVendorVehicleMaintenance] =
+    useAddVendorVehicleMaintenanceMutation();
 
   const [open, setOpen] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState(null);
@@ -209,20 +216,20 @@ const Vendors = () => {
       // If formData is FormData (from file uploads), send it directly
       if (formData instanceof FormData) {
         // Append vendorId to the FormData
-        formData.append('vendorId', vendorId);
+        formData.append("vendorId", vendorId);
         await addVehicleToVendor({ vehicle: formData }).unwrap();
       } else {
         // If it's a regular object, create FormData
         const data = new FormData();
-        data.append('vendorId', vendorId);
-        Object.keys(formData).forEach(key => {
+        data.append("vendorId", vendorId);
+        Object.keys(formData).forEach((key) => {
           if (formData[key] !== "") {
             data.append(key, formData[key]);
           }
         });
         await addVehicleToVendor({ vehicle: data }).unwrap();
       }
-      
+
       toast.success("Vehicle added to vendor successfully!");
       refetch();
       if (open && selectedVendor?._id === vendorId) {
@@ -307,10 +314,16 @@ const Vendors = () => {
     }
   };
 
-  const [statusDialog, setStatusDialog] = useState({ open: false, vehicle: null });
+  const [statusDialog, setStatusDialog] = useState({
+    open: false,
+    vehicle: null,
+  });
   const [statusValue, setStatusValue] = useState("");
-  const [maintenanceDialog, setMaintenanceDialog] = useState({ open: false, vehicle: null });
-  
+  const [maintenanceDialog, setMaintenanceDialog] = useState({
+    open: false,
+    vehicle: null,
+  });
+
   const handleUpdateVehicleStatus = (vehicle) => {
     setOpen(false); // Close the drawer
     setStatusDialog({ open: true, vehicle });
@@ -324,14 +337,19 @@ const Vendors = () => {
 
   const handleRemoveVehicle = async (vehicleId) => {
     if (!selectedVendor) return;
-    const updatedVehicles = selectedVendor.availableVehicles.filter(v => v._id !== vehicleId);
+    const updatedVehicles = selectedVendor.availableVehicles.filter(
+      (v) => v._id !== vehicleId
+    );
     try {
-      await updateVendor({ vendorId: selectedVendor._id, availableVehicles: updatedVehicles }).unwrap();
-      toast.success('Vehicle removed successfully!');
+      await updateVendor({
+        vendorId: selectedVendor._id,
+        availableVehicles: updatedVehicles,
+      }).unwrap();
+      toast.success("Vehicle removed successfully!");
       handleView(selectedVendor._id);
       refetch();
     } catch (err) {
-      toast.error(err?.data?.message || 'Failed to remove vehicle.');
+      toast.error(err?.data?.message || "Failed to remove vehicle.");
     }
   };
 
@@ -343,8 +361,12 @@ const Vendors = () => {
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-[#828083] dark:text-gray-400">Total Vendors</p>
-                <p className="text-2xl font-bold text-[#202020] dark:text-[#FFD249]">{data?.total || 0}</p>
+                <p className="text-sm font-medium text-[#828083] dark:text-gray-400">
+                  Total Vendors
+                </p>
+                <p className="text-2xl font-bold text-[#202020] dark:text-[#FFD249]">
+                  {data?.total || 0}
+                </p>
               </div>
               <div className="p-3 bg-[#FFD249]/20 dark:bg-[#FFD249]/10 rounded-xl">
                 <Users className="w-6 h-6 text-[#202020] dark:text-[#FFD249]" />
@@ -354,8 +376,12 @@ const Vendors = () => {
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-[#828083] dark:text-gray-400">Current Page</p>
-                <p className="text-2xl font-bold text-[#202020] dark:text-[#FFD249]">{page}</p>
+                <p className="text-sm font-medium text-[#828083] dark:text-gray-400">
+                  Current Page
+                </p>
+                <p className="text-2xl font-bold text-[#202020] dark:text-[#FFD249]">
+                  {page}
+                </p>
               </div>
               <div className="p-3 bg-[#FFD249]/20 dark:bg-[#FFD249]/10 rounded-xl">
                 <Building2 className="w-6 h-6 text-[#202020] dark:text-[#FFD249]" />
@@ -365,8 +391,12 @@ const Vendors = () => {
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-[#828083] dark:text-gray-400">Items Per Page</p>
-                <p className="text-2xl font-bold text-[#202020] dark:text-[#FFD249]">{limit}</p>
+                <p className="text-sm font-medium text-[#828083] dark:text-gray-400">
+                  Items Per Page
+                </p>
+                <p className="text-2xl font-bold text-[#202020] dark:text-[#FFD249]">
+                  {limit}
+                </p>
               </div>
               <div className="p-3 bg-[#FFD249]/20 dark:bg-[#FFD249]/10 rounded-xl">
                 <Car className="w-6 h-6 text-[#202020] dark:text-[#FFD249]" />
@@ -378,7 +408,9 @@ const Vendors = () => {
         <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-lg">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="flex items-center gap-4">
-              <h2 className="text-2xl font-bold text-[#202020] dark:text-[#FFD249]">All Vendors</h2>
+              <h2 className="text-2xl font-bold text-[#202020] dark:text-[#FFD249]">
+                All Vendors
+              </h2>
               <Button
                 variant="outline"
                 size="sm"
@@ -400,7 +432,10 @@ const Vendors = () => {
                 />
                 <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#828083] dark:text-gray-400" />
               </div>
-              <Select value={limit.toString()} onValueChange={handleLimitChange}>
+              <Select
+                value={limit.toString()}
+                onValueChange={handleLimitChange}
+              >
                 <SelectTrigger className="w-[100px] bg-white/80 dark:bg-gray-700/80 border-gray-200/50 dark:border-gray-600/50">
                   <SelectValue placeholder="Limit" />
                 </SelectTrigger>
@@ -412,8 +447,8 @@ const Vendors = () => {
                   ))}
                 </SelectContent>
               </Select>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={() => refetch()}
                 className="p-2 bg-[#FFD249]/10 hover:bg-[#FFD249]/20 text-[#202020] dark:text-[#FFD249] border-[#FFD249]/30"
@@ -436,7 +471,12 @@ const Vendors = () => {
                   <>
                     {/* Company Select */}
                     <div className="flex flex-col gap-2">
-                      <Label htmlFor="company-filter" className="text-[#202020] dark:text-[#FFD249]">Company</Label>
+                      <Label
+                        htmlFor="company-filter"
+                        className="text-[#202020] dark:text-[#FFD249]"
+                      >
+                        Company
+                      </Label>
                       <Select
                         value={companyId}
                         onValueChange={(val) => {
@@ -459,7 +499,12 @@ const Vendors = () => {
                     </div>
                     {/* Branch Select */}
                     <div className="flex flex-col gap-2">
-                      <Label htmlFor="branch-filter" className="text-[#202020] dark:text-[#FFD249]">Branch</Label>
+                      <Label
+                        htmlFor="branch-filter"
+                        className="text-[#202020] dark:text-[#FFD249]"
+                      >
+                        Branch
+                      </Label>
                       <Select
                         value={branchId}
                         onValueChange={(val) => {
@@ -484,7 +529,12 @@ const Vendors = () => {
                 )}
                 {/* Status Select */}
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="status-filter" className="text-[#202020] dark:text-[#FFD249]">Status</Label>
+                  <Label
+                    htmlFor="status-filter"
+                    className="text-[#202020] dark:text-[#FFD249]"
+                  >
+                    Status
+                  </Label>
                   <Select
                     value={status}
                     onValueChange={(val) => {
@@ -503,8 +553,8 @@ const Vendors = () => {
                   </Select>
                 </div>
               </div>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={handleClearFilters}
                 className="text-xs bg-[#FFD249]/10 hover:bg-[#FFD249]/20 text-[#202020] dark:text-[#FFD249] border-[#FFD249]/30"
@@ -520,21 +570,38 @@ const Vendors = () => {
             {/* Top thead */}
             <thead className="bg-[#FFD249]/20 dark:bg-[#FFD249]/10 text-center sticky top-0 z-10">
               <tr>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">No</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Name</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Email</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Phone</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Company</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Branch</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Status</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Actions</th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  No
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  Name
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  Email
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  Phone
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  Company
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  Branch
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 text-center">
               {isLoading ? (
                 <tr>
                   <td colSpan="8" className="text-center py-6">
-                    <Loader2 className="animate-spin mx-auto text-[#FFD249]" /> Loading...
+                    <Loader2 className="animate-spin mx-auto text-[#FFD249]" />{" "}
+                    Loading...
                   </td>
                 </tr>
               ) : data?.vendors?.length ? (
@@ -548,14 +615,36 @@ const Vendors = () => {
                           " hover:bg-[#FFD249]/20 dark:hover:bg-[#FFD249]/10 transition "
                     }
                   >
-                    <td className="p-3 font-medium text-[#202020] dark:text-[#FFD249] text-center">{limit * (page - 1) + (i + 1)}</td>
-                    <td className="p-3 text-[#202020] dark:text-[#FFD249] font-semibold">{vendor.name}</td>
-                    <td className="p-3 text-[#202020] dark:text-[#FFD249] text-center">{vendor.email}</td>
-                    <td className="p-3 text-[#202020] dark:text-[#FFD249] text-center">{vendor.phone}</td>
-                    <td className="p-3 text-[#202020] dark:text-[#FFD249] text-center">{vendor.company?.name || <span className="text-gray-400">N/A</span>}</td>
-                    <td className="p-3 text-[#202020] dark:text-[#FFD249] text-center">{vendor.branch?.name || <span className="text-gray-400">N/A</span>}</td>
+                    <td className="p-3 font-medium text-[#202020] dark:text-[#FFD249] text-center">
+                      {limit * (page - 1) + (i + 1)}
+                    </td>
+                    <td className="p-3 text-[#202020] dark:text-[#FFD249] font-semibold">
+                      {vendor.name}
+                    </td>
+                    <td className="p-3 text-[#202020] dark:text-[#FFD249] text-center">
+                      {vendor.email}
+                    </td>
+                    <td className="p-3 text-[#202020] dark:text-[#FFD249] text-center">
+                      {vendor.phone}
+                    </td>
+                    <td className="p-3 text-[#202020] dark:text-[#FFD249] text-center">
+                      {vendor.company?.name || (
+                        <span className="text-gray-400">N/A</span>
+                      )}
+                    </td>
+                    <td className="p-3 text-[#202020] dark:text-[#FFD249] text-center">
+                      {vendor.branch?.name || (
+                        <span className="text-gray-400">N/A</span>
+                      )}
+                    </td>
                     <td className="p-3 text-center">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold text-center ${renderStatusBadge(vendor.status)}`}>{vendor.status}</span>
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-semibold text-center ${renderStatusBadge(
+                          vendor.vendorStatus || vendor.status
+                        )}`}
+                      >
+                        {vendor.vendorStatus || vendor.status || "active"}
+                      </span>
                     </td>
                     <td className="p-3 flex gap-2 items-center justify-center">
                       <Button
@@ -574,7 +663,10 @@ const Vendors = () => {
                       </Button>
                       <Button
                         className="p-2 rounded-full bg-[#FFD249]/30 text-[#202020] hover:bg-[#FFD249]/60 dark:text-[#FFD249]"
-                        onClick={() => { setVehicleDialogVendor(vendor); setShowAddVehicleDialog(true); }}
+                        onClick={() => {
+                          setVehicleDialogVendor(vendor);
+                          setShowAddVehicleDialog(true);
+                        }}
                         title="Add Vehicle"
                       >
                         <Car className="w-4 h-4" />
@@ -603,12 +695,16 @@ const Vendors = () => {
                           <AlertDialogHeader>
                             <AlertDialogTitle>Delete Vendor?</AlertDialogTitle>
                             <AlertDialogDescription>
-                              This action cannot be undone. This will permanently delete the vendor and remove their data from our servers.
+                              This action cannot be undone. This will
+                              permanently delete the vendor and remove their
+                              data from our servers.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDelete(vendor._id)}>
+                            <AlertDialogAction
+                              onClick={() => handleDelete(vendor._id)}
+                            >
                               Delete
                             </AlertDialogAction>
                           </AlertDialogFooter>
@@ -621,8 +717,12 @@ const Vendors = () => {
                 <tr>
                   <td colSpan="8" className="text-center py-10 text-[#828083]">
                     <Users className="w-8 h-8 mx-auto text-[#828083]" />
-                    <p className="text-[#828083] font-medium">No Vendors Available</p>
-                    <p className="text-sm text-[#828083]">Add a new vendor to begin</p>
+                    <p className="text-[#828083] font-medium">
+                      No Vendors Available
+                    </p>
+                    <p className="text-sm text-[#828083]">
+                      Add a new vendor to begin
+                    </p>
                   </td>
                 </tr>
               )}
@@ -630,19 +730,38 @@ const Vendors = () => {
             {/* Bottom thead */}
             <thead className="bg-[#FFD249]/20 dark:bg-[#FFD249]/10 text-center">
               <tr>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">No</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Name</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Email</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Phone</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Company</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Branch</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Status</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Actions</th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  No
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  Name
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  Email
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  Phone
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  Company
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  Branch
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
           </table>
           <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800 text-sm text-[#202020] dark:text-[#FFD249] text-center lg:text-left">
-            Showing {data?.vendors?.length ? (data?.page - 1) * data?.limit + 1 : 0} to {Math.min(data?.page * data?.limit, data?.total || 0)} of <span className="font-medium">{data?.total || 0}</span> entries
+            Showing{" "}
+            {data?.vendors?.length ? (data?.page - 1) * data?.limit + 1 : 0} to{" "}
+            {Math.min(data?.page * data?.limit, data?.total || 0)} of{" "}
+            <span className="font-medium">{data?.total || 0}</span> entries
           </div>
         </div>
         {/* Pagination */}
@@ -723,39 +842,105 @@ const Vendors = () => {
                   Vendor Information
                 </h3>
                 <Button
-                  onClick={() => navigate(`/admin/vendors/${selectedVendor._id}`)}
+                  onClick={() =>
+                    navigate(`/admin/vendors/${selectedVendor._id}`)
+                  }
                   className="bg-[#FFD249] hover:bg-[#FFD249]/90 text-[#202020] font-semibold px-4 py-2 rounded-xl"
                 >
                   View Full Details
                 </Button>
               </div>
-              
+
               <InfoCard icon={Users} title="Vendor Information">
-                <InfoRow label="Name" value={selectedVendor.name} icon={Users} />
-                <InfoRow label="Email" value={selectedVendor.email} icon={Mail} />
-                <InfoRow label="Phone" value={selectedVendor.phone} icon={Phone} />
-                <InfoRow label="Status" value={selectedVendor.status} icon={EyeIcon} />
+                <InfoRow
+                  label="Name"
+                  value={selectedVendor.name}
+                  icon={Users}
+                />
+                <InfoRow
+                  label="Email"
+                  value={selectedVendor.email}
+                  icon={Mail}
+                />
+                <InfoRow
+                  label="Phone"
+                  value={selectedVendor.phone}
+                  icon={Phone}
+                />
+                <InfoRow
+                  label="Status"
+                  value={
+                    selectedVendor.vendorStatus ||
+                    selectedVendor.status ||
+                    "active"
+                  }
+                  icon={EyeIcon}
+                />
               </InfoCard>
               <InfoCard icon={Building2} title="Company & Branch">
-                <InfoRow label="Company" value={selectedVendor.company?.name} icon={Building2} />
-                <InfoRow label="Branch" value={selectedVendor.branch?.name} icon={MapPin} />
+                <InfoRow
+                  label="Company"
+                  value={selectedVendor.company?.name}
+                  icon={Building2}
+                />
+                <InfoRow
+                  label="Branch"
+                  value={selectedVendor.branch?.name}
+                  icon={MapPin}
+                />
+                <InfoRow
+                  label="Assigned Client"
+                  value={selectedVendor.assignedClient?.name || "Not assigned"}
+                  icon={Users}
+                />
               </InfoCard>
               <InfoCard icon={MapPin} title="Location">
-                <InfoRow label="Address" value={selectedVendor.address} icon={MapPin} />
+                <InfoRow
+                  label="Address"
+                  value={selectedVendor.address}
+                  icon={MapPin}
+                />
               </InfoCard>
               <InfoCard icon={Building2} title="Account Details">
-                <InfoRow label="Bank Name" value={selectedVendor.bankName} icon={Building2} />
-                <InfoRow label="Account Number" value={selectedVendor.accountNumber} icon={Building2} />
-                <InfoRow label="IFSC" value={selectedVendor.ifsc} icon={Building2} />
-                <InfoRow label="PAN Number" value={selectedVendor.panNumber} icon={Building2} />
-                <InfoRow label="GST Number" value={selectedVendor.gstNumber} icon={Building2} />
+                <InfoRow
+                  label="Bank Name"
+                  value={selectedVendor.bankName}
+                  icon={Building2}
+                />
+                <InfoRow
+                  label="Account Number"
+                  value={selectedVendor.accountNumber}
+                  icon={Building2}
+                />
+                <InfoRow
+                  label="IFSC"
+                  value={selectedVendor.ifsc}
+                  icon={Building2}
+                />
+                <InfoRow
+                  label="PAN Number"
+                  value={selectedVendor.panNumber}
+                  icon={Building2}
+                />
+                <InfoRow
+                  label="GST Number"
+                  value={selectedVendor.gstNumber}
+                  icon={Building2}
+                />
               </InfoCard>
               <InfoCard icon={Car} title="Vehicles">
-                <InfoRow label="Total Vehicles" value={selectedVendor.availableVehicles?.length || 0} icon={Car} />
+                <InfoRow
+                  label="Total Vehicles"
+                  value={selectedVendor.availableVehicles?.length || 0}
+                  icon={Car}
+                />
                 {selectedVendor.availableVehicles?.length ? (
                   <div className="space-y-3 mt-2">
                     {selectedVendor.availableVehicles.map((vehicle, idx) => (
-                      <div key={vehicle._id || idx} className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 shadow-sm dark:bg-yellow-950 dark:border-yellow-700">
+                      <div
+                        key={vehicle._id || idx}
+                        className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 shadow-sm dark:bg-yellow-950 dark:border-yellow-700"
+                      >
                         <div className="flex items-center gap-2 mb-2">
                           <span className="bg-yellow-300 text-yellow-900 text-xs px-2 py-1 rounded font-semibold dark:bg-yellow-700 dark:text-yellow-100">
                             {vehicle.vehicleNumber}
@@ -768,26 +953,70 @@ const Vendors = () => {
                           </span>
                         </div>
                         <div className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
-                          <p><strong>Year:</strong> {vehicle.yearOfManufacture || 'N/A'}</p>
-                          <p><strong>Status:</strong> {vehicle.status}</p>
-                          <p><strong>Registration Date:</strong> {vehicle.registrationDate ? new Date(vehicle.registrationDate).toLocaleDateString() : 'N/A'}</p>
-                          <p><strong>FC Expiry:</strong> {vehicle.fitnessCertificateExpiry ? new Date(vehicle.fitnessCertificateExpiry).toLocaleDateString() : 'N/A'}</p>
-                          <p><strong>Insurance Expiry:</strong> {vehicle.insuranceExpiry ? new Date(vehicle.insuranceExpiry).toLocaleDateString() : 'N/A'}</p>
-                          <p><strong>Pollution Cert Expiry:</strong> {vehicle.pollutionCertificateExpiry ? new Date(vehicle.pollutionCertificateExpiry).toLocaleDateString() : 'N/A'}</p>
-                          <p><strong>Insurance No:</strong> {vehicle.vehicleInsuranceNo || 'N/A'}</p>
-                          <p><strong>Fitness No:</strong> {vehicle.fitnessNo || 'N/A'}</p>
+                          <p>
+                            <strong>Year:</strong>{" "}
+                            {vehicle.yearOfManufacture || "N/A"}
+                          </p>
+                          <p>
+                            <strong>Status:</strong> {vehicle.status}
+                          </p>
+                          <p>
+                            <strong>Registration Date:</strong>{" "}
+                            {vehicle.registrationDate
+                              ? new Date(
+                                  vehicle.registrationDate
+                                ).toLocaleDateString()
+                              : "N/A"}
+                          </p>
+                          <p>
+                            <strong>FC Expiry:</strong>{" "}
+                            {vehicle.fitnessCertificateExpiry
+                              ? new Date(
+                                  vehicle.fitnessCertificateExpiry
+                                ).toLocaleDateString()
+                              : "N/A"}
+                          </p>
+                          <p>
+                            <strong>Insurance Expiry:</strong>{" "}
+                            {vehicle.insuranceExpiry
+                              ? new Date(
+                                  vehicle.insuranceExpiry
+                                ).toLocaleDateString()
+                              : "N/A"}
+                          </p>
+                          <p>
+                            <strong>Pollution Cert Expiry:</strong>{" "}
+                            {vehicle.pollutionCertificateExpiry
+                              ? new Date(
+                                  vehicle.pollutionCertificateExpiry
+                                ).toLocaleDateString()
+                              : "N/A"}
+                          </p>
+                          <p>
+                            <strong>Insurance No:</strong>{" "}
+                            {vehicle.vehicleInsuranceNo || "N/A"}
+                          </p>
+                          <p>
+                            <strong>Fitness No:</strong>{" "}
+                            {vehicle.fitnessNo || "N/A"}
+                          </p>
                         </div>
-                        
+
                         {/* Certificate Images */}
-                        {(vehicle.fitnessCertificateImage?.url || vehicle.pollutionCertificateImage?.url || vehicle.registrationCertificateImage?.url || vehicle.insuranceImage?.url) && (
+                        {(vehicle.fitnessCertificateImage?.url ||
+                          vehicle.pollutionCertificateImage?.url ||
+                          vehicle.registrationCertificateImage?.url ||
+                          vehicle.insuranceImage?.url) && (
                           <div className="mt-3 p-2 bg-gray-50 dark:bg-gray-800 rounded border">
-                            <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">Certificates:</p>
+                            <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                              Certificates:
+                            </p>
                             <div className="grid grid-cols-2 gap-2">
                               {vehicle.fitnessCertificateImage?.url && (
                                 <div className="text-center">
-                                  <img 
-                                    src={vehicle.fitnessCertificateImage.url} 
-                                    alt="Fitness Certificate" 
+                                  <img
+                                    src={vehicle.fitnessCertificateImage.url}
+                                    alt="Fitness Certificate"
                                     className="w-16 h-16 object-cover rounded border mx-auto"
                                   />
                                   <p className="text-xs text-gray-500">FC</p>
@@ -795,9 +1024,9 @@ const Vendors = () => {
                               )}
                               {vehicle.pollutionCertificateImage?.url && (
                                 <div className="text-center">
-                                  <img 
-                                    src={vehicle.pollutionCertificateImage.url} 
-                                    alt="Pollution Certificate" 
+                                  <img
+                                    src={vehicle.pollutionCertificateImage.url}
+                                    alt="Pollution Certificate"
                                     className="w-16 h-16 object-cover rounded border mx-auto"
                                   />
                                   <p className="text-xs text-gray-500">PC</p>
@@ -805,9 +1034,11 @@ const Vendors = () => {
                               )}
                               {vehicle.registrationCertificateImage?.url && (
                                 <div className="text-center">
-                                  <img 
-                                    src={vehicle.registrationCertificateImage.url} 
-                                    alt="Registration Certificate" 
+                                  <img
+                                    src={
+                                      vehicle.registrationCertificateImage.url
+                                    }
+                                    alt="Registration Certificate"
                                     className="w-16 h-16 object-cover rounded border mx-auto"
                                   />
                                   <p className="text-xs text-gray-500">RC</p>
@@ -815,9 +1046,9 @@ const Vendors = () => {
                               )}
                               {vehicle.insuranceImage?.url && (
                                 <div className="text-center">
-                                  <img 
-                                    src={vehicle.insuranceImage.url} 
-                                    alt="Insurance" 
+                                  <img
+                                    src={vehicle.insuranceImage.url}
+                                    alt="Insurance"
                                     className="w-16 h-16 object-cover rounded border mx-auto"
                                   />
                                   <p className="text-xs text-gray-500">INS</p>
@@ -829,14 +1060,26 @@ const Vendors = () => {
 
                         <div className="flex flex-col gap-2 mt-2">
                           <div className="flex gap-2">
-                            <Button size="sm" className="bg-yellow-400 hover:bg-yellow-500 text-yellow-900 dark:bg-yellow-700 dark:hover:bg-yellow-600 dark:text-yellow-100 border-none" onClick={() => handleRemoveVehicle(vehicle._id)}>
+                            <Button
+                              size="sm"
+                              className="bg-yellow-400 hover:bg-yellow-500 text-yellow-900 dark:bg-yellow-700 dark:hover:bg-yellow-600 dark:text-yellow-100 border-none"
+                              onClick={() => handleRemoveVehicle(vehicle._id)}
+                            >
                               Remove
                             </Button>
-                            <Button size="sm" className="bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100 border-none" onClick={() => handleUpdateVehicleStatus(vehicle)}>
+                            <Button
+                              size="sm"
+                              className="bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100 border-none"
+                              onClick={() => handleUpdateVehicleStatus(vehicle)}
+                            >
                               Update Status
                             </Button>
                           </div>
-                          <Button size="sm" className="bg-blue-400 hover:bg-blue-500 text-blue-900 dark:bg-blue-700 dark:hover:bg-blue-600 dark:text-blue-100 border-none w-full" onClick={() => handleAddMaintenance(vehicle)}>
+                          <Button
+                            size="sm"
+                            className="bg-blue-400 hover:bg-blue-500 text-blue-900 dark:bg-blue-700 dark:hover:bg-blue-600 dark:text-blue-100 border-none w-full"
+                            onClick={() => handleAddMaintenance(vehicle)}
+                          >
                             Add Maintenance
                           </Button>
                         </div>
@@ -844,7 +1087,9 @@ const Vendors = () => {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-gray-400 italic mt-2">No vehicles found for this vendor.</div>
+                  <div className="text-gray-400 italic mt-2">
+                    No vehicles found for this vendor.
+                  </div>
                 )}
               </InfoCard>
             </div>
@@ -867,7 +1112,10 @@ const Vendors = () => {
             }
           }}
         />
-        <Dialog open={statusDialog.open} onOpenChange={open => setStatusDialog(s => ({ ...s, open }))}>
+        <Dialog
+          open={statusDialog.open}
+          onOpenChange={(open) => setStatusDialog((s) => ({ ...s, open }))}
+        >
           <DialogContent className="dark:bg-gray-800">
             <DialogHeader>
               <DialogTitle>Update Vehicle Status</DialogTitle>
@@ -881,47 +1129,64 @@ const Vendors = () => {
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="inactive">Inactive</SelectItem>
                   <SelectItem value="on_hold">On Hold</SelectItem>
-                  <SelectItem value="under_maintenance">Under Maintenance</SelectItem>
+                  <SelectItem value="under_maintenance">
+                    Under Maintenance
+                  </SelectItem>
                   <SelectItem value="decommissioned">Decommissioned</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <DialogFooter>
-              <Button onClick={async () => {
-                if (!statusDialog.vehicle) return;
-                try {
-                  await updateVendorVehicleStatus({
-                    vendorId: selectedVendor._id,
-                    vehicleId: statusDialog.vehicle._id,
-                    status: statusValue,
-                  }).unwrap();
-                  toast.success('Vehicle status updated!');
+              <Button
+                onClick={async () => {
+                  if (!statusDialog.vehicle) return;
+                  try {
+                    await updateVendorVehicleStatus({
+                      vendorId: selectedVendor._id,
+                      vehicleId: statusDialog.vehicle._id,
+                      status: statusValue,
+                    }).unwrap();
+                    toast.success("Vehicle status updated!");
+                    setStatusDialog({ open: false, vehicle: null });
+                    setStatusValue("");
+                    // Reopen the drawer with updated data
+                    await handleView(selectedVendor._id);
+                  } catch (err) {
+                    console.error("Update vehicle status error:", err);
+                    toast.error(
+                      err?.data?.message || "Failed to update status."
+                    );
+                  }
+                }}
+                className="bg-blue-500 hover:bg-blue-600 text-white"
+              >
+                Update
+              </Button>
+              <Button
+                variant="outline"
+                onClick={async () => {
                   setStatusDialog({ open: false, vehicle: null });
                   setStatusValue("");
-                  // Reopen the drawer with updated data
+                  // Reopen the drawer with current data
                   await handleView(selectedVendor._id);
-                } catch (err) {
-                  console.error('Update vehicle status error:', err);
-                  toast.error(err?.data?.message || 'Failed to update status.');
-                }
-              }} className="bg-blue-500 hover:bg-blue-600 text-white">Update</Button>
-              <Button variant="outline" onClick={async () => {
-                setStatusDialog({ open: false, vehicle: null });
-                setStatusValue("");
-                // Reopen the drawer with current data
-                await handleView(selectedVendor._id);
-              }}>Cancel</Button>
+                }}
+              >
+                Cancel
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
-        
+
         {/* Maintenance Dialog */}
-        <Dialog open={maintenanceDialog.open} onOpenChange={open => setMaintenanceDialog(s => ({ ...s, open }))}>
+        <Dialog
+          open={maintenanceDialog.open}
+          onOpenChange={(open) => setMaintenanceDialog((s) => ({ ...s, open }))}
+        >
           <DialogContent className="dark:bg-gray-800">
             <DialogHeader>
               <DialogTitle>Add Maintenance Record</DialogTitle>
             </DialogHeader>
-            <AddMaintenanceForm 
+            <AddMaintenanceForm
               vehicle={maintenanceDialog.vehicle}
               vendorId={selectedVendor?._id}
               onSuccess={async () => {
@@ -970,7 +1235,7 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
   }, [form]);
 
   const handleFileChange = (field, file) => {
-    setFiles(prev => ({ ...prev, [field]: file }));
+    setFiles((prev) => ({ ...prev, [field]: file }));
   };
 
   const handleSubmit = () => {
@@ -983,9 +1248,9 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
 
     // Create FormData for file uploads
     const formData = new FormData();
-    
+
     // Add vehicle data
-    Object.keys(form).forEach(key => {
+    Object.keys(form).forEach((key) => {
       if (form[key] !== "") {
         formData.append(key, form[key]);
         console.log(`Appending ${key}: ${form[key]}`);
@@ -995,9 +1260,12 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
     });
 
     // Add files
-    Object.keys(files).forEach(key => {
+    Object.keys(files).forEach((key) => {
       if (files[key]) {
-        formData.append(`vendorVehicle${key.charAt(0).toUpperCase() + key.slice(1)}`, files[key]);
+        formData.append(
+          `vendorVehicle${key.charAt(0).toUpperCase() + key.slice(1)}`,
+          files[key]
+        );
         console.log(`Appending file ${key}: ${files[key].name}`);
       }
     });
@@ -1049,10 +1317,13 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
               <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200 border-b border-yellow-300 pb-2">
                 Basic Information
               </h3>
-              
+
               <div className="grid grid-cols-1 gap-4">
                 <div>
-                  <Label htmlFor="vehicleNumber" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                  <Label
+                    htmlFor="vehicleNumber"
+                    className="text-yellow-800 dark:text-yellow-200 font-medium"
+                  >
                     Vehicle Number *
                   </Label>
                   <Input
@@ -1061,14 +1332,20 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
                     placeholder="e.g. MH 04 AB 1234"
                     value={form.vehicleNumber}
                     onChange={(e) =>
-                      setForm((prev) => ({ ...prev, vehicleNumber: e.target.value }))
+                      setForm((prev) => ({
+                        ...prev,
+                        vehicleNumber: e.target.value,
+                      }))
                     }
                     className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="type" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                  <Label
+                    htmlFor="type"
+                    className="text-yellow-800 dark:text-yellow-200 font-medium"
+                  >
                     Vehicle Type *
                   </Label>
                   <Select
@@ -1093,7 +1370,10 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
                 </div>
 
                 <div>
-                  <Label htmlFor="brand" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                  <Label
+                    htmlFor="brand"
+                    className="text-yellow-800 dark:text-yellow-200 font-medium"
+                  >
                     Brand *
                   </Label>
                   <Input
@@ -1109,7 +1389,10 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
                 </div>
 
                 <div>
-                  <Label htmlFor="model" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                  <Label
+                    htmlFor="model"
+                    className="text-yellow-800 dark:text-yellow-200 font-medium"
+                  >
                     Model *
                   </Label>
                   <Input
@@ -1125,7 +1408,10 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
                 </div>
 
                 <div>
-                  <Label htmlFor="yearOfManufacture" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                  <Label
+                    htmlFor="yearOfManufacture"
+                    className="text-yellow-800 dark:text-yellow-200 font-medium"
+                  >
                     Year of Manufacture
                   </Label>
                   <Input
@@ -1135,19 +1421,27 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
                     placeholder="e.g., 2020"
                     value={form.yearOfManufacture}
                     onChange={(e) =>
-                      setForm((prev) => ({ ...prev, yearOfManufacture: e.target.value }))
+                      setForm((prev) => ({
+                        ...prev,
+                        yearOfManufacture: e.target.value,
+                      }))
                     }
                     className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="status" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                  <Label
+                    htmlFor="status"
+                    className="text-yellow-800 dark:text-yellow-200 font-medium"
+                  >
                     Status
                   </Label>
                   <Select
                     value={form.status}
-                    onValueChange={(val) => setForm((prev) => ({ ...prev, status: val }))}
+                    onValueChange={(val) =>
+                      setForm((prev) => ({ ...prev, status: val }))
+                    }
                   >
                     <SelectTrigger className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600">
                       <SelectValue placeholder="Select status" />
@@ -1155,8 +1449,12 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
                     <SelectContent>
                       <SelectItem value="active">Active</SelectItem>
                       <SelectItem value="inactive">Inactive</SelectItem>
-                      <SelectItem value="under_maintenance">Under Maintenance</SelectItem>
-                      <SelectItem value="decommissioned">Decommissioned</SelectItem>
+                      <SelectItem value="under_maintenance">
+                        Under Maintenance
+                      </SelectItem>
+                      <SelectItem value="decommissioned">
+                        Decommissioned
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1168,10 +1466,13 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
               <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200 border-b border-yellow-300 pb-2">
                 Dates & Documents
               </h3>
-              
+
               <div className="grid grid-cols-1 gap-4">
                 <div>
-                  <Label htmlFor="registrationDate" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                  <Label
+                    htmlFor="registrationDate"
+                    className="text-yellow-800 dark:text-yellow-200 font-medium"
+                  >
                     Registration Date
                   </Label>
                   <Input
@@ -1180,14 +1481,20 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
                     type="date"
                     value={form.registrationDate}
                     onChange={(e) =>
-                      setForm((prev) => ({ ...prev, registrationDate: e.target.value }))
+                      setForm((prev) => ({
+                        ...prev,
+                        registrationDate: e.target.value,
+                      }))
                     }
                     className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="fitnessCertificateExpiry" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                  <Label
+                    htmlFor="fitnessCertificateExpiry"
+                    className="text-yellow-800 dark:text-yellow-200 font-medium"
+                  >
                     Fitness Certificate Expiry
                   </Label>
                   <Input
@@ -1196,14 +1503,20 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
                     type="date"
                     value={form.fitnessCertificateExpiry}
                     onChange={(e) =>
-                      setForm((prev) => ({ ...prev, fitnessCertificateExpiry: e.target.value }))
+                      setForm((prev) => ({
+                        ...prev,
+                        fitnessCertificateExpiry: e.target.value,
+                      }))
                     }
                     className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="insuranceExpiry" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                  <Label
+                    htmlFor="insuranceExpiry"
+                    className="text-yellow-800 dark:text-yellow-200 font-medium"
+                  >
                     Insurance Expiry
                   </Label>
                   <Input
@@ -1212,14 +1525,20 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
                     type="date"
                     value={form.insuranceExpiry}
                     onChange={(e) =>
-                      setForm((prev) => ({ ...prev, insuranceExpiry: e.target.value }))
+                      setForm((prev) => ({
+                        ...prev,
+                        insuranceExpiry: e.target.value,
+                      }))
                     }
                     className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="pollutionCertificateExpiry" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                  <Label
+                    htmlFor="pollutionCertificateExpiry"
+                    className="text-yellow-800 dark:text-yellow-200 font-medium"
+                  >
                     Pollution Certificate Expiry
                   </Label>
                   <Input
@@ -1228,14 +1547,20 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
                     type="date"
                     value={form.pollutionCertificateExpiry}
                     onChange={(e) =>
-                      setForm((prev) => ({ ...prev, pollutionCertificateExpiry: e.target.value }))
+                      setForm((prev) => ({
+                        ...prev,
+                        pollutionCertificateExpiry: e.target.value,
+                      }))
                     }
                     className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="vehicleInsuranceNo" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                  <Label
+                    htmlFor="vehicleInsuranceNo"
+                    className="text-yellow-800 dark:text-yellow-200 font-medium"
+                  >
                     Vehicle Insurance Number
                   </Label>
                   <Input
@@ -1244,14 +1569,20 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
                     placeholder="e.g., INS123456789"
                     value={form.vehicleInsuranceNo}
                     onChange={(e) =>
-                      setForm((prev) => ({ ...prev, vehicleInsuranceNo: e.target.value }))
+                      setForm((prev) => ({
+                        ...prev,
+                        vehicleInsuranceNo: e.target.value,
+                      }))
                     }
                     className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="fitnessNo" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                  <Label
+                    htmlFor="fitnessNo"
+                    className="text-yellow-800 dark:text-yellow-200 font-medium"
+                  >
                     Fitness Certificate Number
                   </Label>
                   <Input
@@ -1260,7 +1591,10 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
                     placeholder="e.g., FC123456789"
                     value={form.fitnessNo}
                     onChange={(e) =>
-                      setForm((prev) => ({ ...prev, fitnessNo: e.target.value }))
+                      setForm((prev) => ({
+                        ...prev,
+                        fitnessNo: e.target.value,
+                      }))
                     }
                     className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
                   />
@@ -1274,10 +1608,13 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
             <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200 border-b border-yellow-300 pb-2">
               Certificate Images
             </h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="fitnessCertificateImage" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                <Label
+                  htmlFor="fitnessCertificateImage"
+                  className="text-yellow-800 dark:text-yellow-200 font-medium"
+                >
                   Fitness Certificate Image
                 </Label>
                 <Input
@@ -1285,13 +1622,21 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
                   name="fitnessCertificateImage"
                   type="file"
                   accept="image/*"
-                  onChange={(e) => handleFileChange('fitnessCertificateImage', e.target.files[0])}
+                  onChange={(e) =>
+                    handleFileChange(
+                      "fitnessCertificateImage",
+                      e.target.files[0]
+                    )
+                  }
                   className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
                 />
               </div>
 
               <div>
-                <Label htmlFor="pollutionCertificateImage" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                <Label
+                  htmlFor="pollutionCertificateImage"
+                  className="text-yellow-800 dark:text-yellow-200 font-medium"
+                >
                   Pollution Certificate Image
                 </Label>
                 <Input
@@ -1299,13 +1644,21 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
                   name="pollutionCertificateImage"
                   type="file"
                   accept="image/*"
-                  onChange={(e) => handleFileChange('pollutionCertificateImage', e.target.files[0])}
+                  onChange={(e) =>
+                    handleFileChange(
+                      "pollutionCertificateImage",
+                      e.target.files[0]
+                    )
+                  }
                   className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
                 />
               </div>
 
               <div>
-                <Label htmlFor="registrationCertificateImage" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                <Label
+                  htmlFor="registrationCertificateImage"
+                  className="text-yellow-800 dark:text-yellow-200 font-medium"
+                >
                   Registration Certificate Image
                 </Label>
                 <Input
@@ -1313,13 +1666,21 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
                   name="registrationCertificateImage"
                   type="file"
                   accept="image/*"
-                  onChange={(e) => handleFileChange('registrationCertificateImage', e.target.files[0])}
+                  onChange={(e) =>
+                    handleFileChange(
+                      "registrationCertificateImage",
+                      e.target.files[0]
+                    )
+                  }
                   className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
                 />
               </div>
 
               <div>
-                <Label htmlFor="insuranceImage" className="text-yellow-800 dark:text-yellow-200 font-medium">
+                <Label
+                  htmlFor="insuranceImage"
+                  className="text-yellow-800 dark:text-yellow-200 font-medium"
+                >
                   Insurance Image
                 </Label>
                 <Input
@@ -1327,7 +1688,9 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
                   name="insuranceImage"
                   type="file"
                   accept="image/*"
-                  onChange={(e) => handleFileChange('insuranceImage', e.target.files[0])}
+                  onChange={(e) =>
+                    handleFileChange("insuranceImage", e.target.files[0])
+                  }
                   className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
                 />
               </div>
@@ -1349,7 +1712,12 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
 };
 
 // AddMaintenanceForm component for vendor vehicles
-const AddMaintenanceForm = ({ vehicle, vendorId, onSuccess, addMaintenance }) => {
+const AddMaintenanceForm = ({
+  vehicle,
+  vendorId,
+  onSuccess,
+  addMaintenance,
+}) => {
   const [form, setForm] = useState({
     serviceDate: "",
     serviceType: "",
@@ -1369,13 +1737,13 @@ const AddMaintenanceForm = ({ vehicle, vendorId, onSuccess, addMaintenance }) =>
     try {
       // Create FormData for file uploads
       const formData = new FormData();
-      
+
       // Add vendorId and vehicleId
-      formData.append('vendorId', vendorId);
-      formData.append('vehicleId', vehicle._id);
-      
+      formData.append("vendorId", vendorId);
+      formData.append("vehicleId", vehicle._id);
+
       // Add maintenance data
-      Object.keys(form).forEach(key => {
+      Object.keys(form).forEach((key) => {
         if (form[key] !== "") {
           formData.append(key, form[key]);
         }
@@ -1383,7 +1751,7 @@ const AddMaintenanceForm = ({ vehicle, vendorId, onSuccess, addMaintenance }) =>
 
       // Add bill image if present
       if (billImage) {
-        formData.append('vendorVehicleBillImage', billImage);
+        formData.append("vendorVehicleBillImage", billImage);
       }
 
       await addMaintenance({
@@ -1414,10 +1782,13 @@ const AddMaintenanceForm = ({ vehicle, vendorId, onSuccess, addMaintenance }) =>
         <h4 className="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-3">
           Vehicle: {vehicle?.vehicleNumber} - {vehicle?.brand} {vehicle?.model}
         </h4>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="serviceDate" className="text-blue-800 dark:text-blue-200 font-medium">
+            <Label
+              htmlFor="serviceDate"
+              className="text-blue-800 dark:text-blue-200 font-medium"
+            >
               Service Date *
             </Label>
             <Input
@@ -1433,7 +1804,10 @@ const AddMaintenanceForm = ({ vehicle, vendorId, onSuccess, addMaintenance }) =>
           </div>
 
           <div>
-            <Label htmlFor="serviceType" className="text-blue-800 dark:text-blue-200 font-medium">
+            <Label
+              htmlFor="serviceType"
+              className="text-blue-800 dark:text-blue-200 font-medium"
+            >
               Service Type *
             </Label>
             <Input
@@ -1449,7 +1823,10 @@ const AddMaintenanceForm = ({ vehicle, vendorId, onSuccess, addMaintenance }) =>
           </div>
 
           <div>
-            <Label htmlFor="cost" className="text-blue-800 dark:text-blue-200 font-medium">
+            <Label
+              htmlFor="cost"
+              className="text-blue-800 dark:text-blue-200 font-medium"
+            >
               Cost (₹)
             </Label>
             <Input
@@ -1466,7 +1843,10 @@ const AddMaintenanceForm = ({ vehicle, vendorId, onSuccess, addMaintenance }) =>
           </div>
 
           <div>
-            <Label htmlFor="servicedBy" className="text-blue-800 dark:text-blue-200 font-medium">
+            <Label
+              htmlFor="servicedBy"
+              className="text-blue-800 dark:text-blue-200 font-medium"
+            >
               Serviced By
             </Label>
             <Input
@@ -1482,7 +1862,10 @@ const AddMaintenanceForm = ({ vehicle, vendorId, onSuccess, addMaintenance }) =>
           </div>
 
           <div className="md:col-span-2">
-            <Label htmlFor="description" className="text-blue-800 dark:text-blue-200 font-medium">
+            <Label
+              htmlFor="description"
+              className="text-blue-800 dark:text-blue-200 font-medium"
+            >
               Description *
             </Label>
             <textarea
@@ -1499,7 +1882,10 @@ const AddMaintenanceForm = ({ vehicle, vendorId, onSuccess, addMaintenance }) =>
           </div>
 
           <div className="md:col-span-2">
-            <Label htmlFor="billImage" className="text-blue-800 dark:text-blue-200 font-medium">
+            <Label
+              htmlFor="billImage"
+              className="text-blue-800 dark:text-blue-200 font-medium"
+            >
               Bill Image
             </Label>
             <Input

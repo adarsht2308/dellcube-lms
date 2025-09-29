@@ -37,9 +37,7 @@ const CreateCompany = () => {
     companyType: "",
     address: "",
     contactPhone: "",
-    bankName: "",
-    accountNumber: "",
-    ifsc: "",
+    bankDetails: [{ bankName: "", accountNumber: "", ifsc: "" }],
     emergencyContactName: "",
     emergencyContactMobile: "",
     status: true,
@@ -56,13 +54,13 @@ const CreateCompany = () => {
   const [createCompany, { isLoading, isSuccess, isError, error, data }] =
     useCreateCompanyMutation();
 
-const { data: countries } = useGetAllCountriesQuery({
-  page: 1,
-  limit: 10000,  
-  search: ""
-});
+  const { data: countries } = useGetAllCountriesQuery({
+    page: 1,
+    limit: 10000,
+    search: "",
+  });
 
-  console.log(countries)
+  console.log(countries);
   const [getStatesByCountry, { data: stateData }] =
     useGetStatesByCountryMutation();
   const [getCitiesByState, { data: cityData }] = useGetCitiesByStateMutation();
@@ -117,14 +115,28 @@ const { data: countries } = useGetAllCountriesQuery({
   };
 
   const handleSubmit = async () => {
-    const { name, companyCode, emailId, website, gstNumber, gstNo, gstValue, pan, sacHsnCode, companyType, address, contactPhone } = formData;
+    const {
+      name,
+      companyCode,
+      emailId,
+      website,
+      gstNumber,
+      gstNo,
+      gstValue,
+      pan,
+      sacHsnCode,
+      companyType,
+      address,
+      contactPhone,
+      bankDetails,
+    } = formData;
 
     if (!name.trim()) return toast.error("Company name is required.");
     if (!companyCode.trim()) return toast.error("Company code is required.");
     if (!emailId.trim()) return toast.error("Email ID is required.");
     if (!gstNumber.trim()) return toast.error("GST number is required.");
     // if (!gstNo.trim()) return toast.error("GST NO is required.");
-    if (!gstValue || gstValue <= 0) return toast.error("GST Value is required and must be greater than 0.");
+    if (gstValue === "") return toast.error("GST Value is required.");
     if (!pan.trim()) return toast.error("PAN is required.");
     if (!sacHsnCode.trim()) return toast.error("SAC/HSN code is required.");
     if (!companyType.trim()) return toast.error("Company type is required.");
@@ -152,11 +164,25 @@ const { data: countries } = useGetAllCountriesQuery({
     payload.append("companyType", formData.companyType);
     payload.append("address", formData.address.trim());
     payload.append("contactPhone", formData.contactPhone.trim());
-    payload.append("bankName", formData.bankName.trim());
-    payload.append("accountNumber", formData.accountNumber.trim());
-    payload.append("ifsc", formData.ifsc.trim());
-    payload.append("emergencyContactName", formData.emergencyContactName.trim());
-    payload.append("emergencyContactMobile", formData.emergencyContactMobile.trim());
+    payload.append(
+      "bankDetails",
+      JSON.stringify(
+        (bankDetails || []).filter(
+          (b) =>
+            (b.bankName || "").trim() ||
+            (b.accountNumber || "").trim() ||
+            (b.ifsc || "").trim()
+        )
+      )
+    );
+    payload.append(
+      "emergencyContactName",
+      formData.emergencyContactName.trim()
+    );
+    payload.append(
+      "emergencyContactMobile",
+      formData.emergencyContactMobile.trim()
+    );
     payload.append("status", formData.status);
     payload.append("country", formData.region.country);
     payload.append("state", formData.region.state);
@@ -243,14 +269,23 @@ const { data: countries } = useGetAllCountriesQuery({
         </div> */}
         <div>
           <Label>GST Value</Label>
-          <Input
-            name="gstValue"
-            type="number"
-            step="0.01"
-            value={formData.gstValue}
-            onChange={handleInputChange}
-            placeholder="0.00"
-          />
+          <Select
+            value={String(formData.gstValue)}
+            onValueChange={(val) =>
+              setFormData((prev) => ({ ...prev, gstValue: val }))
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select GST %" />
+            </SelectTrigger>
+            <SelectContent>
+              {["0", "5", "12", "18", "28"].map((rate) => (
+                <SelectItem key={rate} value={rate}>
+                  {rate}%
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div>
           <Label>Company Type</Label>
@@ -266,8 +301,12 @@ const { data: countries } = useGetAllCountriesQuery({
             <SelectContent>
               <SelectItem value="counter company">Counter Company</SelectItem>
               <SelectItem value="logistic company">Logistic Company</SelectItem>
-              <SelectItem value="transport company">Transport Company</SelectItem>
-              <SelectItem value="warehouse company">Warehouse Company</SelectItem>
+              <SelectItem value="transport company">
+                Transport Company
+              </SelectItem>
+              <SelectItem value="warehouse company">
+                Warehouse Company
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -422,43 +461,117 @@ const { data: countries } = useGetAllCountriesQuery({
           </span>
         </div>
 
-        {/* Bank Details Section */}
+        {/* Bank Details Section (Multiple) */}
+        {/* Bank Details Section (Multiple) */}
         <div className="md:col-span-2">
-          <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Bank Details</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label>Bank Name</Label>
-              <Input
-                name="bankName"
-                value={formData.bankName}
-                onChange={handleInputChange}
-                placeholder="Bank Name"
-              />
-            </div>
-            <div>
-              <Label>Account Number</Label>
-              <Input
-                name="accountNumber"
-                value={formData.accountNumber}
-                onChange={handleInputChange}
-                placeholder="Account Number"
-              />
-            </div>
-            <div>
-              <Label>IFSC Code</Label>
-              <Input
-                name="ifsc"
-                value={formData.ifsc}
-                onChange={handleInputChange}
-                placeholder="IFSC Code"
-              />
-            </div>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+              Bank Details
+            </h3>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                setFormData((prev) => ({
+                  ...prev,
+                  bankDetails: [
+                    ...(prev.bankDetails || []),
+                    { bankName: "", accountNumber: "", ifsc: "" },
+                  ],
+                }))
+              }
+            >
+              Add Bank
+            </Button>
+          </div>
+          <div className="space-y-3">
+            {(formData.bankDetails || []).map((bank, idx) => (
+              <div
+                key={idx}
+                className="border p-3 rounded-md shadow-sm bg-gray-50 dark:bg-gray-800"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <Label>Bank Name</Label>
+                    <Input
+                      value={bank.bankName}
+                      onChange={(e) =>
+                        setFormData((prev) => {
+                          const next = [...prev.bankDetails];
+                          next[idx] = {
+                            ...next[idx],
+                            bankName: e.target.value,
+                          };
+                          return { ...prev, bankDetails: next };
+                        })
+                      }
+                      placeholder="Bank Name"
+                    />
+                  </div>
+                  <div>
+                    <Label>Account Number</Label>
+                    <Input
+                      value={bank.accountNumber}
+                      onChange={(e) =>
+                        setFormData((prev) => {
+                          const next = [...prev.bankDetails];
+                          next[idx] = {
+                            ...next[idx],
+                            accountNumber: e.target.value,
+                          };
+                          return { ...prev, bankDetails: next };
+                        })
+                      }
+                      placeholder="Account Number"
+                    />
+                  </div>
+                  <div>
+                    <Label>IFSC</Label>
+                    <Input
+                      value={bank.ifsc}
+                      onChange={(e) =>
+                        setFormData((prev) => {
+                          const next = [...prev.bankDetails];
+                          next[idx] = {
+                            ...next[idx],
+                            ifsc: e.target.value.toUpperCase(),
+                          };
+                          return { ...prev, bankDetails: next };
+                        })
+                      }
+                      placeholder="IFSC"
+                    />
+                  </div>
+                </div>
+
+                {/* Remove button aligned to the right */}
+                <div className="flex justify-end mt-2">
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    onClick={() =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        bankDetails: (prev.bankDetails || []).filter(
+                          (_, i) => i !== idx
+                        ),
+                      }))
+                    }
+                  >
+                    Remove
+                  </Button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
         {/* Emergency Contact Section */}
         <div className="md:col-span-2">
-          <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Emergency Contact</h3>
+          <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">
+            Emergency Contact
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label>Contact Name</Label>

@@ -21,6 +21,10 @@ import { useGetAllDriversQuery } from "@/features/api/authApi";
 import { useGetAllVehiclesQuery } from "@/features/api/Vehicle/vehicleApi";
 import { useGetAllInvoicesQuery } from "@/features/api/Invoice/invoiceApi";
 import {
+  useGetVendorInvoicesQuery,
+  useGetVendorVehiclesQuery,
+} from "@/features/api/Vendor/vendorApi";
+import {
   PieChart,
   Pie,
   Cell,
@@ -38,11 +42,21 @@ import {
 
 const SuperAdminDashboard = () => {
   const { user } = useSelector((store) => store.auth);
-  
+
   // Get current month's date range
   const now = new Date();
-  const fromDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-  const toDate = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+  const fromDate = new Date(now.getFullYear(), now.getMonth(), 1)
+    .toISOString()
+    .split("T")[0];
+  const toDate = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    .toISOString()
+    .split("T")[0];
+
+  // Role-based data fetching
+  const isVendor = user?.role === "vendor";
+  const isBranchAdmin = user?.role === "branchAdmin";
+  const isSuperAdmin = user?.role === "superAdmin";
+  const isOperation = user?.role === "operation";
 
   const { data: branchData, isLoading: loadingBranches } =
     useGetAllBranchesQuery({ page: 1, limit: "", search: "" });
@@ -54,42 +68,87 @@ const SuperAdminDashboard = () => {
   const { data: vehiclesData, isLoading: loadingVehicles } =
     useGetAllVehiclesQuery({ page: 1, limit: 100, search: "" });
   const { data: invoicesData, isLoading: loadingInvoices } =
-    useGetAllInvoicesQuery({ page: 1, limit: 100, search: "", fromDate, toDate });
+    useGetAllInvoicesQuery({
+      page: 1,
+      limit: 100,
+      search: "",
+      fromDate,
+      toDate,
+    });
+
+  // Vendor-specific data fetching
+  const { data: vendorInvoicesData, isLoading: loadingVendorInvoices } =
+    isVendor ? useGetVendorInvoicesQuery() : { data: null, isLoading: false };
+  const { data: vendorVehiclesData, isLoading: loadingVendorVehicles } =
+    isVendor ? useGetVendorVehiclesQuery() : { data: null, isLoading: false };
 
   // Business stats calculations for the current month
+  const currentInvoices = isVendor
+    ? vendorInvoicesData?.invoices
+    : invoicesData?.invoices;
+  const currentVehicles = isVendor
+    ? vendorVehiclesData?.vehicles
+    : vehiclesData?.vehicles;
+
   const totalRevenue =
-    invoicesData?.invoices?.reduce(
-      (sum, inv) => sum + (inv.freightCharges || 0),
+    currentInvoices?.reduce(
+      (sum, inv) => sum + (inv.freightCharges || inv.amount || 0),
       0
     ) || 0;
   const totalWeight =
-    invoicesData?.invoices?.reduce(
-      (sum, inv) => sum + (inv.totalWeight || 0),
-      0
-    ) || 0;
-  const uniqueCustomers = invoicesData?.invoices
+    currentInvoices?.reduce((sum, inv) => sum + (inv.totalWeight || 0), 0) || 0;
+  const uniqueCustomers = currentInvoices
     ? new Set(
-        invoicesData.invoices.map((inv) => inv.customer?._id).filter(Boolean)
+        currentInvoices
+          .map((inv) => inv.customer?._id || inv.clientName)
+          .filter(Boolean)
       ).size
     : 0;
   const activeVehicles =
-    vehiclesData?.vehicles?.filter((v) => v.status === "active").length || 0;
+    currentVehicles?.filter((v) => v.status === "active").length || 0;
   const experiencedDrivers = driversData?.drivers?.length || 0;
 
-  const stats = [
-    {
-      title: "Total Branches",
-      value: loadingBranches ? "..." : branchData?.total || 0,
-      icon: <FaBuilding className="text-2xl" />,
-      color: "bg-blue-500",
-    },
-    {
-      title: "Total Companies",
-      value: loadingCompanies ? "..." : companyData?.total || 0,
-      icon: <FaUsers className="text-2xl" />,
-      color: "bg-purple-500",
-    },
-  ];
+  const stats = isVendor
+    ? [
+        {
+          title: "My Vehicles",
+          value: loadingVendorVehicles ? "..." : currentVehicles?.length || 0,
+          icon: <FaTruck className="text-2xl" />,
+          color: "bg-blue-500",
+        },
+        {
+          title: "Active Vehicles",
+          value: loadingVendorVehicles ? "..." : activeVehicles || 0,
+          icon: <FaTruck className="text-2xl" />,
+          color: "bg-green-500",
+        },
+        {
+          title: "Total Invoices",
+          value: loadingVendorInvoices ? "..." : currentInvoices?.length || 0,
+          icon: <FaClipboardList className="text-2xl" />,
+          color: "bg-purple-500",
+        },
+        {
+          title: "Assigned Client",
+          value: user?.assignedClient?.name || "Not Assigned",
+          icon: <FaUser className="text-2xl" />,
+          color: "bg-orange-500",
+        },
+      ]
+    : [
+        {
+          title: "Total Branches",
+          value: loadingBranches ? "..." : branchData?.total || 0,
+          icon: <FaBuilding className="text-2xl" />,
+          color: "bg-blue-500",
+        },
+        {
+          title: "Total Companies",
+          value: loadingCompanies ? "..." : companyData?.total || 0,
+          icon: <FaUsers className="text-2xl" />,
+          color: "bg-purple-500",
+        },
+      ];
 
   return (
     <div className="min-h-screen ">
@@ -102,7 +161,11 @@ const SuperAdminDashboard = () => {
                   Welcome back, {user?.name || "User"}!
                 </h2>
                 <p className="text-orange-100 mt-1 text-sm md:text-base">
-                  Manage all Dellcube branches, staff, and logistics operations
+                  {isVendor
+                    ? `Manage your vehicles and view invoices for ${
+                        user?.assignedClient?.name || "your assigned client"
+                      }`
+                    : "Manage all Dellcube branches, staff, and logistics operations"}
                 </p>
                 <div className="mt-4 text-sm text-orange-100">
                   Today:{" "}
@@ -230,45 +293,70 @@ const SuperAdminDashboard = () => {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-4 mb-8">
-          <a
-            href="/admin/create-branch"
-            className="flex items-center px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700"
-          >
-            <FaPlus className="mr-2" /> Add Branch
-          </a>
-          <a
-            href="/admin/create-customer"
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            <FaPlus className="mr-2" /> Add Customer
-          </a>
-          <a
-            href="/admin/create-vehicle"
-            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-          >
-            <FaPlus className="mr-2" /> Add Vehicle
-          </a>
-          <a
-            href="/admin/create-vendor"
-            className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-          >
-            <Truck className="mr-2" /> Add Vendor
-          </a>
-          <a
-            href="/admin/create-driver"
-            className="flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
-          >
-            <FaPlus className="mr-2" /> Add Driver
-          </a>
+        {!isVendor && (
+          <div className="flex flex-wrap gap-4 mb-8">
+            <a
+              href="/admin/create-branch"
+              className="flex items-center px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700"
+            >
+              <FaPlus className="mr-2" /> Add Branch
+            </a>
+            <a
+              href="/admin/create-customer"
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              <FaPlus className="mr-2" /> Add Customer
+            </a>
+            <a
+              href="/admin/create-vehicle"
+              className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            >
+              <FaPlus className="mr-2" /> Add Vehicle
+            </a>
+            <a
+              href="/admin/create-vendor"
+              className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+            >
+              <Truck className="mr-2" /> Add Vendor
+            </a>
+            <a
+              href="/admin/create-driver"
+              className="flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
+            >
+              <FaPlus className="mr-2" /> Add Driver
+            </a>
 
-          <a
-            href="/admin/create-customer"
-            className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-          >
-            <User2 className="mr-2" /> Add Customers
-          </a>
-        </div>
+            <a
+              href="/admin/create-customer"
+              className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+            >
+              <User2 className="mr-2" /> Add Customers
+            </a>
+          </div>
+        )}
+
+        {isVendor && (
+          <div className="flex flex-wrap gap-4 mb-8">
+            <a
+              href="/admin/create-driver"
+              className="flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
+            >
+              <FaPlus className="mr-2" /> Add Driver
+            </a>
+            <a
+              href="/admin/vehicles"
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              <FaTruck className="mr-2" /> My Vehicles
+            </a>
+            <a
+              href="/admin/vendor-invoices"
+              className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            >
+              <FaClipboardList className="mr-2" /> Customer Invoices
+            </a>
+          </div>
+        )}
 
         {/* <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8"> */}
         <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-8">
@@ -276,10 +364,10 @@ const SuperAdminDashboard = () => {
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-800 flex items-center">
                 <FaShoppingBag className="mr-2 text-blue-600" />
-                Latest Dockets
+                {isVendor ? "Customer Invoices" : "Latest Dockets"}
               </h3>
               <a
-                href="/admin/invoices"
+                href={isVendor ? "/admin/vendor-invoices" : "/admin/invoices"}
                 className="text-blue-600 hover:text-blue-800 text-sm font-medium"
               >
                 View All
@@ -291,7 +379,7 @@ const SuperAdminDashboard = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">
-                    Docket No
+                    {isVendor ? "Invoice No" : "Docket No"}
                   </th>
                   <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">
                     From
@@ -303,7 +391,7 @@ const SuperAdminDashboard = () => {
                     Customer
                   </th>
                   <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">
-                    Company
+                    {isVendor ? "Amount" : "Company"}
                   </th>
                   <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">
                     Status
@@ -311,17 +399,17 @@ const SuperAdminDashboard = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {loadingInvoices ? (
+                {(isVendor ? loadingVendorInvoices : loadingInvoices) ? (
                   <tr>
                     <td colSpan="6" className="text-center py-4">
                       Loading...
                     </td>
                   </tr>
-                ) : invoicesData?.invoices?.length ? (
-                  invoicesData.invoices.slice(0, 5).map((inv) => (
-                    <tr key={inv._id} className="hover:bg-gray-50">
+                ) : currentInvoices?.length ? (
+                  currentInvoices.slice(0, 5).map((inv) => (
+                    <tr key={inv._id || inv.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-semibold text-blue-600">
-                        {inv.docketNumber}
+                        {inv.docketNumber || inv.invoiceNumber}
                       </td>
                       <td className="px-4 py-3">
                         {inv.fromAddress?.city?.name || "-"}
@@ -329,8 +417,19 @@ const SuperAdminDashboard = () => {
                       <td className="px-4 py-3">
                         {inv.toAddress?.city?.name || "-"}
                       </td>
-                      <td className="px-4 py-3">{inv.customer?.name || "-"}</td>
-                      <td className="px-4 py-3">{inv.company?.name || "-"}</td>
+                      <td className="px-4 py-3">
+                        {inv.customer?.name || inv.clientName || "-"}
+                      </td>
+                      <td className="px-4 py-3">
+                        {isVendor
+                          ? `₹${(
+                              inv.freightCharges ||
+                              inv.amount ||
+                              inv.totalAmount ||
+                              0
+                            ).toLocaleString()}`
+                          : inv.company?.name || "-"}
+                      </td>
                       <td className="px-4 py-3 text-green-600 font-medium">
                         {inv.status || "-"}
                       </td>
@@ -339,7 +438,9 @@ const SuperAdminDashboard = () => {
                 ) : (
                   <tr>
                     <td colSpan="6" className="text-center py-4">
-                      No dockets found.
+                      {isVendor
+                        ? "No invoices found for your assigned client."
+                        : "No dockets found."}
                     </td>
                   </tr>
                 )}
@@ -348,110 +449,114 @@ const SuperAdminDashboard = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
-          {/* Latest Companies */}
-          <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-8">
-            <div className="px-6 py-4 border-b border-gray-200 bg-purple-50">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-800 flex items-center">
-                  <FaBuilding className="mr-2 text-purple-600" />
-                  Latest Companies
-                </h3>
-                <a
-                  href="/admin/companies"
-                  className="text-purple-600 hover:text-purple-800 text-sm font-medium"
-                >
-                  View All
-                </a>
+        {!isVendor && (
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
+            {/* Latest Companies */}
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-8">
+              <div className="px-6 py-4 border-b border-gray-200 bg-purple-50">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+                    <FaBuilding className="mr-2 text-purple-600" />
+                    Latest Companies
+                  </h3>
+                  <a
+                    href="/admin/companies"
+                    className="text-purple-600 hover:text-purple-800 text-sm font-medium"
+                  >
+                    View All
+                  </a>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">
+                        Name
+                      </th>
+
+                      <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">
+                        Phone
+                      </th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">
+                        Address
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {companyData?.companies?.slice(0, 5).map((company) => (
+                      <tr key={company._id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3">{company.name}</td>
+                        <td className="px-4 py-3">
+                          {company.contactPhone || "N/A"}
+                        </td>
+                        <td className="px-4 py-3">
+                          {company.address || "N/A"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">
-                      Name
-                    </th>
 
-                    <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">
-                      Phone
-                    </th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">
-                      Address
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {companyData?.companies?.slice(0, 5).map((company) => (
-                    <tr key={company._id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">{company.name}</td>
-                      <td className="px-4 py-3">
-                        {company.contactPhone || "N/A"}
-                      </td>
-                      <td className="px-4 py-3">{company.address || "N/A"}</td>
+            {/* Latest Branches */}
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-8">
+              <div className="px-6 py-4 border-b border-gray-200 bg-blue-50">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+                    <FaSitemap className="mr-2 text-blue-600" />
+                    Latest Branches
+                  </h3>
+                  <a
+                    href="/admin/branches"
+                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                  >
+                    View All
+                  </a>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">
+                        Name
+                      </th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">
+                        Company
+                      </th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">
+                        Location
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Latest Branches */}
-          <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-8">
-            <div className="px-6 py-4 border-b border-gray-200 bg-blue-50">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-800 flex items-center">
-                  <FaSitemap className="mr-2 text-blue-600" />
-                  Latest Branches
-                </h3>
-                <a
-                  href="/admin/branches"
-                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                >
-                  View All
-                </a>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {branchData?.branches?.slice(0, 5).map((branch) => (
+                      <tr key={branch._id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3">{branch.name}</td>
+                        <td className="px-4 py-3">
+                          {branch.company?.name || "N/A"}
+                        </td>
+                        <td className="px-4 py-3">{branch.name || "N/A"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">
-                      Name
-                    </th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">
-                      Company
-                    </th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">
-                      Location
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {branchData?.branches?.slice(0, 5).map((branch) => (
-                    <tr key={branch._id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">{branch.name}</td>
-                      <td className="px-4 py-3">
-                        {branch.company?.name || "N/A"}
-                      </td>
-                      <td className="px-4 py-3">{branch.name || "N/A"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
           </div>
-        </div>
+        )}
 
         <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-8">
           <div className="px-6 py-4 border-b border-gray-200 bg-yellow-50">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-800 flex items-center">
                 <FaTruck className="mr-2 text-yellow-600" />
-                Latest Vehicles Added
+                {isVendor ? "My Vehicles" : "Latest Vehicles Added"}
               </h3>
               <a
-                href="/admin/vehicles"
+                href={isVendor ? "/admin/vendor-vehicles" : "/admin/vehicles"}
                 className="text-yellow-600 hover:text-yellow-800 text-sm font-medium"
               >
                 View All
@@ -469,7 +574,7 @@ const SuperAdminDashboard = () => {
                     Type
                   </th>
                   <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">
-                    Branch
+                    {isVendor ? "Status" : "Branch"}
                   </th>
                   <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">
                     Brand
@@ -477,18 +582,32 @@ const SuperAdminDashboard = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {loadingVehicles ? (
+                {(isVendor ? loadingVendorVehicles : loadingVehicles) ? (
                   <tr>
                     <td colSpan="4" className="text-center py-4">
                       Loading...
                     </td>
                   </tr>
-                ) : vehiclesData?.vehicles?.length ? (
-                  vehiclesData.vehicles.slice(0, 5).map((veh) => (
+                ) : currentVehicles?.length ? (
+                  currentVehicles.slice(0, 5).map((veh) => (
                     <tr key={veh._id} className="hover:bg-gray-50">
                       <td className="px-4 py-3">{veh.vehicleNumber}</td>
                       <td className="px-4 py-3">{veh.type}</td>
-                      <td className="px-4 py-3">{veh.branch?.name || "-"}</td>
+                      <td className="px-4 py-3">
+                        {isVendor ? (
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs ${
+                              veh.status === "active"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-red-100 text-red-800"
+                            }`}
+                          >
+                            {veh.status || "inactive"}
+                          </span>
+                        ) : (
+                          veh.branch?.name || "-"
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         {veh?.brand || "Dellcube Logistics PVT LTD"}
                       </td>
@@ -497,7 +616,9 @@ const SuperAdminDashboard = () => {
                 ) : (
                   <tr>
                     <td colSpan="4" className="text-center py-4">
-                      No vehicles found.
+                      {isVendor
+                        ? "No vehicles found in your fleet."
+                        : "No vehicles found."}
                     </td>
                   </tr>
                 )}
@@ -506,86 +627,91 @@ const SuperAdminDashboard = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-          {/* PieChart: Payment Type Distribution */}
-          <div className="bg-white rounded-xl shadow-lg p-4 flex flex-col items-center">
-            <h3 className="text-lg font-semibold mb-2">
-              Payment Type Distribution
-            </h3>
-            <ResponsiveContainer width="100%" height={250}>
-              <PieChart>
-                <Pie
-                  data={(() => {
-                    const counts = { Prepaid: 0, "To-Pay": 0, Other: 0 };
-                    invoicesData?.invoices?.forEach((inv) => {
-                      if (inv.paymentType === "Prepaid") counts.Prepaid++;
-                      else if (inv.paymentType === "To-Pay") counts["To-Pay"]++;
-                      else counts.Other++;
-                    });
-                    return [
-                      { name: "Prepaid", value: counts.Prepaid },
-                      { name: "To-Pay", value: counts["To-Pay"] },
-                      { name: "Other", value: counts.Other },
-                    ];
-                  })()}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  fill="#8884d8"
-                  label
-                >
-                  <Cell key="Prepaid" fill="#FFD249" />
-                  <Cell key="To-Pay" fill="#36B37E" />
-                  <Cell key="Other" fill="#FF7043" />
-                </Pie>
-                <RechartsTooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+        {!isVendor && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+            {/* PieChart: Payment Type Distribution */}
+            <div className="bg-white rounded-xl shadow-lg p-4 flex flex-col items-center">
+              <h3 className="text-lg font-semibold mb-2">
+                Payment Type Distribution
+              </h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie
+                    data={(() => {
+                      const counts = { Prepaid: 0, "To-Pay": 0, Other: 0 };
+                      invoicesData?.invoices?.forEach((inv) => {
+                        if (inv.paymentType === "Prepaid") counts.Prepaid++;
+                        else if (inv.paymentType === "To-Pay")
+                          counts["To-Pay"]++;
+                        else counts.Other++;
+                      });
+                      return [
+                        { name: "Prepaid", value: counts.Prepaid },
+                        { name: "To-Pay", value: counts["To-Pay"] },
+                        { name: "Other", value: counts.Other },
+                      ];
+                    })()}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    fill="#8884d8"
+                    label
+                  >
+                    <Cell key="Prepaid" fill="#FFD249" />
+                    <Cell key="To-Pay" fill="#36B37E" />
+                    <Cell key="Other" fill="#FF7043" />
+                  </Pie>
+                  <RechartsTooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
 
-          {/* BarChart: Top 5 Customers by Freight Charges */}
-          <div className="bg-white rounded-xl shadow-lg p-4 flex flex-col items-center">
-            <h3 className="text-lg font-semibold mb-2">
-              Top 5 Customers by Freight Charges
-            </h3>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart
-                data={(() => {
-                  const customerMap = {};
-                  invoicesData?.invoices?.forEach((inv) => {
-                    if (inv.customer?.name) {
-                      customerMap[inv.customer.name] =
-                        (customerMap[inv.customer.name] || 0) +
-                        (inv.freightCharges || 0);
-                    }
-                  });
-                  return Object.entries(customerMap)
-                    .map(([name, value]) => ({ name, value }))
-                    .sort((a, b) => b.value - a.value)
-                    .slice(0, 5);
-                })()}
-                margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="name"
-                  tick={{ fontSize: 12 }}
-                  interval={0}
-                  angle={-15}
-                  textAnchor="end"
-                  height={60}
-                />
-                <YAxis />
-                <RechartsTooltip formatter={(v) => `₹${v.toLocaleString()}`} />
-                <Legend />
-                <Bar dataKey="value" fill="#FFD249" name="Freight Charges" />
-              </BarChart>
-            </ResponsiveContainer>
+            {/* BarChart: Top 5 Customers by Freight Charges */}
+            <div className="bg-white rounded-xl shadow-lg p-4 flex flex-col items-center">
+              <h3 className="text-lg font-semibold mb-2">
+                Top 5 Customers by Freight Charges
+              </h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart
+                  data={(() => {
+                    const customerMap = {};
+                    invoicesData?.invoices?.forEach((inv) => {
+                      if (inv.customer?.name) {
+                        customerMap[inv.customer.name] =
+                          (customerMap[inv.customer.name] || 0) +
+                          (inv.freightCharges || 0);
+                      }
+                    });
+                    return Object.entries(customerMap)
+                      .map(([name, value]) => ({ name, value }))
+                      .sort((a, b) => b.value - a.value)
+                      .slice(0, 5);
+                  })()}
+                  margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 12 }}
+                    interval={0}
+                    angle={-15}
+                    textAnchor="end"
+                    height={60}
+                  />
+                  <YAxis />
+                  <RechartsTooltip
+                    formatter={(v) => `₹${v.toLocaleString()}`}
+                  />
+                  <Legend />
+                  <Bar dataKey="value" fill="#FFD249" name="Freight Charges" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-        </div>
+        )}
       </main>
     </div>
   );

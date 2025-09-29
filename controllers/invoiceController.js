@@ -4,13 +4,13 @@ import { Company } from "../models/company.js";
 import { Branch } from "../models/branch.js";
 import path from "path";
 import fs from "fs";
-import { Vendor } from "../models/vendor.js";
-import { Parser as Json2CsvParser } from 'json2csv';
-import { fileURLToPath } from 'url';
+import { User } from "../models/user.js";
+import { Parser as Json2CsvParser } from "json2csv";
+import { fileURLToPath } from "url";
 import os from "os";
-import { renderToStream } from '@react-pdf/renderer';
+import { renderToStream } from "@react-pdf/renderer";
 // import { InvoicePDFDocument } from './InvoicePDFDocument.js';
-import React from 'react';
+import React from "react";
 import { Vehicle } from "../models/vehicle.js";
 
 export const createInvoice = async (req, res) => {
@@ -82,19 +82,26 @@ export const createInvoice = async (req, res) => {
 
     const { vehicleNumber } = req.body;
     let vehicleData = null;
-    let ownerType = '';
+    let ownerType = "";
 
     if (vehicleNumber) {
       // Search in Dellcube's vehicles
-      const vehicle = await Vehicle.findOne({ vehicleNumber }).populate("currentDriver");
+      const vehicle = await Vehicle.findOne({ vehicleNumber }).populate(
+        "currentDriver"
+      );
       if (vehicle) {
         vehicleData = vehicle;
         ownerType = "Dellcube";
       } else {
-        // Search in vendors' vehicles
-        const vendor = await Vendor.findOne({ "availableVehicles.vehicleNumber": vehicleNumber });
+        // Search in vendors' vehicles (vendors are Users with role 'vendor')
+        const vendor = await User.findOne({
+          role: "vendor",
+          "availableVehicles.vehicleNumber": vehicleNumber,
+        });
         if (vendor) {
-          const vendorVehicle = vendor.availableVehicles.find(v => v.vehicleNumber === vehicleNumber);
+          const vendorVehicle = vendor.availableVehicles.find(
+            (v) => v.vehicleNumber === vehicleNumber
+          );
           vehicleData = { ...vendorVehicle, vendor: vendor._id };
           ownerType = "Vendor";
         }
@@ -102,7 +109,9 @@ export const createInvoice = async (req, res) => {
     }
 
     if (vehicleNumber && !vehicleData) {
-      return res.status(404).json({ success: false, message: "Vehicle not found." });
+      return res
+        .status(404)
+        .json({ success: false, message: "Vehicle not found." });
     }
 
     // The following fields are now supported: pickupAddress, deliveryAddress, consignor, consignee, address, invoiceNumber, invoiceBill, ewayBillNo, driverContactNumber, siteId, sealNo, vehicleSize, orderNumber, transportMode
@@ -117,19 +126,32 @@ export const createInvoice = async (req, res) => {
 
     if (vehicleData) {
       invoicePayload.vehicleType = ownerType;
-      if (ownerType === 'Dellcube') {
+      if (ownerType === "Dellcube") {
         invoicePayload.vehicle = vehicleData._id;
         invoicePayload.driver = vehicleData.currentDriver?._id;
         invoicePayload.vehicleSize = vehicleData.type;
         delete invoicePayload.vendor;
         delete invoicePayload.vendorVehicle;
-      } else if (ownerType === 'Vendor') {
+      } else if (ownerType === "Vendor") {
         invoicePayload.vendor = vehicleData.vendor;
         invoicePayload.vendorVehicle = vehicleData;
         delete invoicePayload.vehicle;
+
+        // If using a vendor vehicle, automatically set customer to vendor's assigned client
+        if (vehicleData.vendor) {
+          const vendor = await User.findById(vehicleData.vendor).populate(
+            "assignedClient"
+          );
+          if (vendor && vendor.assignedClient) {
+            invoicePayload.customer = vendor.assignedClient._id;
+            console.log(
+              "Auto-setting customer to vendor's assigned client:",
+              vendor.assignedClient.name
+            );
+          }
+        }
       }
     }
-
 
     const invoice = await Invoice.create(invoicePayload);
 
@@ -167,7 +189,13 @@ export const createReservedInvoices = async (req, res) => {
       });
     }
 
-    const { customer, fromAddress, toAddress, quantity = 1, ...rest } = req.body;
+    const {
+      customer,
+      fromAddress,
+      toAddress,
+      quantity = 1,
+      ...rest
+    } = req.body;
     if (!customer || !quantity) {
       return res.status(400).json({
         success: false,
@@ -222,7 +250,9 @@ export const createReservedInvoices = async (req, res) => {
     const reservedInvoices = [];
     for (let i = 1; i <= quantity; i++) {
       runningCounter++;
-      const docketNumber = `DLC-${companyCode}-${branchCode}-${dateStr}-${String(runningCounter).padStart(4, "0")}`;
+      const docketNumber = `DLC-${companyCode}-${branchCode}-${dateStr}-${String(
+        runningCounter
+      ).padStart(4, "0")}`;
       reservedInvoices.push({
         company: companyId,
         branch: branchId,
@@ -301,13 +331,30 @@ export const getAllInvoices = async (req, res) => {
       query.invoiceDate = { $gte: start, $lte: end };
     }
 
+    // Vendor access control
+    if (req.user?.role === "vendor") {
+      // If UI provides customerId (for assigned client), honor that and do not force vendor filter
+      if (!customerId) {
+        // If no explicit customer filter, default to invoices for the vendor's assigned client if available
+        const vendorDoc = await User.findById(req.user.userId).select(
+          "assignedClient"
+        );
+        if (vendorDoc?.assignedClient) {
+          query.customer = vendorDoc.assignedClient;
+        } else {
+          // Fallback: restrict to invoices explicitly tagged with this vendor
+          query.vendor = req.user.userId;
+        }
+      }
+    }
+
     const invoices = await Invoice.find(query)
       .populate("company", "name address contactPhone gstNumber pan")
       .populate("branch", "name")
       .populate("customer", "name phone email")
       .populate("goodsType", "name items")
       .populate("vehicle", "vehicleNumber")
-      .populate("vendor", "name availableVehicles")
+      .populate("vendor", "name")
       .populate("driver", "name phone")
       .populate(
         "fromAddress.country fromAddress.state fromAddress.city fromAddress.locality"
@@ -365,6 +412,13 @@ export const getInvoiceById = async (req, res) => {
         "toAddress.country toAddress.state toAddress.city toAddress.locality"
       );
 
+    if (
+      req.user?.role === "vendor" &&
+      String(invoice.vendor) !== String(req.user.userId)
+    ) {
+      return res.status(403).json({ success: false, message: "Forbidden" });
+    }
+
     if (!invoice) {
       return res
         .status(404)
@@ -408,43 +462,76 @@ export const updateInvoice = async (req, res) => {
     // Vehicle logic (same as createInvoice)
     if (updates.vehicleNumber) {
       let vehicleData = null;
-      let ownerType = '';
+      let ownerType = "";
       // Search in Dellcube's vehicles
-      const vehicle = await Vehicle.findOne({ vehicleNumber: updates.vehicleNumber }).populate("currentDriver");
+      const vehicle = await Vehicle.findOne({
+        vehicleNumber: updates.vehicleNumber,
+      }).populate("currentDriver");
       if (vehicle) {
         vehicleData = vehicle;
         ownerType = "Dellcube";
       } else {
         // Search in vendors' vehicles
-        const vendor = await Vendor.findOne({ "availableVehicles.vehicleNumber": updates.vehicleNumber });
+        const vendor = await User.findOne({
+          role: "vendor",
+          "availableVehicles.vehicleNumber": updates.vehicleNumber,
+        });
         if (vendor) {
-          const vendorVehicle = vendor.availableVehicles.find(v => v.vehicleNumber === updates.vehicleNumber);
+          const vendorVehicle = vendor.availableVehicles.find(
+            (v) => v.vehicleNumber === updates.vehicleNumber
+          );
           vehicleData = { ...vendorVehicle, vendor: vendor._id };
           ownerType = "Vendor";
         }
       }
       if (!vehicleData) {
-        return res.status(404).json({ success: false, message: "Vehicle not found." });
+        return res
+          .status(404)
+          .json({ success: false, message: "Vehicle not found." });
       }
       // Set vehicle-related fields
       invoice.vehicleType = ownerType;
-      if (ownerType === 'Dellcube') {
+      if (ownerType === "Dellcube") {
         invoice.vehicle = vehicleData._id;
         invoice.driver = vehicleData.currentDriver?._id;
         invoice.vehicleSize = vehicleData.type;
         invoice.vendor = undefined;
         invoice.vendorVehicle = undefined;
-      } else if (ownerType === 'Vendor') {
+      } else if (ownerType === "Vendor") {
         invoice.vendor = vehicleData.vendor;
         invoice.vendorVehicle = vehicleData;
         invoice.vehicle = undefined;
+
+        // If using a vendor vehicle, automatically set customer to vendor's assigned client
+        if (vehicleData.vendor) {
+          const vendor = await User.findById(vehicleData.vendor).populate(
+            "assignedClient"
+          );
+          if (vendor && vendor.assignedClient) {
+            invoice.customer = vendor.assignedClient._id;
+            console.log(
+              "Auto-setting customer to vendor's assigned client:",
+              vendor.assignedClient.name
+            );
+          }
+        }
       }
     }
 
     Object.keys(updates).forEach((key) => {
       // Don't overwrite vehicle fields if vehicleNumber was handled above
-      if (updates[key] !== undefined && key !== 'vehicleNumber') {
-        invoice[key] = updates[key];
+      if (updates[key] !== undefined && key !== "vehicleNumber") {
+        // Special handling: arrays and nested structures
+        if (key === "goodItems" && Array.isArray(updates[key])) {
+          invoice.goodItems = updates[key];
+        } else if (
+          (key === "fromAddress" || key === "toAddress") &&
+          typeof updates[key] === "object"
+        ) {
+          invoice[key] = { ...(invoice[key] || {}), ...updates[key] };
+        } else {
+          invoice[key] = updates[key];
+        }
       }
     });
     // Ensure orderNumber is updated if provided
@@ -506,25 +593,34 @@ export const deleteInvoice = async (req, res) => {
   }
 };
 
-
 export const generateInvoicePDF = async (req, res) => {
   try {
     const { invoiceId } = req.params;
     if (!invoiceId || !mongoose.Types.ObjectId.isValid(invoiceId)) {
-      return res.status(400).json({ success: false, message: "Valid invoice ID is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Valid invoice ID is required" });
     }
     const invoice = await Invoice.findById(invoiceId)
       .populate("company branch customer goodsType vehicle vendor driver")
       .populate("siteType", "name desc")
-      .populate("fromAddress.country fromAddress.state fromAddress.city fromAddress.locality")
-      .populate("toAddress.country toAddress.state toAddress.city toAddress.locality");
+      .populate(
+        "fromAddress.country fromAddress.state fromAddress.city fromAddress.locality"
+      )
+      .populate(
+        "toAddress.country toAddress.state toAddress.city toAddress.locality"
+      );
     if (!invoice) {
-      return res.status(404).json({ success: false, message: "Invoice not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Invoice not found" });
     }
     res.json({ success: true, invoice });
   } catch (err) {
     console.error("Invoice fetch error:", err);
-    res.status(500).json({ error: 'Failed to fetch invoice', details: err.message });
+    res
+      .status(500)
+      .json({ error: "Failed to fetch invoice", details: err.message });
   }
 };
 
@@ -546,7 +642,7 @@ export const exportInvoicesCSV = async (req, res) => {
     const query = {};
     if (ids) {
       // Export only selected invoices
-      const idArr = ids.split(',').map((id) => id.trim());
+      const idArr = ids.split(",").map((id) => id.trim());
       query._id = { $in: idArr };
     } else {
       if (search) query.docketNumber = { $regex: search, $options: "i" };
@@ -579,8 +675,12 @@ export const exportInvoicesCSV = async (req, res) => {
       .populate("vehicle", "vehicleNumber")
       .populate("vendor", "name availableVehicles")
       .populate("driver", "name mobile")
-      .populate("fromAddress.country fromAddress.state fromAddress.city fromAddress.locality")
-      .populate("toAddress.country toAddress.state toAddress.city toAddress.locality");
+      .populate(
+        "fromAddress.country fromAddress.state fromAddress.city fromAddress.locality"
+      )
+      .populate(
+        "toAddress.country toAddress.state toAddress.city toAddress.locality"
+      );
 
     // Flatten and map fields for CSV
     const data = invoices.map((inv) => ({
@@ -594,15 +694,20 @@ export const exportInvoicesCSV = async (req, res) => {
       CustomerPhone: inv.customer?.phone || "",
       CustomerEmail: inv.customer?.email || "",
       GoodsType: inv.goodsType?.name || "",
-      GoodsItems: inv.goodsType?.items?.join('; ') || "",
+      GoodsItems: inv.goodsType?.items?.join("; ") || "",
       VehicleType: inv.vehicleType,
-      VehicleNumber: inv.vehicle?.vehicleNumber || inv.vendorVehicle?.vehicleNumber || "",
+      VehicleNumber:
+        inv.vehicle?.vehicleNumber || inv.vendorVehicle?.vehicleNumber || "",
       Vendor: inv.vendor?.name || "",
       Driver: inv.driver?.name || "",
       DriverPhone: inv.driver?.mobile || "",
       Status: inv.status,
-      InvoiceDate: inv.invoiceDate ? new Date(inv.invoiceDate).toLocaleString() : "",
-      DispatchDateTime: inv.dispatchDateTime ? new Date(inv.dispatchDateTime).toLocaleString() : "",
+      InvoiceDate: inv.invoiceDate
+        ? new Date(inv.invoiceDate).toLocaleString()
+        : "",
+      DispatchDateTime: inv.dispatchDateTime
+        ? new Date(inv.dispatchDateTime).toLocaleString()
+        : "",
       FromCountry: inv.fromAddress?.country?.name || "",
       FromState: inv.fromAddress?.state?.name || "",
       FromCity: inv.fromAddress?.city?.name || "",
@@ -618,7 +723,9 @@ export const exportInvoicesCSV = async (req, res) => {
       FreightCharges: inv?.freightCharges,
       PaymentType: inv?.paymentType,
       Remarks: inv?.remarks,
-      DeliveredAt: inv.deliveredAt ? new Date(inv.deliveredAt).toLocaleString() : "",
+      DeliveredAt: inv.deliveredAt
+        ? new Date(inv.deliveredAt).toLocaleString()
+        : "",
       DeliveryProofReceiverName: inv.deliveryProof?.receiverName || "",
       DeliveryProofReceiverMobile: inv.deliveryProof?.receiverMobile || "",
       DeliveryProofRemarks: inv.deliveryProof?.remarks || "",
@@ -630,14 +737,15 @@ export const exportInvoicesCSV = async (req, res) => {
     const json2csv = new Json2CsvParser({ fields });
     const csv = json2csv.parse(data);
 
-    res.header('Content-Type', 'text/csv');
-    res.attachment('invoices_export.csv');
+    res.header("Content-Type", "text/csv");
+    res.attachment("invoices_export.csv");
     return res.send(csv);
   } catch (error) {
-    console.error('Error exporting invoices as CSV:', error);
-    return res.status(500).json({ success: false, message: 'Failed to export invoices as CSV', error: error.message });
+    console.error("Error exporting invoices as CSV:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to export invoices as CSV",
+      error: error.message,
+    });
   }
 };
-
-
-

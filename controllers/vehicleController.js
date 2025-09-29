@@ -1,52 +1,57 @@
 import { Vehicle } from "../models/vehicle.js";
 import mongoose from "mongoose";
 import { v2 as cloudinary } from "cloudinary";
-import { Vendor } from "../models/vendor.js"; // Added import for Vendor
-import { User } from "../models/user.js"; // Import User model to find recipients
+import { User } from "../models/user.js"; // Vendors are Users with role 'vendor'
+// Import User model to find recipients
 import { sendVehicleExpiryNotification } from "../utils/common/sendMail.js"; // Import email function
 
 // Helper function to get recipients for vehicle notifications
 const getVehicleNotificationRecipients = async (vehicle) => {
   try {
     const recipients = [];
-    
+
     // Get super admin users
-    const superAdmins = await User.find({ role: "superAdmin" }).select("email name");
+    const superAdmins = await User.find({ role: "superAdmin" }).select(
+      "email name"
+    );
     recipients.push(...superAdmins);
-    
+
     // Get branch admin users for this vehicle's company and branch
     if (vehicle.company && vehicle.branch) {
-      const branchAdmins = await User.find({ 
-        role: "branchAdmin", 
+      const branchAdmins = await User.find({
+        role: "branchAdmin",
         company: vehicle.company,
-        branch: vehicle.branch 
+        branch: vehicle.branch,
       }).select("email name");
       recipients.push(...branchAdmins);
     }
-    
+
     // Get operation users for this vehicle's company and branch
     if (vehicle.company && vehicle.branch) {
-      const operationUsers = await User.find({ 
-        role: "operation", 
+      const operationUsers = await User.find({
+        role: "operation",
         company: vehicle.company,
-        branch: vehicle.branch 
+        branch: vehicle.branch,
       }).select("email name");
       recipients.push(...operationUsers);
     }
-    
+
     // Get driver if they have an email
     if (vehicle.currentDriver) {
-      const driver = await User.findById(vehicle.currentDriver).select("email name");
+      const driver = await User.findById(vehicle.currentDriver).select(
+        "email name"
+      );
       if (driver && driver.email) {
         recipients.push(driver);
       }
     }
-    
+
     // Remove duplicates based on email
-    const uniqueRecipients = recipients.filter((recipient, index, self) => 
-      index === self.findIndex(r => r.email === recipient.email)
+    const uniqueRecipients = recipients.filter(
+      (recipient, index, self) =>
+        index === self.findIndex((r) => r.email === recipient.email)
     );
-    
+
     return uniqueRecipients;
   } catch (error) {
     console.error("Error getting vehicle notification recipients:", error);
@@ -57,27 +62,43 @@ const getVehicleNotificationRecipients = async (vehicle) => {
 // Helper function to check document expiry and send notifications
 const checkDocumentExpiryForNotifications = async (vehicles) => {
   const today = new Date();
-  const thirtyDaysFromNow = new Date(today.getTime() + (30 * 24 * 60 * 60 * 1000));
+  const thirtyDaysFromNow = new Date(
+    today.getTime() + 30 * 24 * 60 * 60 * 1000
+  );
   const notifications = [];
-  
+
   for (const vehicle of vehicles) {
     const checks = [
-      { type: 'Fitness Certificate', date: vehicle.fitnessCertificateExpiry, field: 'fitnessCertificateExpiry' },
-      { type: 'Insurance', date: vehicle.insuranceExpiry, field: 'insuranceExpiry' },
-      { type: 'Pollution Certificate', date: vehicle.pollutionCertificateExpiry, field: 'pollutionCertificateExpiry' }
+      {
+        type: "Fitness Certificate",
+        date: vehicle.fitnessCertificateExpiry,
+        field: "fitnessCertificateExpiry",
+      },
+      {
+        type: "Insurance",
+        date: vehicle.insuranceExpiry,
+        field: "insuranceExpiry",
+      },
+      {
+        type: "Pollution Certificate",
+        date: vehicle.pollutionCertificateExpiry,
+        field: "pollutionCertificateExpiry",
+      },
     ];
-    
+
     for (const check of checks) {
       if (check.date) {
         const expiryDate = new Date(check.date);
-        const daysUntilExpiry = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
-        
+        const daysUntilExpiry = Math.ceil(
+          (expiryDate - today) / (1000 * 60 * 60 * 24)
+        );
+
         // Send notifications for documents expiring within 30 days or already expired
         if (daysUntilExpiry <= 30) {
           try {
             // Get recipients for this vehicle
             const recipients = await getVehicleNotificationRecipients(vehicle);
-            
+
             if (recipients.length > 0) {
               // Send email notification
               const emailResult = await sendVehicleExpiryNotification(
@@ -87,40 +108,45 @@ const checkDocumentExpiryForNotifications = async (vehicles) => {
                 expiryDate,
                 daysUntilExpiry
               );
-              
+
               notifications.push({
                 vehicleNumber: vehicle.vehicleNumber,
                 documentType: check.type,
                 expiryDate: expiryDate,
                 daysUntilExpiry: daysUntilExpiry,
-                status: daysUntilExpiry <= 0 ? 'expired' : 'expiring_soon',
-                company: vehicle.company?.name || 'Unknown',
-                branch: vehicle.branch?.name || 'Unknown',
+                status: daysUntilExpiry <= 0 ? "expired" : "expiring_soon",
+                company: vehicle.company?.name || "Unknown",
+                branch: vehicle.branch?.name || "Unknown",
                 emailSent: emailResult.success,
-                recipientsCount: recipients.length
+                recipientsCount: recipients.length,
               });
-              
-              console.log(`Email notification sent for ${vehicle.vehicleNumber} - ${check.type}: ${emailResult.message}`);
+
+              console.log(
+                `Email notification sent for ${vehicle.vehicleNumber} - ${check.type}: ${emailResult.message}`
+              );
             }
           } catch (error) {
-            console.error(`Error sending notification for ${vehicle.vehicleNumber} - ${check.type}:`, error);
+            console.error(
+              `Error sending notification for ${vehicle.vehicleNumber} - ${check.type}:`,
+              error
+            );
             notifications.push({
               vehicleNumber: vehicle.vehicleNumber,
               documentType: check.type,
               expiryDate: expiryDate,
               daysUntilExpiry: daysUntilExpiry,
-              status: daysUntilExpiry <= 0 ? 'expired' : 'expiring_soon',
-              company: vehicle.company?.name || 'Unknown',
-              branch: vehicle.branch?.name || 'Unknown',
+              status: daysUntilExpiry <= 0 ? "expired" : "expiring_soon",
+              company: vehicle.company?.name || "Unknown",
+              branch: vehicle.branch?.name || "Unknown",
               emailSent: false,
-              error: error.message
+              error: error.message,
             });
           }
         }
       }
     }
   }
-  
+
   return notifications;
 };
 
@@ -177,7 +203,8 @@ export const createVehicle = async (req, res) => {
       branch,
       company,
       maintenanceHistory,
-      createdBy,
+      // Always set createdBy from authenticated user when available
+      createdBy: req?.user?.userId || createdBy,
       vehicleInsuranceNo,
       fitnessNo,
       // Certificate images from file uploads (Cloudinary)
@@ -243,6 +270,11 @@ export const getAllVehicles = async (req, res) => {
     if (companyId) query.company = companyId;
     if (branchId) query.branch = branchId;
 
+    // If a vendor is logged in, restrict to vehicles created by that vendor
+    if (req.user?.role === "vendor") {
+      query.createdBy = req.user.userId;
+    }
+
     const vehicles = await Vehicle.find(query)
       .populate("company", "name")
       .populate("branch", "name")
@@ -254,7 +286,9 @@ export const getAllVehicles = async (req, res) => {
     const total = await Vehicle.countDocuments(query);
 
     // Check for expiring documents and prepare notifications
-    const expiringNotifications = await checkDocumentExpiryForNotifications(vehicles);
+    const expiringNotifications = await checkDocumentExpiryForNotifications(
+      vehicles
+    );
 
     return res.status(200).json({
       success: true,
@@ -290,7 +324,7 @@ export const getVehicleById = async (req, res) => {
     const vehicle = await Vehicle.findById(id)
       .populate("company", "name")
       .populate("branch", "name")
-    .populate("currentDriver", "name");
+      .populate("currentDriver", "name");
 
     if (!vehicle) {
       return res.status(404).json({
@@ -470,12 +504,17 @@ export const addMaintenanceController = async (req, res) => {
   console.log("=== Add Maintenance Request ===");
   console.log("Body:", req.body);
   console.log("Files:", req.files);
-  console.log("Content-Type:", req.get('Content-Type'));
-  
+  console.log("Content-Type:", req.get("Content-Type"));
+
   const { vehicleId, maintenance } = req.body;
 
   if (!vehicleId || !maintenance) {
-    console.log("Missing data - vehicleId:", vehicleId, "maintenance:", maintenance);
+    console.log(
+      "Missing data - vehicleId:",
+      vehicleId,
+      "maintenance:",
+      maintenance
+    );
     return res.status(400).json({
       success: false,
       message: "Vehicle ID and maintenance data are required",
@@ -494,7 +533,7 @@ export const addMaintenanceController = async (req, res) => {
 
     // Parse maintenance data if it's a JSON string
     let maintenanceData = maintenance;
-    if (typeof maintenance === 'string') {
+    if (typeof maintenance === "string") {
       try {
         maintenanceData = JSON.parse(maintenance);
       } catch (parseError) {
@@ -539,33 +578,56 @@ export const searchVehicles = async (req, res) => {
     const { vehicleNumber, companyId, branchId } = req.query;
 
     if (!vehicleNumber) {
-      return res.status(400).json({ success: false, message: "Vehicle number is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Vehicle number is required" });
     }
 
     if (!companyId) {
-      return res.status(400).json({ success: false, message: "Company ID is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Company ID is required" });
     }
 
     if (!branchId) {
-      return res.status(400).json({ success: false, message: "Branch ID is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Branch ID is required" });
     }
 
     const sanitizedSearchTerm = vehicleNumber.replace(/\s+/g, "").toUpperCase();
 
     // Fetch all vehicles and vendors for the company and branch
-    const allDellcubeVehicles = await Vehicle.find({ company: companyId, branch: branchId }).populate("currentDriver", "name mobile");
-    const allVendors = await Vendor.find({ company: companyId, branch: branchId });
+    const allDellcubeVehicles = await Vehicle.find({
+      company: companyId,
+      branch: branchId,
+    }).populate("currentDriver", "name mobile");
+    const allVendors = await User.find({
+      company: companyId,
+      branch: branchId,
+      role: "vendor",
+    });
 
     // Filter Dellcube vehicles in code for flexibility
-    const filteredDellcube = allDellcubeVehicles.filter(v =>
-      v.vehicleNumber.replace(/\s+/g, "").toUpperCase().startsWith(sanitizedSearchTerm)
+    const filteredDellcube = allDellcubeVehicles.filter((v) =>
+      v.vehicleNumber
+        .replace(/\s+/g, "")
+        .toUpperCase()
+        .startsWith(sanitizedSearchTerm)
     );
 
     // Filter vendor vehicles in code
-    const filteredVendorVehicles = allVendors.flatMap(vendor =>
+    const filteredVendorVehicles = allVendors.flatMap((vendor) =>
       vendor.availableVehicles
-        .filter(v => v.vehicleNumber && v.vehicleNumber.replace(/\s+/g, "").toUpperCase().startsWith(sanitizedSearchTerm))
-        .map(v => ({
+        .filter(
+          (v) =>
+            v.vehicleNumber &&
+            v.vehicleNumber
+              .replace(/\s+/g, "")
+              .toUpperCase()
+              .startsWith(sanitizedSearchTerm)
+        )
+        .map((v) => ({
           ...v.toObject(),
           ownerType: "Vendor",
           vendor: {
@@ -574,9 +636,9 @@ export const searchVehicles = async (req, res) => {
           },
         }))
     );
-    
+
     const combinedResults = [
-      ...filteredDellcube.map(v => ({
+      ...filteredDellcube.map((v) => ({
         ...v.toObject(),
         ownerType: "Dellcube",
       })),
@@ -584,7 +646,9 @@ export const searchVehicles = async (req, res) => {
     ];
 
     if (combinedResults.length === 0) {
-      return res.status(404).json({ success: false, message: "No vehicles found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "No vehicles found" });
     }
 
     return res.status(200).json({
@@ -593,6 +657,10 @@ export const searchVehicles = async (req, res) => {
     });
   } catch (error) {
     console.error("Error searching vehicle:", error);
-    return res.status(500).json({ success: false, message: "Server error while searching vehicle", error: error.message });
+    return res.status(500).json({
+      success: false,
+      message: "Server error while searching vehicle",
+      error: error.message,
+    });
   }
 };

@@ -1,14 +1,26 @@
-// Import your Vendor model
-
-import { Vendor } from "../models/vendor.js";
+import { User } from "../models/user.js";
 import mongoose from "mongoose";
-// Import your VendorVehicle model
+import bcrypt from "bcryptjs";
 
 // Controller to create a new vendor
 export const createVendor = async (req, res) => {
   try {
-    const { name, phone, email, address, gstNumber, status, branch, company, panNumber, bankName, accountNumber, ifsc } =
-      req.body;
+    const {
+      name,
+      phone,
+      email,
+      address,
+      gstNumber,
+      status,
+      branch,
+      company,
+      panNumber,
+      bankName,
+      accountNumber,
+      ifsc,
+      assignedClient,
+      password,
+    } = req.body;
 
     const createdBy = req.user._id;
 
@@ -21,7 +33,10 @@ export const createVendor = async (req, res) => {
     }
 
     // Check if vendor with this email or name already exists
-    const existingVendor = await Vendor.findOne({ $or: [{ email }, { name }] });
+    const existingVendor = await User.findOne({
+      $or: [{ email }, { name }],
+      role: "vendor",
+    });
     if (existingVendor) {
       return res.status(400).json({
         success: false,
@@ -29,28 +44,34 @@ export const createVendor = async (req, res) => {
       });
     }
 
-    const newVendor = new Vendor({
+    const hashedPassword = password
+      ? await bcrypt.hash(password, 10)
+      : await bcrypt.hash("Vendor@123", 10);
+
+    const vendorDoc = await User.create({
       name,
-      branch,
-      company,
-      phone,
       email,
+      password: hashedPassword,
+      role: "vendor",
+      company,
+      branch,
+      phone,
       address,
       gstNumber,
       panNumber,
       bankName,
       accountNumber,
       ifsc,
-      status,
-      createdBy,
+      vendorStatus: status || "active",
+      ...(assignedClient && { assignedClient }), // Only include if provided
+      createdAt: new Date(),
+      status: true,
     });
-
-    await newVendor.save();
 
     return res.status(201).json({
       success: true,
       message: "Vendor created successfully",
-      vendor: newVendor,
+      vendor: vendorDoc,
     });
   } catch (error) {
     console.error("Error creating vendor:", error);
@@ -80,20 +101,25 @@ export const getAllVendors = async (req, res) => {
     limit = parseInt(limit);
     const skip = (page - 1) * limit;
 
-    const query = {};
+    const query = { role: "vendor" };
+    // Vendor can only see self
+    if (req.user?.role === "vendor") {
+      query._id = req.user.userId;
+    }
     if (search) query.name = { $regex: search, $options: "i" }; // Search by vendor name
-    if (status) query.status = status;
+    if (status) query.vendorStatus = status;
     if (companyId) query.company = companyId;
     if (branchId) query.branch = branchId;
 
-    const vendors = await Vendor.find(query)
+    const vendors = await User.find(query)
       .populate("company", "name")
       .populate("branch", "name")
+      .populate("assignedClient", "name")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
 
-    const total = await Vendor.countDocuments(query);
+    const total = await User.countDocuments(query);
 
     return res.status(200).json({
       success: true,
@@ -127,9 +153,15 @@ export const getVendorById = async (req, res) => {
       });
     }
 
-    const vendor = await Vendor.findById(id)
+    // Vendor can only view self
+    if (req.user?.role === "vendor" && String(req.user.userId) !== String(id)) {
+      return res.status(403).json({ success: false, message: "Forbidden" });
+    }
+
+    const vendor = await User.findOne({ _id: id, role: "vendor" })
       .populate("company", "name")
-      .populate("branch", "name");
+      .populate("branch", "name")
+      .populate("assignedClient", "name");
 
     if (!vendor) {
       return res.status(404).json({
@@ -165,10 +197,32 @@ export const updateVendor = async (req, res) => {
       });
     }
 
-    const updatedVendor = await Vendor.findByIdAndUpdate(vendorId, updates, {
-      new: true, // Return the updated document
-      runValidators: true, // Run schema validators on update
-    });
+    // Vendor can only update self
+    if (
+      req.user?.role === "vendor" &&
+      String(req.user.userId) !== String(vendorId)
+    ) {
+      return res.status(403).json({ success: false, message: "Forbidden" });
+    }
+
+    // Map front-end fields to User schema
+    const mapped = { ...updates };
+    if (mapped.status) {
+      mapped.vendorStatus = mapped.status;
+      delete mapped.status;
+    }
+    if (mapped.password) {
+      mapped.password = await bcrypt.hash(mapped.password, 10);
+    }
+
+    const updatedVendor = await User.findOneAndUpdate(
+      { _id: vendorId, role: "vendor" },
+      mapped,
+      {
+        new: true, // Return the updated document
+        runValidators: true, // Run schema validators on update
+      }
+    );
 
     if (!updatedVendor) {
       return res.status(404).json({
@@ -204,7 +258,15 @@ export const deleteVendor = async (req, res) => {
       });
     }
 
-    const deletedVendor = await Vendor.findByIdAndDelete(id);
+    // Vendor cannot delete themselves via this route
+    if (req.user?.role === "vendor") {
+      return res.status(403).json({ success: false, message: "Forbidden" });
+    }
+
+    const deletedVendor = await User.findOneAndDelete({
+      _id: id,
+      role: "vendor",
+    });
 
     if (!deletedVendor) {
       return res.status(404).json({
@@ -231,8 +293,8 @@ export const addVehicleController = async (req, res) => {
   console.log("=== Add Vehicle Request ===");
   console.log("Body:", req.body);
   console.log("Files:", req.files);
-  console.log("Content-Type:", req.get('Content-Type'));
-  
+  console.log("Content-Type:", req.get("Content-Type"));
+
   const { vendorId } = req.body;
 
   if (!vendorId) {
@@ -243,7 +305,7 @@ export const addVehicleController = async (req, res) => {
   }
 
   try {
-    const vendor = await Vendor.findById(vendorId);
+    const vendor = await User.findOne({ _id: vendorId, role: "vendor" });
 
     if (!vendor) {
       return res.status(404).json({
@@ -258,11 +320,21 @@ export const addVehicleController = async (req, res) => {
       type: req.body.type,
       brand: req.body.brand,
       model: req.body.model,
-      yearOfManufacture: req.body.yearOfManufacture ? parseInt(req.body.yearOfManufacture) : undefined,
-      registrationDate: req.body.registrationDate ? new Date(req.body.registrationDate) : undefined,
-      fitnessCertificateExpiry: req.body.fitnessCertificateExpiry ? new Date(req.body.fitnessCertificateExpiry) : undefined,
-      insuranceExpiry: req.body.insuranceExpiry ? new Date(req.body.insuranceExpiry) : undefined,
-      pollutionCertificateExpiry: req.body.pollutionCertificateExpiry ? new Date(req.body.pollutionCertificateExpiry) : undefined,
+      yearOfManufacture: req.body.yearOfManufacture
+        ? parseInt(req.body.yearOfManufacture)
+        : undefined,
+      registrationDate: req.body.registrationDate
+        ? new Date(req.body.registrationDate)
+        : undefined,
+      fitnessCertificateExpiry: req.body.fitnessCertificateExpiry
+        ? new Date(req.body.fitnessCertificateExpiry)
+        : undefined,
+      insuranceExpiry: req.body.insuranceExpiry
+        ? new Date(req.body.insuranceExpiry)
+        : undefined,
+      pollutionCertificateExpiry: req.body.pollutionCertificateExpiry
+        ? new Date(req.body.pollutionCertificateExpiry)
+        : undefined,
       vehicleInsuranceNo: req.body.vehicleInsuranceNo || "",
       fitnessNo: req.body.fitnessNo || "",
       status: req.body.status || "active",
@@ -273,7 +345,12 @@ export const addVehicleController = async (req, res) => {
     console.log("Raw req.body values:", Object.values(req.body));
 
     // Validate required fields
-    if (!vehicleData.vehicleNumber || !vehicleData.type || !vehicleData.brand || !vehicleData.model) {
+    if (
+      !vehicleData.vehicleNumber ||
+      !vehicleData.type ||
+      !vehicleData.brand ||
+      !vehicleData.model
+    ) {
       return res.status(400).json({
         success: false,
         message: `Missing required fields. Received: vehicleNumber=${vehicleData.vehicleNumber}, type=${vehicleData.type}, brand=${vehicleData.brand}, model=${vehicleData.model}`,
@@ -289,10 +366,23 @@ export const addVehicleController = async (req, res) => {
     ];
 
     for (const field of certFields) {
-      if (req.files && req.files[`vendorVehicle${field.charAt(0).toUpperCase() + field.slice(1)}`] && req.files[`vendorVehicle${field.charAt(0).toUpperCase() + field.slice(1)}`][0]) {
+      if (
+        req.files &&
+        req.files[
+          `vendorVehicle${field.charAt(0).toUpperCase() + field.slice(1)}`
+        ] &&
+        req.files[
+          `vendorVehicle${field.charAt(0).toUpperCase() + field.slice(1)}`
+        ][0]
+      ) {
         vehicleData[field] = {
-          url: req.files[`vendorVehicle${field.charAt(0).toUpperCase() + field.slice(1)}`][0].path,
-          public_id: req.files[`vendorVehicle${field.charAt(0).toUpperCase() + field.slice(1)}`][0].filename,
+          url: req.files[
+            `vendorVehicle${field.charAt(0).toUpperCase() + field.slice(1)}`
+          ][0].path,
+          public_id:
+            req.files[
+              `vendorVehicle${field.charAt(0).toUpperCase() + field.slice(1)}`
+            ][0].filename,
         };
       } else {
         // Set default empty values if no image
@@ -303,7 +393,10 @@ export const addVehicleController = async (req, res) => {
     // Initialize maintenance history array
     vehicleData.maintenanceHistory = [];
 
-    console.log("Final vehicle data to be saved:", JSON.stringify(vehicleData, null, 2));
+    console.log(
+      "Final vehicle data to be saved:",
+      JSON.stringify(vehicleData, null, 2)
+    );
 
     // Create a new vehicle document using the schema
     const newVehicle = {
@@ -329,8 +422,8 @@ export const addVehicleController = async (req, res) => {
     console.log("New vehicle object:", JSON.stringify(newVehicle, null, 2));
 
     // Try using updateOne with $push to ensure proper schema validation
-    const result = await Vendor.updateOne(
-      { _id: vendorId },
+    const result = await User.updateOne(
+      { _id: vendorId, role: "vendor" },
       { $push: { availableVehicles: newVehicle } }
     );
 
@@ -342,7 +435,7 @@ export const addVehicleController = async (req, res) => {
     }
 
     // Fetch the updated vendor to return
-    const updatedVendor = await Vendor.findById(vendorId);
+    const updatedVendor = await User.findById(vendorId);
 
     res.status(200).json({
       success: true,
@@ -370,7 +463,10 @@ export const getVendorsByCompany = async (req, res) => {
       });
     }
 
-    const vendors = await Vendor.find({ company: companyId }).sort({
+    const vendors = await User.find({
+      company: companyId,
+      role: "vendor",
+    }).sort({
       createdAt: -1,
     });
 
@@ -400,7 +496,7 @@ export const getVendorsByBranch = async (req, res) => {
       });
     }
 
-    const vendors = await Vendor.find({ branch: branchId }).sort({
+    const vendors = await User.find({ branch: branchId, role: "vendor" }).sort({
       createdAt: -1,
     });
 
@@ -429,8 +525,8 @@ export const updateVendorVehicleStatus = async (req, res) => {
         message: "vendorId, vehicleId, and status are required",
       });
     }
-    const updatedVendor = await Vendor.findOneAndUpdate(
-      { _id: vendorId, "availableVehicles._id": vehicleId },
+    const updatedVendor = await User.findOneAndUpdate(
+      { _id: vendorId, role: "vendor", "availableVehicles._id": vehicleId },
       { $set: { "availableVehicles.$.status": status } },
       { new: true }
     );
@@ -460,8 +556,8 @@ export const addVendorVehicleMaintenance = async (req, res) => {
   console.log("=== Add Vendor Vehicle Maintenance Request ===");
   console.log("Body:", req.body);
   console.log("Files:", req.files);
-  console.log("Content-Type:", req.get('Content-Type'));
-  
+  console.log("Content-Type:", req.get("Content-Type"));
+
   const { vendorId, vehicleId } = req.body;
 
   if (!vendorId || !vehicleId) {
@@ -473,7 +569,7 @@ export const addVendorVehicleMaintenance = async (req, res) => {
   }
 
   try {
-    const vendor = await Vendor.findById(vendorId);
+    const vendor = await User.findOne({ _id: vendorId, role: "vendor" });
 
     if (!vendor) {
       return res.status(404).json({
@@ -483,8 +579,10 @@ export const addVendorVehicleMaintenance = async (req, res) => {
     }
 
     // Find the specific vehicle in the vendor's availableVehicles array
-    const vehicleIndex = vendor.availableVehicles.findIndex(v => v._id.toString() === vehicleId);
-    
+    const vehicleIndex = vendor.availableVehicles.findIndex(
+      (v) => v._id.toString() === vehicleId
+    );
+
     if (vehicleIndex === -1) {
       return res.status(404).json({
         success: false,
@@ -502,7 +600,11 @@ export const addVendorVehicleMaintenance = async (req, res) => {
     };
 
     // Validate required fields
-    if (!maintenanceData.serviceDate || !maintenanceData.serviceType || !maintenanceData.description) {
+    if (
+      !maintenanceData.serviceDate ||
+      !maintenanceData.serviceType ||
+      !maintenanceData.description
+    ) {
       return res.status(400).json({
         success: false,
         message: "Service date, type, and description are required",
@@ -510,7 +612,11 @@ export const addVendorVehicleMaintenance = async (req, res) => {
     }
 
     // Handle bill image upload if present
-    if (req.files && req.files.vendorVehicleBillImage && req.files.vendorVehicleBillImage[0]) {
+    if (
+      req.files &&
+      req.files.vendorVehicleBillImage &&
+      req.files.vendorVehicleBillImage[0]
+    ) {
       maintenanceData.billImage = {
         url: req.files.vendorVehicleBillImage[0].path,
         public_id: req.files.vendorVehicleBillImage[0].filename,
@@ -521,7 +627,9 @@ export const addVendorVehicleMaintenance = async (req, res) => {
     }
 
     // Add maintenance record to the specific vehicle
-    vendor.availableVehicles[vehicleIndex].maintenanceHistory.push(maintenanceData);
+    vendor.availableVehicles[vehicleIndex].maintenanceHistory.push(
+      maintenanceData
+    );
     await vendor.save();
 
     res.status(200).json({
@@ -534,6 +642,442 @@ export const addVendorVehicleMaintenance = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Internal server error while adding maintenance record",
+      error: error.message,
+    });
+  }
+};
+
+// Get vendor's own vehicles
+export const getVendorVehicles = async (req, res) => {
+  try {
+    const vendorId = req.user.userId;
+
+    if (req.user.role !== "vendor") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Only vendors can access this endpoint.",
+      });
+    }
+
+    const vendor = await User.findOne({ _id: vendorId, role: "vendor" })
+      .populate("company", "name")
+      .populate("branch", "name")
+      .populate("assignedClient", "name");
+
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Vendor vehicles fetched successfully",
+      vehicles: vendor.availableVehicles || [],
+      vendor: {
+        name: vendor.name,
+        email: vendor.email,
+        phone: vendor.phone,
+        company: vendor.company,
+        branch: vendor.branch,
+        assignedClient: vendor.assignedClient,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching vendor vehicles:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while fetching vendor vehicles",
+      error: error.message,
+    });
+  }
+};
+
+// Get vendor's invoices
+export const getVendorInvoices = async (req, res) => {
+  try {
+    const vendorId = req.user.userId;
+
+    if (req.user.role !== "vendor") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Only vendors can access this endpoint.",
+      });
+    }
+
+    // Get vendor details to check assigned client
+    const vendor = await User.findOne({
+      _id: vendorId,
+      role: "vendor",
+    }).populate("assignedClient", "name email");
+
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor not found",
+      });
+    }
+
+    // Import Invoice model
+    const { Invoice } = await import("../models/invoice.js");
+
+    // Build query to get invoices for this vendor
+    let query = { vendor: vendorId };
+
+    // If vendor has an assigned client, show invoices for that client
+    // (even if vendor field is not set in the invoice)
+    if (vendor.assignedClient && vendor.assignedClient._id) {
+      query = { customer: vendor.assignedClient._id };
+    }
+
+    console.log("Vendor ID:", vendorId);
+    console.log("Vendor assigned client:", vendor.assignedClient);
+    console.log("Query for invoices:", query);
+
+    // First, let's check all invoices for this vendor without any filters
+    const allVendorInvoices = await Invoice.find({ vendor: vendorId })
+      .populate("customer", "name email")
+      .select("docketNumber customer vendor vehicleType createdAt")
+      .limit(10);
+
+    console.log(
+      "All invoices for this vendor (first 10):",
+      allVendorInvoices.map((inv) => ({
+        docketNumber: inv.docketNumber,
+        customer: inv.customer,
+        customerId: inv.customer?._id,
+        vendor: inv.vendor,
+        vendorId: inv.vendor,
+        createdAt: inv.createdAt,
+      }))
+    );
+
+    // Check if there are any invoices for the assigned client
+    if (vendor.assignedClient && vendor.assignedClient._id) {
+      const clientInvoices = await Invoice.find({
+        customer: vendor.assignedClient._id,
+      })
+        .populate("customer", "name email")
+        .populate("vendor", "name email")
+        .select("docketNumber customer vendor vehicleType createdAt")
+        .limit(10);
+
+      console.log(
+        "All invoices for assigned client (first 10):",
+        clientInvoices.map((inv) => ({
+          docketNumber: inv.docketNumber,
+          customer: inv.customer,
+          customerId: inv.customer?._id,
+          vendor: inv.vendor,
+          vendorId: inv.vendor,
+          createdAt: inv.createdAt,
+        }))
+      );
+    }
+
+    let invoices = await Invoice.find(query)
+      .populate("customer", "name email")
+      .populate("company", "name")
+      .populate("branch", "name")
+      .populate("goodsType", "name")
+      .populate("siteType", "name")
+      .populate("transportMode", "name")
+      .sort({ createdAt: -1 });
+
+    console.log("Found invoices count:", invoices.length);
+    console.log(
+      "Raw invoices:",
+      invoices.map((inv) => ({
+        id: inv._id,
+        docketNumber: inv.docketNumber,
+        vendor: inv.vendor,
+        customer: inv.customer,
+        vehicleType: inv.vehicleType,
+      }))
+    );
+
+    // If no invoices found with customer filter, show all vendor invoices as fallback
+    if (
+      invoices.length === 0 &&
+      vendor.assignedClient &&
+      vendor.assignedClient._id
+    ) {
+      console.log(
+        "No invoices found with customer filter, showing all vendor invoices as fallback..."
+      );
+      const fallbackQuery = { vendor: vendorId };
+      const fallbackInvoices = await Invoice.find(fallbackQuery)
+        .populate("customer", "name email")
+        .populate("company", "name")
+        .populate("branch", "name")
+        .populate("goodsType", "name")
+        .populate("siteType", "name")
+        .populate("transportMode", "name")
+        .sort({ createdAt: -1 });
+
+      console.log(
+        "Fallback query found invoices count:",
+        fallbackInvoices.length
+      );
+      console.log(
+        "Fallback invoices:",
+        fallbackInvoices.map((inv) => ({
+          id: inv._id,
+          docketNumber: inv.docketNumber,
+          vendor: inv.vendor,
+          customer: inv.customer,
+          vehicleType: inv.vehicleType,
+        }))
+      );
+
+      // Use fallback invoices if no filtered invoices found
+      invoices = fallbackInvoices;
+    }
+
+    // Transform invoices to match frontend expectations
+    const transformedInvoices = invoices.map((invoice) => ({
+      id: invoice._id,
+      invoiceNumber: invoice.docketNumber,
+      docketNumber: invoice.docketNumber,
+      clientName: invoice.customer?.name || "Unknown Client",
+      company: invoice.company?.name || "N/A",
+      branch: invoice.branch?.name || "N/A",
+      amount: invoice.freightCharges || invoice.totalAmount || 0,
+      status: invoice.status || "pending",
+      date: invoice.createdAt,
+      vehicleNumber: invoice.vendorVehicle?.vehicleNumber || "N/A",
+      description: `Transportation from ${
+        invoice.fromAddress?.city?.name || "N/A"
+      } to ${invoice.toAddress?.city?.name || "N/A"}`,
+      orderNumber: invoice.orderNumber,
+      goodsType: invoice.goodsType?.name,
+      siteType: invoice.siteType?.name,
+      transportMode: invoice.transportMode?.name,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: "Vendor invoices fetched successfully",
+      invoices: transformedInvoices,
+      debug: {
+        vendorId,
+        assignedClient: vendor.assignedClient,
+        totalInvoicesFound: transformedInvoices.length,
+        queryUsed: query,
+        filteringByAssignedClient: vendor.assignedClient ? true : false,
+        queryStrategy: vendor.assignedClient ? "customer-only" : "vendor-only",
+        usingFallbackInvoices:
+          invoices.length === 0 && vendor.assignedClient ? true : false,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching vendor invoices:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while fetching vendor invoices",
+      error: error.message,
+    });
+  }
+};
+
+// Test endpoint to debug vendor invoices
+export const testVendorInvoices = async (req, res) => {
+  try {
+    const vendorId = req.user.userId;
+
+    // Import Invoice model
+    const { Invoice } = await import("../models/invoice.js");
+
+    // Get all invoices for this vendor
+    const allVendorInvoices = await Invoice.find({ vendor: vendorId })
+      .populate("customer", "name email")
+      .populate("vendor", "name email")
+      .select("docketNumber customer vendor vehicleType createdAt");
+
+    // Get vendor details
+    const vendor = await User.findOne({ _id: vendorId, role: "vendor" })
+      .populate("assignedClient", "name email")
+      .select("name email assignedClient");
+
+    // Also check if there are any invoices at all in the database
+    const totalInvoices = await Invoice.countDocuments();
+    const totalVendorInvoices = await Invoice.countDocuments({
+      vendor: vendorId,
+    });
+    const totalCustomerInvoices = vendor.assignedClient
+      ? await Invoice.countDocuments({ customer: vendor.assignedClient._id })
+      : 0;
+
+    return res.status(200).json({
+      success: true,
+      message: "Debug info for vendor invoices",
+      vendor: {
+        id: vendor._id,
+        name: vendor.name,
+        email: vendor.email,
+        assignedClient: vendor.assignedClient,
+      },
+      allVendorInvoices: allVendorInvoices.map((inv) => ({
+        id: inv._id,
+        docketNumber: inv.docketNumber,
+        customer: inv.customer,
+        vendor: inv.vendor,
+        vehicleType: inv.vehicleType,
+        createdAt: inv.createdAt,
+      })),
+      totalCount: allVendorInvoices.length,
+      debug: {
+        totalInvoicesInDB: totalInvoices,
+        totalVendorInvoices: totalVendorInvoices,
+        totalCustomerInvoices: totalCustomerInvoices,
+        assignedClientId: vendor.assignedClient?._id,
+      },
+    });
+  } catch (error) {
+    console.error("Error in testVendorInvoices:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error in test endpoint",
+      error: error.message,
+    });
+  }
+};
+
+// Get vendor's profile
+export const getVendorProfile = async (req, res) => {
+  try {
+    const vendorId = req.user.userId;
+
+    if (req.user.role !== "vendor") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Only vendors can access this endpoint.",
+      });
+    }
+
+    const vendor = await User.findOne({ _id: vendorId, role: "vendor" })
+      .populate("company", "name")
+      .populate("branch", "name")
+      .populate("assignedClient", "name")
+      .select("-password");
+
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Vendor profile fetched successfully",
+      vendor,
+    });
+  } catch (error) {
+    console.error("Error fetching vendor profile:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while fetching vendor profile",
+      error: error.message,
+    });
+  }
+};
+
+// Update vendor's profile
+export const updateVendorProfile = async (req, res) => {
+  try {
+    const vendorId = req.user.userId;
+
+    if (req.user.role !== "vendor") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Only vendors can access this endpoint.",
+      });
+    }
+
+    const {
+      name,
+      phone,
+      email,
+      address,
+      gstNumber,
+      panNumber,
+      bankName,
+      accountNumber,
+      ifsc,
+      currentPassword,
+      newPassword,
+    } = req.body;
+
+    // Prepare update data
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (phone) updateData.phone = phone;
+    if (email) updateData.email = email;
+    if (address) updateData.address = address;
+    if (gstNumber) updateData.gstNumber = gstNumber;
+    if (panNumber) updateData.panNumber = panNumber;
+    if (bankName) updateData.bankName = bankName;
+    if (accountNumber) updateData.accountNumber = accountNumber;
+    if (ifsc) updateData.ifsc = ifsc;
+
+    // Handle password update
+    if (currentPassword && newPassword) {
+      // First, verify the current password
+      const vendor = await User.findOne({ _id: vendorId, role: "vendor" });
+      if (!vendor) {
+        return res.status(404).json({
+          success: false,
+          message: "Vendor not found",
+        });
+      }
+
+      const isCurrentPasswordValid = await bcrypt.compare(
+        currentPassword,
+        vendor.password
+      );
+      if (!isCurrentPasswordValid) {
+        return res.status(400).json({
+          success: false,
+          message: "Current password is incorrect",
+        });
+      }
+
+      // Hash the new password
+      updateData.password = await bcrypt.hash(newPassword, 10);
+    }
+
+    const updatedVendor = await User.findOneAndUpdate(
+      { _id: vendorId, role: "vendor" },
+      updateData,
+      {
+        new: true,
+        runValidators: true,
+      }
+    )
+      .populate("company", "name")
+      .populate("branch", "name")
+      .populate("assignedClient", "name")
+      .select("-password");
+
+    if (!updatedVendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Vendor profile updated successfully",
+      vendor: updatedVendor,
+    });
+  } catch (error) {
+    console.error("Error updating vendor profile:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while updating vendor profile",
       error: error.message,
     });
   }

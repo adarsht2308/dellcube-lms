@@ -11,7 +11,18 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { Loader2, CreditCard, Building, User, Mail, MapPin, Banknote, Hash, Building2, Camera } from "lucide-react";
+import {
+  Loader2,
+  CreditCard,
+  Building,
+  User,
+  Mail,
+  MapPin,
+  Banknote,
+  Hash,
+  Building2,
+  Camera,
+} from "lucide-react";
 import toast from "react-hot-toast";
 
 import { useGetAllCompaniesQuery } from "@/features/api/Company/companyApi";
@@ -25,25 +36,27 @@ import {
 const UpdateBranchAdmin = () => {
   const navigate = useNavigate();
   const location = useLocation();
-const branchAdminId = location.state?.branchAdminId;
+  const branchAdminId = location.state?.branchAdminId;
 
-const [getBranchAdminById, { data: adminData, isLoading: isAdminLoading }] =
-  useGetBranchAdminByIdMutation();
+  const [getBranchAdminById, { data: adminData, isLoading: isAdminLoading }] =
+    useGetBranchAdminByIdMutation();
 
-useEffect(() => {
-  if (branchAdminId) {
-    getBranchAdminById({ id: branchAdminId });
-  }
-}, [branchAdminId]);
+  useEffect(() => {
+    if (branchAdminId) {
+      getBranchAdminById({ id: branchAdminId });
+    }
+  }, [branchAdminId]);
 
-
-  const [updateBranchAdmin, { isLoading, isSuccess, error }] = useUpdateBranchAdminMutation();
+  const [updateBranchAdmin, { isLoading, isSuccess, error }] =
+    useUpdateBranchAdminMutation();
   const { data: companies } = useGetAllCompaniesQuery({ page: 1, limit: 100 });
-  const [getBranchesByCompany, { data: branchData }] = useGetBranchesByCompanyMutation();
+  const [getBranchesByCompany, { data: branchData }] =
+    useGetBranchesByCompanyMutation();
 
   const [formData, setFormData] = useState({
     name: "",
     email: "",
+    mobile: "",
     company: "",
     branch: "",
     status: true,
@@ -65,6 +78,7 @@ useEffect(() => {
       setFormData({
         name: u.name || "",
         email: u.email || "",
+        mobile: u.mobile || "",
         company: u.company?._id || "",
         branch: u.branch?._id || "",
         status: u.status ?? true,
@@ -86,8 +100,8 @@ useEffect(() => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    if (name.startsWith('bank.')) {
-      const bankField = name.split('.')[1];
+    if (name.startsWith("bank.")) {
+      const bankField = name.split(".")[1];
       setFormData((prev) => ({
         ...prev,
         bankDetails: {
@@ -95,11 +109,14 @@ useEffect(() => {
           [bankField]: value,
         },
       }));
-    } else if (name === 'aadharNumber') {
+    } else if (name === "aadharNumber") {
       // Only allow digits for Aadhar
-      const numericValue = value.replace(/\D/g, '');
+      const numericValue = value.replace(/\D/g, "");
       setFormData((prev) => ({ ...prev, [name]: numericValue }));
-    } else if (name === 'panNumber') {
+    } else if (name === "mobile") {
+      const numericValue = value.replace(/\D/g, "");
+      setFormData((prev) => ({ ...prev, [name]: numericValue.slice(0, 10) }));
+    } else if (name === "panNumber") {
       // Convert to uppercase for PAN
       setFormData((prev) => ({ ...prev, [name]: value.toUpperCase() }));
     } else {
@@ -113,10 +130,23 @@ useEffect(() => {
   };
 
   const validateForm = () => {
-    const { name, email, company, branch, aadharNumber, panNumber, bankDetails } = formData;
+    const {
+      name,
+      email,
+      company,
+      branch,
+      aadharNumber,
+      panNumber,
+      bankDetails,
+      mobile,
+    } = formData;
 
     if (!name || !email || !company || !branch || !aadharNumber || !panNumber) {
       toast.error("All basic fields are required.");
+      return false;
+    }
+    if (mobile && mobile.length !== 10) {
+      toast.error("Mobile must be 10 digits if provided.");
       return false;
     }
 
@@ -130,12 +160,20 @@ useEffect(() => {
       return false;
     }
 
-    if (!bankDetails.accountNumber || !bankDetails.ifscCode || !bankDetails.bankName || !bankDetails.accountHolderName) {
+    if (
+      !bankDetails.accountNumber ||
+      !bankDetails.ifscCode ||
+      !bankDetails.bankName ||
+      !bankDetails.accountHolderName
+    ) {
       toast.error("All bank details are required.");
       return false;
     }
 
-    if (bankDetails.accountNumber.length < 9 || bankDetails.accountNumber.length > 18) {
+    if (
+      bankDetails.accountNumber.length < 9 ||
+      bankDetails.accountNumber.length > 18
+    ) {
       toast.error("Account number must be between 9-18 digits.");
       return false;
     }
@@ -154,9 +192,10 @@ useEffect(() => {
     }
 
     const payload = new FormData();
-    payload.append("userId",branchAdminId)
+    payload.append("userId", branchAdminId);
     payload.append("name", name);
     payload.append("email", email);
+    if (mobile) payload.append("mobile", mobile);
     payload.append("company", company);
     payload.append("branch", branch);
     payload.append("status", status);
@@ -212,13 +251,32 @@ useEffect(() => {
             className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249]"
           />
         </div>
+        <div>
+          <Label className="flex items-center gap-2">
+            <Hash className="w-4 h-4 text-[#FFD249]" />
+            Mobile
+          </Label>
+          <Input
+            name="mobile"
+            value={formData.mobile}
+            onChange={handleInputChange}
+            placeholder="10-digit mobile number"
+            maxLength="10"
+            className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249] font-mono"
+          />
+        </div>
 
         <div>
           <Label className="flex items-center gap-2">
             <Camera className="w-4 h-4 text-[#FFD249]" />
             Change Profile Image
           </Label>
-          <Input type="file" accept="image/*" onChange={handleImageChange} className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249]" />
+          <Input
+            type="file"
+            accept="image/*"
+            onChange={handleImageChange}
+            className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249]"
+          />
         </div>
 
         <div>
@@ -297,7 +355,7 @@ useEffect(() => {
             onChange={handleInputChange}
             placeholder="ABCDE1234F"
             maxLength="10"
-            style={{ textTransform: 'uppercase' }}
+            style={{ textTransform: "uppercase" }}
             className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249] font-mono"
           />
         </div>
@@ -361,7 +419,7 @@ useEffect(() => {
             value={formData.bankDetails.ifscCode}
             onChange={handleInputChange}
             placeholder="ABCD0123456"
-            style={{ textTransform: 'uppercase' }}
+            style={{ textTransform: "uppercase" }}
             maxLength="11"
             className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249] font-mono"
           />
@@ -389,7 +447,11 @@ useEffect(() => {
         >
           Cancel
         </Button>
-        <Button disabled={isLoading} onClick={handleSubmit} className="bg-[#FFD249] text-[#202020] hover:bg-[#FFD249]/90">
+        <Button
+          disabled={isLoading}
+          onClick={handleSubmit}
+          className="bg-[#FFD249] text-[#202020] hover:bg-[#FFD249]/90"
+        >
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

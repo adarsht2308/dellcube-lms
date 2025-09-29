@@ -16,9 +16,7 @@ export const createCompany = async (req, res) => {
       companyType,
       address,
       contactPhone,
-      bankName,
-      accountNumber,
-      ifsc,
+      bankDetails,
       emergencyContactName,
       emergencyContactMobile,
       status,
@@ -33,13 +31,12 @@ export const createCompany = async (req, res) => {
       !companyCode ||
       !emailId ||
       !gstNumber ||
-      
       !gstValue ||
       !pan ||
       !sacHsnCode ||
       !companyType ||
       !address ||
-      !contactPhone 
+      !contactPhone
     ) {
       return res.status(400).json({
         success: false,
@@ -79,6 +76,19 @@ export const createCompany = async (req, res) => {
       logoPublicId = req.files.companyLogo[0].filename;
     }
 
+    let parsedBankDetails = [];
+    if (bankDetails) {
+      try {
+        parsedBankDetails =
+          typeof bankDetails === "string"
+            ? JSON.parse(bankDetails)
+            : bankDetails;
+        if (!Array.isArray(parsedBankDetails)) parsedBankDetails = [];
+      } catch {
+        parsedBankDetails = [];
+      }
+    }
+
     const newCompany = await Company.create({
       name,
       companyCode,
@@ -92,11 +102,7 @@ export const createCompany = async (req, res) => {
       companyType,
       address,
       contactPhone,
-      bankDetails: {
-        bankName: bankName || "",
-        accountNumber: accountNumber || "",
-        ifsc: ifsc || "",
-      },
+      bankDetails: parsedBankDetails,
       emergencyContact: {
         name: emergencyContactName || "",
         mobile: emergencyContactMobile || "",
@@ -104,7 +110,6 @@ export const createCompany = async (req, res) => {
       companyLogoUrl: logoUrl,
       companyLogoUrlPublicId: logoPublicId,
       status: status !== undefined ? status : true,
-      
     });
 
     return res.status(201).json({
@@ -219,13 +224,10 @@ export const updateCompany = async (req, res) => {
       companyType,
       address,
       contactPhone,
-      bankName,
-      accountNumber,
-      ifsc,
+      bankDetails,
       emergencyContactName,
       emergencyContactMobile,
       status,
-      
     } = req.body;
 
     const company = await Company.findById(companyId);
@@ -259,17 +261,23 @@ export const updateCompany = async (req, res) => {
     company.companyType = companyType || company.companyType;
     company.address = address || company.address;
     company.contactPhone = contactPhone || company.contactPhone;
-    company.bankDetails = {
-      bankName: bankName || company.bankDetails?.bankName || "",
-      accountNumber: accountNumber || company.bankDetails?.accountNumber || "",
-      ifsc: ifsc || company.bankDetails?.ifsc || "",
-    };
+    if (bankDetails !== undefined) {
+      try {
+        const bd =
+          typeof bankDetails === "string"
+            ? JSON.parse(bankDetails)
+            : bankDetails;
+        company.bankDetails = Array.isArray(bd) ? bd : company.bankDetails;
+      } catch {
+        // ignore invalid bank details
+      }
+    }
     company.emergencyContact = {
       name: emergencyContactName || company.emergencyContact?.name || "",
       mobile: emergencyContactMobile || company.emergencyContact?.mobile || "",
     };
     company.status = status !== undefined ? status : company.status;
-    
+
     const updatedCompany = await company.save();
 
     return res.status(200).json({

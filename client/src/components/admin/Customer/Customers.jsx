@@ -57,9 +57,9 @@ import { useSelector } from "react-redux";
 
 // 1. Add Dellcube color theme variables for easy reuse
 const DELLCUBE_COLORS = {
-  gold: '#FFD249',
-  dark: '#202020',
-  gray: '#828083',
+  gold: "#FFD249",
+  dark: "#202020",
+  gray: "#828083",
 };
 
 // InfoCard and InfoRow components for Drawer, styled like Invoices.jsx
@@ -83,11 +83,17 @@ const InfoCard = ({ icon: Icon, title, children, className = "" }) => (
 const InfoRow = ({ label, value, icon: Icon }) => (
   <div className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors duration-200">
     <div className="flex items-center gap-2 min-w-0">
-      {Icon && <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />}
-      <span className="text-sm font-medium text-gray-600 dark:text-gray-300 truncate">{label}:</span>
+      {Icon && (
+        <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+      )}
+      <span className="text-sm font-medium text-gray-600 dark:text-gray-300 truncate">
+        {label}:
+      </span>
     </div>
     <div className="flex-shrink-0 ml-3">
-      <span className="text-sm text-gray-800 dark:text-gray-200 font-medium">{value || <span className="text-gray-400 italic">N/A</span>}</span>
+      <span className="text-sm text-gray-800 dark:text-gray-200 font-medium">
+        {value || <span className="text-gray-400 italic">N/A</span>}
+      </span>
     </div>
   </div>
 );
@@ -98,6 +104,7 @@ const Customers = () => {
 
   const isBranchAdmin = user?.role === "branchAdmin";
   const isSuperAdmin = user?.role === "superAdmin";
+  const isVendor = user?.role === "vendor";
 
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(5);
@@ -150,6 +157,15 @@ const Customers = () => {
     { skip: skipQuery }
   );
 
+  // If vendor is logged in, show only the assigned client's record
+  const customers = React.useMemo(() => {
+    const list = data?.customers || [];
+    if (isVendor && user?.assignedClient?._id) {
+      return list.filter((c) => c._id === user.assignedClient._id);
+    }
+    return list;
+  }, [data?.customers, isVendor, user?.assignedClient?._id]);
+
   const [deleteCustomer, { isSuccess, isError }] = useDeleteCustomerMutation();
   const [open, setOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -199,8 +215,12 @@ const Customers = () => {
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-[#828083] dark:text-gray-400">Total Customers</p>
-                <p className="text-2xl font-bold text-[#202020] dark:text-[#FFD249]">{data?.total || 0}</p>
+                <p className="text-sm font-medium text-[#828083] dark:text-gray-400">
+                  Total Customers
+                </p>
+                <p className="text-2xl font-bold text-[#202020] dark:text-[#FFD249]">
+                  {isVendor ? customers.length : data?.total || 0}
+                </p>
               </div>
               <div className="p-3 bg-[#FFD249]/20 dark:bg-[#FFD249]/10 rounded-xl">
                 <User className="w-6 h-6 text-[#202020] dark:text-[#FFD249]" />
@@ -210,8 +230,12 @@ const Customers = () => {
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-[#828083] dark:text-gray-400">Current Page</p>
-                <p className="text-2xl font-bold text-[#202020] dark:text-[#FFD249]">{page}</p>
+                <p className="text-sm font-medium text-[#828083] dark:text-gray-400">
+                  Current Page
+                </p>
+                <p className="text-2xl font-bold text-[#202020] dark:text-[#FFD249]">
+                  {page}
+                </p>
               </div>
               <div className="p-3 bg-[#FFD249]/20 dark:bg-[#FFD249]/10 rounded-xl">
                 <Building2 className="w-6 h-6 text-[#202020] dark:text-[#FFD249]" />
@@ -221,8 +245,12 @@ const Customers = () => {
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-[#828083] dark:text-gray-400">Items Per Page</p>
-                <p className="text-2xl font-bold text-[#202020] dark:text-[#FFD249]">{limit}</p>
+                <p className="text-sm font-medium text-[#828083] dark:text-gray-400">
+                  Items Per Page
+                </p>
+                <p className="text-2xl font-bold text-[#202020] dark:text-[#FFD249]">
+                  {limit}
+                </p>
               </div>
               <div className="p-3 bg-[#FFD249]/20 dark:bg-[#FFD249]/10 rounded-xl">
                 <Box className="w-6 h-6 text-[#202020] dark:text-[#FFD249]" />
@@ -234,7 +262,9 @@ const Customers = () => {
         <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-lg">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="flex items-center gap-4">
-              <h2 className="text-2xl font-bold text-[#202020] dark:text-[#FFD249]">All Customers</h2>
+              <h2 className="text-2xl font-bold text-[#202020] dark:text-[#FFD249]">
+                All Customers
+              </h2>
               <Button
                 variant="outline"
                 size="sm"
@@ -243,7 +273,11 @@ const Customers = () => {
               >
                 <SlidersHorizontal className="w-4 h-4" />
                 Filter
-                {showFilters ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                {showFilters ? (
+                  <ChevronUp className="w-4 h-4" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" />
+                )}
               </Button>
             </div>
             <div className="flex items-center gap-3">
@@ -257,7 +291,10 @@ const Customers = () => {
                 />
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#828083] dark:text-gray-400" />
               </div>
-              <Select value={limit.toString()} onValueChange={(val) => setLimit(Number(val))}>
+              <Select
+                value={limit.toString()}
+                onValueChange={(val) => setLimit(Number(val))}
+              >
                 <SelectTrigger className="w-[100px] bg-white/80 dark:bg-gray-700/80 border-gray-200/50 dark:border-gray-600/50">
                   <SelectValue placeholder="Limit" />
                 </SelectTrigger>
@@ -269,20 +306,22 @@ const Customers = () => {
                   ))}
                 </SelectContent>
               </Select>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={() => refetch()}
                 className="p-2 bg-[#FFD249]/10 hover:bg-[#FFD249]/20 text-[#202020] dark:text-[#FFD249] border-[#FFD249]/30"
               >
                 <GrPowerCycle className="w-4 h-4" />
               </Button>
-              <Button
-                onClick={() => navigate("/admin/create-customer")}
-                className="bg-[#FFD249] hover:bg-[#FFD249]/90 text-[#202020] font-semibold px-6 py-2 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
-              >
-                Add Customer
-              </Button>
+              {!isVendor && (
+                <Button
+                  onClick={() => navigate("/admin/create-customer")}
+                  className="bg-[#FFD249] hover:bg-[#FFD249]/90 text-[#202020] font-semibold px-6 py-2 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
+                >
+                  Add Customer
+                </Button>
+              )}
             </div>
           </div>
           {/* Filter Panel */}
@@ -346,24 +385,39 @@ const Customers = () => {
             {/* Top thead */}
             <thead className="bg-[#FFD249]/20 dark:bg-[#FFD249]/10 text-center sticky top-0 z-10">
               <tr>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">No</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Name</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Email</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Company</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Branch</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Status</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Actions</th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  No
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  Name
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  Email
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  Company
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  Branch
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 text-center">
               {isLoading ? (
                 <tr>
                   <td colSpan="7" className="text-center py-6">
-                    <Loader2 className="animate-spin mx-auto text-[#FFD249]" /> Loading...
+                    <Loader2 className="animate-spin mx-auto text-[#FFD249]" />{" "}
+                    Loading...
                   </td>
                 </tr>
-              ) : data?.customers?.length ? (
-                data.customers.map((cust, i) => (
+              ) : customers?.length ? (
+                customers.map((cust, i) => (
                   <tr
                     key={cust._id}
                     className={
@@ -373,14 +427,32 @@ const Customers = () => {
                           " hover:bg-[#FFD249]/20 dark:hover:bg-[#FFD249]/10 transition "
                     }
                   >
-                    <td className="p-3 font-medium text-[#202020] dark:text-[#FFD249] text-center">{limit * (page - 1) + (i + 1)}</td>
-                    <td className="p-3 text-[#202020] dark:text-[#FFD249] font-semibold">{cust.name}</td>
-                    <td className="p-3 text-[#202020] dark:text-[#FFD249] text-center">{cust.email}</td>
-                    <td className="p-3 text-[#202020] dark:text-[#FFD249] text-center">{cust.company?.name || <span className="text-gray-400">N/A</span>}</td>
-                    <td className="p-3 text-[#202020] dark:text-[#FFD249] text-center">{cust.branch?.name || <span className="text-gray-400">N/A</span>}</td>
+                    <td className="p-3 font-medium text-[#202020] dark:text-[#FFD249] text-center">
+                      {isVendor ? i + 1 : limit * (page - 1) + (i + 1)}
+                    </td>
+                    <td className="p-3 text-[#202020] dark:text-[#FFD249] font-semibold">
+                      {cust.name}
+                    </td>
+                    <td className="p-3 text-[#202020] dark:text-[#FFD249] text-center">
+                      {cust.email}
+                    </td>
+                    <td className="p-3 text-[#202020] dark:text-[#FFD249] text-center">
+                      {cust.company?.name || (
+                        <span className="text-gray-400">N/A</span>
+                      )}
+                    </td>
+                    <td className="p-3 text-[#202020] dark:text-[#FFD249] text-center">
+                      {cust.branch?.name || (
+                        <span className="text-gray-400">N/A</span>
+                      )}
+                    </td>
                     <td className="p-3 text-center">
                       <span
-                        className={`px-2 py-1 rounded-full text-xs font-semibold text-center ${cust.status === true ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}
+                        className={`px-2 py-1 rounded-full text-xs font-semibold text-center ${
+                          cust.status === true
+                            ? "bg-green-100 text-green-700"
+                            : "bg-red-100 text-red-700"
+                        }`}
                       >
                         {cust.status === true ? "Active" : "Inactive"}
                       </span>
@@ -415,14 +487,20 @@ const Customers = () => {
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Customer?</AlertDialogTitle>
+                            <AlertDialogTitle>
+                              Delete Customer?
+                            </AlertDialogTitle>
                             <AlertDialogDescription>
-                              This action cannot be undone. This will permanently delete the customer and remove their data from our servers.
+                              This action cannot be undone. This will
+                              permanently delete the customer and remove their
+                              data from our servers.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDelete(cust._id)}>
+                            <AlertDialogAction
+                              onClick={() => handleDelete(cust._id)}
+                            >
                               Delete
                             </AlertDialogAction>
                           </AlertDialogFooter>
@@ -435,8 +513,12 @@ const Customers = () => {
                 <tr>
                   <td colSpan="7" className="text-center py-10 text-[#828083]">
                     <User className="w-8 h-8 mx-auto text-[#828083]" />
-                    <p className="text-[#828083] font-medium">No Customers Available</p>
-                    <p className="text-sm text-[#828083]">Add a new customer to begin</p>
+                    <p className="text-[#828083] font-medium">
+                      No Customers Available
+                    </p>
+                    <p className="text-sm text-[#828083]">
+                      Add a new customer to begin
+                    </p>
                   </td>
                 </tr>
               )}
@@ -444,22 +526,50 @@ const Customers = () => {
             {/* Bottom thead */}
             <thead className="bg-[#FFD249]/20 dark:bg-[#FFD249]/10 text-center">
               <tr>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">No</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Name</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Email</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Company</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Branch</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Status</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Actions</th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  No
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  Name
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  Email
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  Company
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  Branch
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
           </table>
           <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800 text-sm text-[#202020] dark:text-[#FFD249] text-center lg:text-left">
-            Showing {data?.customers?.length ? (data?.page - 1) * data?.limit + 1 : 0} to {Math.min(data?.page * data?.limit, data?.total || 0)} of <span className="font-medium">{data?.total || 0}</span> entries
+            {isVendor ? (
+              <>
+                Showing {customers.length ? 1 : 0} to {customers.length} of{" "}
+                <span className="font-medium">{customers.length}</span> entries
+              </>
+            ) : (
+              <>
+                Showing{" "}
+                {data?.customers?.length
+                  ? (data?.page - 1) * data?.limit + 1
+                  : 0}{" "}
+                to {Math.min(data?.page * data?.limit, data?.total || 0)} of{" "}
+                <span className="font-medium">{data?.total || 0}</span> entries
+              </>
+            )}
           </div>
         </div>
         {/* Pagination */}
-        {data?.totalPage > 1 && (
+        {!isVendor && data?.totalPage > 1 && (
           <div className="flex justify-center">
             <Pagination>
               <PaginationContent>
@@ -517,7 +627,15 @@ const Customers = () => {
                   </div>
                 </div>
                 <div className="ml-auto">
-                  <span className={`inline-flex items-center gap-2 px-3 py-2 rounded-full font-medium ${selectedCustomer.status ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'}`}>{selectedCustomer.status ? 'Active' : 'Inactive'}</span>
+                  <span
+                    className={`inline-flex items-center gap-2 px-3 py-2 rounded-full font-medium ${
+                      selectedCustomer.status
+                        ? "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+                        : "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400"
+                    }`}
+                  >
+                    {selectedCustomer.status ? "Active" : "Inactive"}
+                  </span>
                 </div>
               </div>
             }
@@ -557,56 +675,116 @@ const Customers = () => {
             ) : (
               <div className="p-6 space-y-6 overflow-x-hidden">
                 <InfoCard icon={User} title="Contact Information">
-                  <InfoRow label="Name" value={selectedCustomer.name} icon={User} />
-                  <InfoRow label="Email" value={selectedCustomer.email} icon={Mail} />
-                  <InfoRow label="Phone" value={selectedCustomer.phone} icon={Phone} />
+                  <InfoRow
+                    label="Name"
+                    value={selectedCustomer.name}
+                    icon={User}
+                  />
+                  <InfoRow
+                    label="Email"
+                    value={selectedCustomer.email}
+                    icon={Mail}
+                  />
+                  <InfoRow
+                    label="Phone"
+                    value={selectedCustomer.phone}
+                    icon={Phone}
+                  />
                 </InfoCard>
                 <InfoCard icon={Building2} title="Organizational Details">
-                  <InfoRow label="Company" value={selectedCustomer.company?.name} icon={Building2} />
-                  <InfoRow label="Branch" value={selectedCustomer.branch?.name} icon={MapPin} />
-                  {selectedCustomer.companyName && <InfoRow label="Company Name" value={selectedCustomer.companyName} />}
-                  {selectedCustomer.companyContactName && <InfoRow label="Contact Person" value={selectedCustomer.companyContactName} />}
-                  {selectedCustomer.companyContactInfo && <InfoRow label="Contact Info" value={selectedCustomer.companyContactInfo} />}
+                  <InfoRow
+                    label="Company"
+                    value={selectedCustomer.company?.name}
+                    icon={Building2}
+                  />
+                  <InfoRow
+                    label="Branch"
+                    value={selectedCustomer.branch?.name}
+                    icon={MapPin}
+                  />
+                  {selectedCustomer.companyName && (
+                    <InfoRow
+                      label="Company Name"
+                      value={selectedCustomer.companyName}
+                    />
+                  )}
+                  {selectedCustomer.companyContactName && (
+                    <InfoRow
+                      label="Contact Person"
+                      value={selectedCustomer.companyContactName}
+                    />
+                  )}
+                  {selectedCustomer.companyContactInfo && (
+                    <InfoRow
+                      label="Contact Info"
+                      value={selectedCustomer.companyContactInfo}
+                    />
+                  )}
                 </InfoCard>
 
                 {/* Tax Information */}
                 {(selectedCustomer.taxType || selectedCustomer.taxValue) && (
                   <InfoCard icon={Building2} title="Tax Information">
-                    {selectedCustomer.taxType && <InfoRow label="Tax Type" value={selectedCustomer.taxType} />}
-                    {selectedCustomer.taxValue && <InfoRow label="Tax Value" value={`${selectedCustomer.taxValue}%`} />}
+                    {selectedCustomer.taxType && (
+                      <InfoRow
+                        label="Tax Type"
+                        value={selectedCustomer.taxType}
+                      />
+                    )}
+                    {selectedCustomer.taxValue && (
+                      <InfoRow
+                        label="Tax Value"
+                        value={`${selectedCustomer.taxValue}%`}
+                      />
+                    )}
                   </InfoCard>
                 )}
 
                 {/* Consignees */}
-                {selectedCustomer.consignees && selectedCustomer.consignees.length > 0 && (
-                  <InfoCard icon={MapPin} title="Consignees">
-                    <div className="space-y-3">
-                      {selectedCustomer.consignees.map((consignee, index) => (
-                        <div key={index} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border">
-                          <div className="grid grid-cols-2 gap-2 text-sm">
-                            <div><span className="font-medium">Site ID:</span> {consignee.siteId}</div>
-                            <div><span className="font-medium">Consignee:</span> {consignee.consignee}</div>
+                {selectedCustomer.consignees &&
+                  selectedCustomer.consignees.length > 0 && (
+                    <InfoCard icon={MapPin} title="Consignees">
+                      <div className="space-y-3">
+                        {selectedCustomer.consignees.map((consignee, index) => (
+                          <div
+                            key={index}
+                            className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border"
+                          >
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div>
+                                <span className="font-medium">Site ID:</span>{" "}
+                                {consignee.siteId}
+                              </div>
+                              <div>
+                                <span className="font-medium">Consignee:</span>{" "}
+                                {consignee.consignee}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  </InfoCard>
-                )}
+                        ))}
+                      </div>
+                    </InfoCard>
+                  )}
 
                 {/* Consignors */}
-                {selectedCustomer.consignors && selectedCustomer.consignors.length > 0 && (
-                  <InfoCard icon={MapPin} title="Consignors">
-                    <div className="space-y-2">
-                      {selectedCustomer.consignors.map((consignor, index) => (
-                        <div key={index} className="p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg border">
-                          <div className="text-sm">
-                            <span className="font-medium">Consignor:</span> {consignor.consignor}
+                {selectedCustomer.consignors &&
+                  selectedCustomer.consignors.length > 0 && (
+                    <InfoCard icon={MapPin} title="Consignors">
+                      <div className="space-y-2">
+                        {selectedCustomer.consignors.map((consignor, index) => (
+                          <div
+                            key={index}
+                            className="p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg border"
+                          >
+                            <div className="text-sm">
+                              <span className="font-medium">Consignor:</span>{" "}
+                              {consignor.consignor}
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  </InfoCard>
-                )}
+                        ))}
+                      </div>
+                    </InfoCard>
+                  )}
 
                 {selectedCustomer.address && (
                   <InfoCard icon={MapPin} title="Address">

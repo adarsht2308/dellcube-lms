@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { useGetAllCompaniesQuery } from "@/features/api/Company/companyApi.js";
 import { useGetAllBranchesQuery } from "@/features/api/Branch/branchApi.js";
+import { useGetAllCustomersQuery } from "@/features/api/Customer/customerApi.js";
 
 const UpdateVendor = () => {
   const navigate = useNavigate();
@@ -41,6 +42,7 @@ const UpdateVendor = () => {
     status: true,
     company: "",
     branch: "",
+    assignedClient: "",
   });
 
   // RTK Query hooks
@@ -64,6 +66,10 @@ const UpdateVendor = () => {
     limit: 100,
   });
   const { data: branchData } = useGetAllBranchesQuery({ page: 1, limit: 100 });
+  const { data: customersData } = useGetAllCustomersQuery({
+    page: 1,
+    limit: 100,
+  });
 
   // Populate form fields with fetched vendor data
   useEffect(() => {
@@ -82,6 +88,7 @@ const UpdateVendor = () => {
         status: v.status === "active",
         company: v.company?._id || "",
         branch: v.branch?._id || "",
+        assignedClient: v.assignedClient?._id || "",
       });
     }
   }, [isGetSuccess, viewData]);
@@ -101,6 +108,10 @@ const UpdateVendor = () => {
 
   const handleBranchChange = (value) => {
     setVendorData((prev) => ({ ...prev, branch: value }));
+  };
+
+  const handleAssignedClientChange = (value) => {
+    setVendorData((prev) => ({ ...prev, assignedClient: value }));
   };
 
   // Handle status toggle change
@@ -309,6 +320,28 @@ const UpdateVendor = () => {
               {branchData?.branches?.map((br) => (
                 <SelectItem key={br._id} value={br._id}>
                   {br.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Assigned Client Dropdown */}
+        <div>
+          <Label htmlFor="assignedClient" className="mb-1 block">
+            Assigned Client *
+          </Label>
+          <Select
+            value={vendorData.assignedClient}
+            onValueChange={handleAssignedClientChange}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select a customer to assign" />
+            </SelectTrigger>
+            <SelectContent>
+              {customersData?.customers?.map((customer) => (
+                <SelectItem key={customer._id} value={customer._id}>
+                  {customer.name} - {customer.email}
                 </SelectItem>
               ))}
             </SelectContent>

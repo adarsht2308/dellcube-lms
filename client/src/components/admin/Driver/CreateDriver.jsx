@@ -4,7 +4,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useNavigate } from "react-router-dom";
-import { Loader2, CreditCard, Building, User, Mail, Lock, MapPin, Banknote, Hash, Building2, Phone, Car, Clock } from "lucide-react";
+import {
+  Loader2,
+  CreditCard,
+  Building,
+  User,
+  Mail,
+  Lock,
+  MapPin,
+  Banknote,
+  Hash,
+  Building2,
+  Phone,
+  Car,
+  Clock,
+} from "lucide-react";
 import toast from "react-hot-toast";
 import {
   Select,
@@ -30,7 +44,7 @@ const CreateDriver = () => {
     password: "",
     licenseNumber: "",
     experienceYears: "",
-    driverType: "dellcube",
+    driverType: user?.role === "vendor" ? "vendor" : "dellcube",
     company: isBranchAdmin ? user?.company?._id : "",
     branch: isBranchAdmin ? user?.branch?._id : "",
     status: true,
@@ -59,8 +73,8 @@ const CreateDriver = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    if (name.startsWith('bank.')) {
-      const bankField = name.split('.')[1];
+    if (name.startsWith("bank.")) {
+      const bankField = name.split(".")[1];
       setFormData((prev) => ({
         ...prev,
         bankDetails: {
@@ -68,16 +82,16 @@ const CreateDriver = () => {
           [bankField]: value,
         },
       }));
-    } else if (name === 'aadharNumber') {
+    } else if (name === "aadharNumber") {
       // Only allow digits for Aadhar
-      const numericValue = value.replace(/\D/g, '');
+      const numericValue = value.replace(/\D/g, "");
       setFormData((prev) => ({ ...prev, [name]: numericValue }));
-    } else if (name === 'panNumber') {
+    } else if (name === "panNumber") {
       // Convert to uppercase for PAN
       setFormData((prev) => ({ ...prev, [name]: value.toUpperCase() }));
-    } else if (name === 'licenseNumber') {
+    } else if (name === "licenseNumber") {
       // License number validation: Allow alphanumeric, hyphens, and spaces
-      const cleanValue = value.replace(/[^A-Za-z0-9\-\s]/g, '');
+      const cleanValue = value.replace(/[^A-Za-z0-9\-\s]/g, "");
       setFormData((prev) => ({ ...prev, [name]: cleanValue }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
@@ -85,9 +99,27 @@ const CreateDriver = () => {
   };
 
   const validateForm = () => {
-    const { name, mobile, password, licenseNumber, experienceYears, company, branch, driverType } = formData;
-    
-    if (!name || !mobile || !password || !licenseNumber || !experienceYears || !company || !branch || !driverType) {
+    const {
+      name,
+      mobile,
+      password,
+      licenseNumber,
+      experienceYears,
+      company,
+      branch,
+      driverType,
+    } = formData;
+
+    if (
+      !name ||
+      !mobile ||
+      !password ||
+      !licenseNumber ||
+      !experienceYears ||
+      !company ||
+      !branch ||
+      !driverType
+    ) {
       toast.error("All required fields are required.");
       return false;
     }
@@ -197,12 +229,22 @@ const CreateDriver = () => {
             <span className="text-xs text-gray-500">
               Alphanumeric, hyphens, spaces allowed
             </span>
-            <span className={`text-xs ${formData.licenseNumber.length < 5 ? 'text-red-500' : formData.licenseNumber.length > 15 ? 'text-yellow-500' : 'text-green-500'}`}>
+            <span
+              className={`text-xs ${
+                formData.licenseNumber.length < 5
+                  ? "text-red-500"
+                  : formData.licenseNumber.length > 15
+                  ? "text-yellow-500"
+                  : "text-green-500"
+              }`}
+            >
               {formData.licenseNumber.length}/20
             </span>
           </div>
           {formData.licenseNumber && formData.licenseNumber.length < 5 && (
-            <p className="text-xs text-red-500 mt-1">License number must be at least 5 characters</p>
+            <p className="text-xs text-red-500 mt-1">
+              License number must be at least 5 characters
+            </p>
           )}
         </div>
         <div>
@@ -227,7 +269,9 @@ const CreateDriver = () => {
           </Label>
           <Select
             value={formData.driverType}
-            onValueChange={(val) => setFormData((prev) => ({ ...prev, driverType: val }))}
+            onValueChange={(val) =>
+              setFormData((prev) => ({ ...prev, driverType: val }))
+            }
           >
             <SelectTrigger className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249]">
               <SelectValue placeholder="Select Driver Type" />
@@ -348,13 +392,13 @@ const CreateDriver = () => {
             onChange={handleInputChange}
             placeholder="ABCDE1234F"
             maxLength="10"
-            style={{ textTransform: 'uppercase' }}
+            style={{ textTransform: "uppercase" }}
             className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249] font-mono"
           />
         </div>
 
         <div className="md:col-span-2">
-          <Label className="text-lg font-semibold mb-3 block flex items-center gap-2">
+          <Label className="text-lg font-semibold mb-3 flex items-center gap-2">
             <Banknote className="w-5 h-5 text-[#FFD249]" />
             Bank Account Details (Optional)
           </Label>
@@ -412,7 +456,7 @@ const CreateDriver = () => {
             value={formData.bankDetails.ifscCode}
             onChange={handleInputChange}
             placeholder="ABCD0123456"
-            style={{ textTransform: 'uppercase' }}
+            style={{ textTransform: "uppercase" }}
             maxLength="11"
             className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249] font-mono"
           />
@@ -438,7 +482,11 @@ const CreateDriver = () => {
         <Button variant="outline" onClick={() => navigate("/admin/drivers")}>
           Cancel
         </Button>
-        <Button disabled={isLoading} onClick={handleSubmit} className="bg-[#FFD249] text-[#202020] hover:bg-[#FFD249]/90">
+        <Button
+          disabled={isLoading}
+          onClick={handleSubmit}
+          className="bg-[#FFD249] text-[#202020] hover:bg-[#FFD249]/90"
+        >
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

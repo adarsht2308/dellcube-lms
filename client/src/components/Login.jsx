@@ -10,9 +10,7 @@ import {
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { useEffect, useState } from "react";
-import {
-  useLoginUserMutation,
-} from "@/features/api/authApi";
+import { useLoginUserMutation } from "@/features/api/authApi";
 import { Loader2, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -25,7 +23,7 @@ function Login() {
     password: "",
   });
   const [showPassword, setShowPassword] = useState(false);
-  
+
   const [
     loginUser,
     {
@@ -57,7 +55,7 @@ function Login() {
   };
 
   const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       handleFormSubmit();
     }
   };
@@ -69,7 +67,7 @@ function Login() {
       localStorage.setItem("token", token);
       const decoded = jwtDecode(token);
       const userRole = decoded.role;
-      
+
       if (userRole === "superAdmin") {
         navigate("/admin/dashboard");
       } else if (userRole === "branchAdmin") {
@@ -78,10 +76,11 @@ function Login() {
         navigate("/admin/driver-dashboard");
       } else if (userRole === "operation") {
         navigate("/admin/operation-dashboard");
+      } else if (userRole === "vendor") {
+        navigate("/admin/dashboard");
       } else {
         navigate("/unauthorized");
       }
-      
     }
     if (loginError) {
       toast.error(loginError?.data?.message || "Login Failed");
@@ -108,129 +107,142 @@ function Login() {
       </div>
       {/* Login Content */}
       <section className="relative z-10 w-full px-4 sm:px-6 lg:px-8">
-      {/* Background decorative elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-[#FFD249]/10 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-[#FFD249]/5 rounded-full blur-3xl"></div>
-      </div>
+        {/* Background decorative elements */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-[#FFD249]/10 rounded-full blur-3xl"></div>
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-[#FFD249]/5 rounded-full blur-3xl"></div>
+        </div>
 
-      <div className="relative z-10 w-full max-w-md mx-auto">
-        {/* Logo and Branding */}
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <img
-              src="/images/dellcube_logo-og.png"
-              alt="Dellcube Logo"
-              className="w-48 h-auto object-contain"
-            />
+        <div className="relative z-10 w-full max-w-md mx-auto">
+          {/* Logo and Branding */}
+          <div className="text-center mb-8">
+            <div className="flex justify-center mb-4">
+              <img
+                src="/images/dellcube_logo-og.png"
+                alt="Dellcube Logo"
+                className="w-48 h-auto object-contain"
+              />
+            </div>
           </div>
-         
-        </div>
 
-        {/* Login Card */}
-        <Card className="bg-white/80 backdrop-blur-xl border-0 shadow-2xl rounded-2xl overflow-hidden">
-          <CardHeader className="pb-6">
-            <CardTitle className="text-xl font-semibold text-[#202020] text-center">
-              Sign In to Your Account
-            </CardTitle>
-            <CardDescription className="text-center text-[#828083]">
-              Enter your credentials to access the Dellcube LMS
-            </CardDescription>
-          </CardHeader>
-          
-          <CardContent className="space-y-6 px-8">
-            {/* Email/Mobile Input */}
-            <div className="space-y-2">
-              <Label htmlFor="identifier" className="text-sm font-medium text-[#202020]">
-                Email or Mobile Number
-              </Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#828083] w-4 h-4" />
-                <Input
-                  id="identifier"
-                  type="text"
-                  name="identifier"
-                  value={loginInput.identifier}
-                  onChange={inputHandler}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Enter your email or mobile"
-                  className="pl-10 h-12 border-[#FFD249]/20 focus:border-[#FFD249] focus:ring-[#FFD249]/20 transition-all duration-200 bg-white/50"
-                  required
-                />
-              </div>
-            </div>
+          {/* Login Card */}
+          <Card className="bg-white/80 backdrop-blur-xl border-0 shadow-2xl rounded-2xl overflow-hidden">
+            <CardHeader className="pb-6">
+              <CardTitle className="text-xl font-semibold text-[#202020] text-center">
+                Sign In to Your Account
+              </CardTitle>
+              <CardDescription className="text-center text-[#828083]">
+                Enter your credentials to access the Dellcube LMS
+              </CardDescription>
+            </CardHeader>
 
-            {/* Password Input */}
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-medium text-[#202020]">
-                Password
-              </Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#828083] w-4 h-4" />
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  name="password"
-                  value={loginInput.password}
-                  onChange={inputHandler}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Enter your password"
-                  className="pl-10 pr-10 h-12 border-[#FFD249]/20 focus:border-[#FFD249] focus:ring-[#FFD249]/20 transition-all duration-200 bg-white/50"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#828083] hover:text-[#202020] transition-colors"
+            <CardContent className="space-y-6 px-8">
+              {/* Email/Mobile Input */}
+              <div className="space-y-2">
+                <Label
+                  htmlFor="identifier"
+                  className="text-sm font-medium text-[#202020]"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
+                  Email or Mobile Number
+                </Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#828083] w-4 h-4" />
+                  <Input
+                    id="identifier"
+                    type="text"
+                    name="identifier"
+                    value={loginInput.identifier}
+                    onChange={inputHandler}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Enter your email or mobile"
+                    className="pl-10 h-12 border-[#FFD249]/20 focus:border-[#FFD249] focus:ring-[#FFD249]/20 transition-all duration-200 bg-white/50"
+                    required
+                  />
+                </div>
               </div>
-            </div>
 
-            {/* Forgot Password Link */}
-            <div className="text-right">
-              <Link 
-                to="/forgot-password" 
-                className="text-sm text-[#FFD249] hover:text-[#202020] transition-colors font-medium"
+              {/* Password Input */}
+              <div className="space-y-2">
+                <Label
+                  htmlFor="password"
+                  className="text-sm font-medium text-[#202020]"
+                >
+                  Password
+                </Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#828083] w-4 h-4" />
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    value={loginInput.password}
+                    onChange={inputHandler}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Enter your password"
+                    className="pl-10 pr-10 h-12 border-[#FFD249]/20 focus:border-[#FFD249] focus:ring-[#FFD249]/20 transition-all duration-200 bg-white/50"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#828083] hover:text-[#202020] transition-colors"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Forgot Password Link */}
+              <div className="text-right">
+                <Link
+                  to="/forgot-password"
+                  className="text-sm text-[#FFD249] hover:text-[#202020] transition-colors font-medium"
+                >
+                  Forgot your password?
+                </Link>
+              </div>
+            </CardContent>
+
+            <CardFooter className="px-8 pb-8">
+              <Button
+                onClick={handleFormSubmit}
+                disabled={
+                  loginIsLoading ||
+                  !loginInput.identifier ||
+                  !loginInput.password
+                }
+                className="w-full h-12 bg-[#FFD249] hover:bg-[#202020] text-[#202020] hover:text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl"
               >
-                Forgot your password?
-              </Link>
-            </div>
-          </CardContent>
+                {loginIsLoading ? (
+                  <>
+                    <Loader2 className="mr-2 w-4 h-4 animate-spin" />
+                    Signing In...
+                  </>
+                ) : (
+                  "Sign In"
+                )}
+              </Button>
+            </CardFooter>
+          </Card>
 
-          <CardFooter className="px-8 pb-8">
-            <Button
-              onClick={handleFormSubmit}
-              disabled={loginIsLoading || !loginInput.identifier || !loginInput.password}
-              className="w-full h-12 bg-[#FFD249] hover:bg-[#202020] text-[#202020] hover:text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl"
-            >
-              {loginIsLoading ? (
-                <>
-                  <Loader2 className="mr-2 w-4 h-4 animate-spin" />
-                  Signing In...
-                </>
-              ) : (
-                "Sign In"
-              )}
-            </Button>
-          </CardFooter>
-        </Card>
-
-        {/* Footer */}
-        <div className="text-center mt-8">
-          <p className="text-sm text-[#828083]">
-            Need help? Contact{" "}
-            <a 
-              href="mailto:support@dellcube.com" 
-              className="text-[#FFD249] hover:text-[#202020] transition-colors font-medium"
-            >
-              info@dellcube.com
-            </a>
-          </p>
+          {/* Footer */}
+          <div className="text-center mt-8">
+            <p className="text-sm text-[#828083]">
+              Need help? Contact{" "}
+              <a
+                href="mailto:support@dellcube.com"
+                className="text-[#FFD249] hover:text-[#202020] transition-colors font-medium"
+              >
+                info@dellcube.com
+              </a>
+            </p>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
     </div>
   );
 }

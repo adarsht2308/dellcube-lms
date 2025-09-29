@@ -72,6 +72,8 @@ import TransportModes from "./components/admin/TransportMode/TransportModes.jsx"
 import OperationDashboard from "./components/admin/OperationDashboard.jsx";
 import VehicleDetail from "./components/admin/Vehicle/VehicleDetail.jsx";
 import VendorDetail from "./components/admin/Vendor/VendorDetail.jsx";
+import VendorVehicles from "./components/admin/Vendor/VendorVehicles.jsx";
+import VendorProfile from "./components/admin/Vendor/VendorProfile.jsx";
 
 const appRouter = createBrowserRouter([
   //Homepage Routes
@@ -122,12 +124,18 @@ const appRouter = createBrowserRouter([
   //     },
   //   ],
   // },
-  
+
   {
     path: "admin",
     element: (
       <RoleProtectedRoute
-        allowedRoles={["superAdmin", "branchAdmin", "operation","driver"]}
+        allowedRoles={[
+          "superAdmin",
+          "branchAdmin",
+          "operation",
+          "driver",
+          "vendor",
+        ]}
       >
         <>
           <Navbar />
@@ -144,7 +152,7 @@ const appRouter = createBrowserRouter([
       {
         path: "dashboard",
         element: (
-          <RoleProtectedRoute allowedRoles={["superAdmin"]}>
+          <RoleProtectedRoute allowedRoles={["superAdmin", "vendor"]}>
             <Dashboard />
           </RoleProtectedRoute>
         ),
@@ -272,7 +280,9 @@ const appRouter = createBrowserRouter([
       {
         path: "create-country",
         element: (
-          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
+          <RoleProtectedRoute
+            allowedRoles={["superAdmin", "branchAdmin", "operation"]}
+          >
             <CreateCountry />
           </RoleProtectedRoute>
         ),
@@ -280,7 +290,9 @@ const appRouter = createBrowserRouter([
       {
         path: "update-country",
         element: (
-          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
+          <RoleProtectedRoute
+            allowedRoles={["superAdmin", "branchAdmin", "operation"]}
+          >
             <UpdateCountry />
           </RoleProtectedRoute>
         ),
@@ -288,7 +300,9 @@ const appRouter = createBrowserRouter([
       {
         path: "countries",
         element: (
-          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
+          <RoleProtectedRoute
+            allowedRoles={["superAdmin", "branchAdmin", "operation"]}
+          >
             <Countries />
           </RoleProtectedRoute>
         ),
@@ -296,7 +310,9 @@ const appRouter = createBrowserRouter([
       {
         path: "create-state",
         element: (
-          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
+          <RoleProtectedRoute
+            allowedRoles={["superAdmin", "branchAdmin", "operation"]}
+          >
             <CreateState />
           </RoleProtectedRoute>
         ),
@@ -304,7 +320,9 @@ const appRouter = createBrowserRouter([
       {
         path: "update-state",
         element: (
-          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
+          <RoleProtectedRoute
+            allowedRoles={["superAdmin", "branchAdmin", "operation"]}
+          >
             <UpdateState />
           </RoleProtectedRoute>
         ),
@@ -312,7 +330,9 @@ const appRouter = createBrowserRouter([
       {
         path: "states",
         element: (
-          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
+          <RoleProtectedRoute
+            allowedRoles={["superAdmin", "branchAdmin", "operation"]}
+          >
             <States />
           </RoleProtectedRoute>
         ),
@@ -320,7 +340,9 @@ const appRouter = createBrowserRouter([
       {
         path: "create-city",
         element: (
-          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
+          <RoleProtectedRoute
+            allowedRoles={["superAdmin", "branchAdmin", "operation"]}
+          >
             <CreateCity />
           </RoleProtectedRoute>
         ),
@@ -328,7 +350,9 @@ const appRouter = createBrowserRouter([
       {
         path: "update-city",
         element: (
-          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
+          <RoleProtectedRoute
+            allowedRoles={["superAdmin", "branchAdmin", "operation"]}
+          >
             <UpdateCity />
           </RoleProtectedRoute>
         ),
@@ -336,7 +360,9 @@ const appRouter = createBrowserRouter([
       {
         path: "cities",
         element: (
-          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
+          <RoleProtectedRoute
+            allowedRoles={["superAdmin", "branchAdmin", "operation"]}
+          >
             <Cities />
           </RoleProtectedRoute>
         ),
@@ -344,7 +370,9 @@ const appRouter = createBrowserRouter([
       {
         path: "create-locality",
         element: (
-          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
+          <RoleProtectedRoute
+            allowedRoles={["superAdmin", "branchAdmin", "operation"]}
+          >
             <CreateLocality />
           </RoleProtectedRoute>
         ),
@@ -352,7 +380,9 @@ const appRouter = createBrowserRouter([
       {
         path: "update-locality",
         element: (
-          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
+          <RoleProtectedRoute
+            allowedRoles={["superAdmin", "branchAdmin", "operation"]}
+          >
             <UpdateLocality />
           </RoleProtectedRoute>
         ),
@@ -360,7 +390,9 @@ const appRouter = createBrowserRouter([
       {
         path: "localities",
         element: (
-          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
+          <RoleProtectedRoute
+            allowedRoles={["superAdmin", "branchAdmin", "operation"]}
+          >
             <Localities />
           </RoleProtectedRoute>
         ),
@@ -368,7 +400,9 @@ const appRouter = createBrowserRouter([
       {
         path: "create-pincode",
         element: (
-          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
+          <RoleProtectedRoute
+            allowedRoles={["superAdmin", "branchAdmin", "operation"]}
+          >
             <CreatePincode />
           </RoleProtectedRoute>
         ),
@@ -376,7 +410,9 @@ const appRouter = createBrowserRouter([
       {
         path: "update-pincode",
         element: (
-          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
+          <RoleProtectedRoute
+            allowedRoles={["superAdmin", "branchAdmin", "operation"]}
+          >
             <UpdatePincode />
           </RoleProtectedRoute>
         ),
@@ -384,16 +420,20 @@ const appRouter = createBrowserRouter([
       {
         path: "pincodes",
         element: (
-          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
+          <RoleProtectedRoute
+            allowedRoles={["superAdmin", "branchAdmin", "operation"]}
+          >
             <Pincodes />
           </RoleProtectedRoute>
         ),
-      },      
+      },
 
       {
         path: "create-customer",
         element: (
-          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
+          <RoleProtectedRoute
+            allowedRoles={["superAdmin", "branchAdmin", "operation"]}
+          >
             <CreateCustomer />
           </RoleProtectedRoute>
         ),
@@ -401,7 +441,9 @@ const appRouter = createBrowserRouter([
       {
         path: "update-customer",
         element: (
-          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
+          <RoleProtectedRoute
+            allowedRoles={["superAdmin", "branchAdmin", "operation"]}
+          >
             <UpdateCustomer />
           </RoleProtectedRoute>
         ),
@@ -409,7 +451,9 @@ const appRouter = createBrowserRouter([
       {
         path: "customers",
         element: (
-          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
+          <RoleProtectedRoute
+            allowedRoles={["superAdmin", "branchAdmin", "operation", "vendor"]}
+          >
             <Customers />
           </RoleProtectedRoute>
         ),
@@ -417,7 +461,9 @@ const appRouter = createBrowserRouter([
       {
         path: "create-vehicle",
         element: (
-          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
+          <RoleProtectedRoute
+            allowedRoles={["superAdmin", "branchAdmin", "operation", "vendor"]}
+          >
             <CreateVehicle />
           </RoleProtectedRoute>
         ),
@@ -425,7 +471,9 @@ const appRouter = createBrowserRouter([
       {
         path: "update-vehicle",
         element: (
-          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
+          <RoleProtectedRoute
+            allowedRoles={["superAdmin", "branchAdmin", "operation"]}
+          >
             <UpdateVehicle />
           </RoleProtectedRoute>
         ),
@@ -433,7 +481,9 @@ const appRouter = createBrowserRouter([
       {
         path: "vehicles",
         element: (
-          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
+          <RoleProtectedRoute
+            allowedRoles={["superAdmin", "branchAdmin", "operation", "vendor"]}
+          >
             <Vehicles />
           </RoleProtectedRoute>
         ),
@@ -441,7 +491,9 @@ const appRouter = createBrowserRouter([
       {
         path: "vehicles/:vehicleId",
         element: (
-          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
+          <RoleProtectedRoute
+            allowedRoles={["superAdmin", "branchAdmin", "operation"]}
+          >
             <VehicleDetail />
           </RoleProtectedRoute>
         ),
@@ -449,7 +501,9 @@ const appRouter = createBrowserRouter([
       {
         path: "create-vendor",
         element: (
-          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
+          <RoleProtectedRoute
+            allowedRoles={["superAdmin", "branchAdmin", "operation"]}
+          >
             <CreateVendor />
           </RoleProtectedRoute>
         ),
@@ -457,7 +511,9 @@ const appRouter = createBrowserRouter([
       {
         path: "update-vendor",
         element: (
-          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
+          <RoleProtectedRoute
+            allowedRoles={["superAdmin", "branchAdmin", "operation"]}
+          >
             <UpdateVendor />
           </RoleProtectedRoute>
         ),
@@ -465,7 +521,9 @@ const appRouter = createBrowserRouter([
       {
         path: "vendors",
         element: (
-          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
+          <RoleProtectedRoute
+            allowedRoles={["superAdmin", "branchAdmin", "operation", "vendor"]}
+          >
             <Vendors />
           </RoleProtectedRoute>
         ),
@@ -473,12 +531,14 @@ const appRouter = createBrowserRouter([
       {
         path: "vendors/:vendorId",
         element: (
-          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
+          <RoleProtectedRoute
+            allowedRoles={["superAdmin", "branchAdmin", "operation", "vendor"]}
+          >
             <VendorDetail />
           </RoleProtectedRoute>
         ),
       },
-      
+
       {
         path: "operation-users",
         element: (
@@ -508,7 +568,7 @@ const appRouter = createBrowserRouter([
         path: "drivers",
         element: (
           <RoleProtectedRoute
-            allowedRoles={["superAdmin", "branchAdmin", "operation"]}
+            allowedRoles={["superAdmin", "branchAdmin", "operation", "vendor"]}
           >
             <Drivers />
           </RoleProtectedRoute>
@@ -518,7 +578,7 @@ const appRouter = createBrowserRouter([
         path: "create-driver",
         element: (
           <RoleProtectedRoute
-            allowedRoles={["superAdmin", "branchAdmin", "operation"]}
+            allowedRoles={["superAdmin", "branchAdmin", "operation", "vendor"]}
           >
             <CreateDriver />
           </RoleProtectedRoute>
@@ -548,7 +608,7 @@ const appRouter = createBrowserRouter([
         path: "create-invoice",
         element: (
           <RoleProtectedRoute
-            allowedRoles={["superAdmin", "branchAdmin", "operation"]}
+            allowedRoles={["superAdmin", "branchAdmin", "operation", "vendor"]}
           >
             <CreateInvoice />
           </RoleProtectedRoute>
@@ -656,6 +716,30 @@ const appRouter = createBrowserRouter([
             allowedRoles={["superAdmin", "branchAdmin", "operation"]}
           >
             <TransportModes />
+          </RoleProtectedRoute>
+        ),
+      },
+      {
+        path: "vendor-vehicles",
+        element: (
+          <RoleProtectedRoute allowedRoles={["vendor"]}>
+            <Vehicles />
+          </RoleProtectedRoute>
+        ),
+      },
+      {
+        path: "vendor-invoices",
+        element: (
+          <RoleProtectedRoute allowedRoles={["vendor"]}>
+            <Invoices />
+          </RoleProtectedRoute>
+        ),
+      },
+      {
+        path: "vendor-profile",
+        element: (
+          <RoleProtectedRoute allowedRoles={["vendor"]}>
+            <VendorProfile />
           </RoleProtectedRoute>
         ),
       },

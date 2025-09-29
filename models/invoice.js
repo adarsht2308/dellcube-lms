@@ -63,6 +63,13 @@ const invoiceSchema = new mongoose.Schema(
       ref: "Good",
     },
 
+    // List of selected goods items (by name) for the chosen goodsType
+    goodItems: [
+      {
+        name: { type: String, trim: true },
+      },
+    ],
+
     vehicleType: {
       type: String,
       enum: ["Dellcube", "Vendor"],
@@ -77,11 +84,11 @@ const invoiceSchema = new mongoose.Schema(
 
     vendor: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Vendor",
+      ref: "User",
     },
 
     vendorVehicle: {
-      type: mongoose.Schema.Types.Mixed, 
+      type: mongoose.Schema.Types.Mixed,
     },
 
     driver: {

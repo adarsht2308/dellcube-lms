@@ -66,6 +66,7 @@ import {
 // import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { BASE_URL } from "@/utils/BaseUrl.jsx";
 
 // InfoCard and InfoRow components for Drawer, styled like Invoices/Customers
 const InfoCard = ({ icon: Icon, title, children, className = "" }) => (
@@ -88,20 +89,26 @@ const InfoCard = ({ icon: Icon, title, children, className = "" }) => (
 const InfoRow = ({ label, value, icon: Icon }) => (
   <div className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors duration-200">
     <div className="flex items-center gap-2 min-w-0">
-      {Icon && <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />}
-      <span className="text-sm font-medium text-gray-600 dark:text-gray-300 truncate">{label}:</span>
+      {Icon && (
+        <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+      )}
+      <span className="text-sm font-medium text-gray-600 dark:text-gray-300 truncate">
+        {label}:
+      </span>
     </div>
     <div className="flex-shrink-0 ml-3">
-      <span className="text-sm text-gray-800 dark:text-gray-200 font-medium">{value || <span className="text-gray-400 italic">N/A</span>}</span>
+      <span className="text-sm text-gray-800 dark:text-gray-200 font-medium">
+        {value || <span className="text-gray-400 italic">N/A</span>}
+      </span>
     </div>
   </div>
 );
 
 // Dellcube color theme constants
 const DELLCUBE_COLORS = {
-  gold: '#FFD249',
-  dark: '#202020',
-  gray: '#828083',
+  gold: "#FFD249",
+  dark: "#202020",
+  gray: "#828083",
 };
 
 const Vehicles = () => {
@@ -109,6 +116,7 @@ const Vehicles = () => {
   const user = useSelector((state) => state.auth.user);
   const isBranchAdmin = user?.role === "branchAdmin";
   const isSuperAdmin = user?.role === "superAdmin";
+  const isVendor = user?.role === "vendor";
 
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
@@ -116,8 +124,12 @@ const Vehicles = () => {
   const debouncedSearch = useDebounce(search, 500);
   // Update state defaults and query logic for 'all' value
   const [status, setStatus] = useState("all");
-  const [companyId, setCompanyId] = useState(isBranchAdmin ? user?.company?._id : "all");
-  const [branchId, setBranchId] = useState(isBranchAdmin ? user?.branch?._id : "all");
+  const [companyId, setCompanyId] = useState(
+    isBranchAdmin ? user?.company?._id : "all"
+  );
+  const [branchId, setBranchId] = useState(
+    isBranchAdmin ? user?.branch?._id : "all"
+  );
   const [open, setOpen] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -128,7 +140,7 @@ const Vehicles = () => {
 
   useEffect(() => {
     const fetchBranches = async () => {
-      if (companyId && isSuperAdmin) {
+      if (companyId && companyId !== "all" && isSuperAdmin) {
         try {
           const res = await getBranchesByCompany(companyId);
           if (res?.data?.branches) {
@@ -147,8 +159,18 @@ const Vehicles = () => {
     limit,
     search: debouncedSearch,
     status: status === "all" ? "" : status,
-    companyId: isBranchAdmin ? user?.company?._id : (companyId === "all" ? "" : companyId),
-    branchId: isBranchAdmin ? user?.branch?._id : (branchId === "all" ? "" : branchId),
+    companyId: isBranchAdmin
+      ? user?.company?._id
+      : companyId === "all"
+      ? ""
+      : companyId,
+    branchId: isBranchAdmin
+      ? user?.branch?._id
+      : branchId === "all"
+      ? ""
+      : branchId,
+    // If vendor, backend should filter by creator/vendor user id
+    vendorId: isVendor ? user?._id : undefined,
   });
 
   const [deleteVehicle, { isSuccess, isError }] = useDeleteVehicleMutation();
@@ -221,31 +243,47 @@ const Vehicles = () => {
     url: "",
   });
 
+  // Ensure BASE_URL is available
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+
   // Check for expiring documents when data loads
   useEffect(() => {
     if (data?.vehicles) {
       try {
         // Check if there are any expiring documents and show a simple toast
-        const hasExpiringDocs = data.vehicles.some(vehicle => {
-          if (!vehicle.fitnessCertificateExpiry && !vehicle.insuranceExpiry && !vehicle.pollutionCertificateExpiry) {
+        const hasExpiringDocs = data.vehicles.some((vehicle) => {
+          if (
+            !vehicle.fitnessCertificateExpiry &&
+            !vehicle.insuranceExpiry &&
+            !vehicle.pollutionCertificateExpiry
+          ) {
             return false;
           }
-          
+
           const today = new Date();
-          const thirtyDaysFromNow = new Date(today.getTime() + (30 * 24 * 60 * 60 * 1000));
-          
-          return [vehicle.fitnessCertificateExpiry, vehicle.insuranceExpiry, vehicle.pollutionCertificateExpiry].some(date => {
+          const thirtyDaysFromNow = new Date(
+            today.getTime() + 30 * 24 * 60 * 60 * 1000
+          );
+
+          return [
+            vehicle.fitnessCertificateExpiry,
+            vehicle.insuranceExpiry,
+            vehicle.pollutionCertificateExpiry,
+          ].some((date) => {
             if (!date) return false;
             const expiryDate = new Date(date);
             return expiryDate <= thirtyDaysFromNow;
           });
         });
-        
+
         if (hasExpiringDocs) {
-          toast("⚠️ Some vehicle documents are expiring soon. Check the expiry status column for details.", {
-            duration: 8000,
-            icon: "⚠️",
-          });
+          toast(
+            "⚠️ Some vehicle documents are expiring soon. Check the expiry status column for details.",
+            {
+              duration: 8000,
+              icon: "⚠️",
+            }
+          );
         }
       } catch (error) {
         console.error("Error checking for expiring documents:", error);
@@ -256,18 +294,30 @@ const Vehicles = () => {
 
   // Helper function to get expiry status for display
   const getExpiryStatus = (expiryDate) => {
-    if (!expiryDate) return { status: 'none', color: 'text-gray-400' };
-    
+    if (!expiryDate) return { status: "none", color: "text-gray-400" };
+
     const today = new Date();
     const expiry = new Date(expiryDate);
     const daysUntilExpiry = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
-    
+
     if (daysUntilExpiry < 0) {
-      return { status: 'expired', color: 'text-red-600', days: Math.abs(daysUntilExpiry) };
+      return {
+        status: "expired",
+        color: "text-red-600",
+        days: Math.abs(daysUntilExpiry),
+      };
     } else if (daysUntilExpiry <= 30) {
-      return { status: 'expiring', color: 'text-orange-600', days: daysUntilExpiry };
+      return {
+        status: "expiring",
+        color: "text-orange-600",
+        days: daysUntilExpiry,
+      };
     } else {
-      return { status: 'valid', color: 'text-green-600', days: daysUntilExpiry };
+      return {
+        status: "valid",
+        color: "text-green-600",
+        days: daysUntilExpiry,
+      };
     }
   };
 
@@ -280,8 +330,12 @@ const Vehicles = () => {
             <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-lg">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-[#828083] dark:text-gray-400">Total Vehicles</p>
-                  <p className="text-2xl font-bold text-[#202020] dark:text-[#FFD249]">{data?.total || 0}</p>
+                  <p className="text-sm font-medium text-[#828083] dark:text-gray-400">
+                    Total Vehicles
+                  </p>
+                  <p className="text-2xl font-bold text-[#202020] dark:text-[#FFD249]">
+                    {data?.total || 0}
+                  </p>
                 </div>
                 <div className="p-3 bg-[#FFD249]/20 dark:bg-[#FFD249]/10 rounded-xl">
                   <Car className="w-6 h-6 text-[#202020] dark:text-[#FFD249]" />
@@ -291,8 +345,12 @@ const Vehicles = () => {
             <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-lg">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-[#828083] dark:text-gray-400">Current Page</p>
-                  <p className="text-2xl font-bold text-[#202020] dark:text-[#FFD249]">{page}</p>
+                  <p className="text-sm font-medium text-[#828083] dark:text-gray-400">
+                    Current Page
+                  </p>
+                  <p className="text-2xl font-bold text-[#202020] dark:text-[#FFD249]">
+                    {page}
+                  </p>
                 </div>
                 <div className="p-3 bg-[#FFD249]/20 dark:bg-[#FFD249]/10 rounded-xl">
                   <Building2 className="w-6 h-6 text-[#202020] dark:text-[#FFD249]" />
@@ -302,8 +360,12 @@ const Vehicles = () => {
             <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-lg">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-[#828083] dark:text-gray-400">Items Per Page</p>
-                  <p className="text-2xl font-bold text-[#202020] dark:text-[#FFD249]">{limit}</p>
+                  <p className="text-sm font-medium text-[#828083] dark:text-gray-400">
+                    Items Per Page
+                  </p>
+                  <p className="text-2xl font-bold text-[#202020] dark:text-[#FFD249]">
+                    {limit}
+                  </p>
                 </div>
                 <div className="p-3 bg-[#FFD249]/20 dark:bg-[#FFD249]/10 rounded-xl">
                   <Calendar className="w-6 h-6 text-[#202020] dark:text-[#FFD249]" />
@@ -315,7 +377,9 @@ const Vehicles = () => {
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-lg">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <div className="flex items-center gap-4">
-                <h2 className="text-2xl font-bold text-[#202020] dark:text-[#FFD249]">All Vehicles</h2>
+                <h2 className="text-2xl font-bold text-[#202020] dark:text-[#FFD249]">
+                  All Vehicles
+                </h2>
                 <Button
                   variant="outline"
                   size="sm"
@@ -324,7 +388,11 @@ const Vehicles = () => {
                 >
                   <SlidersHorizontal className="w-4 h-4" />
                   Filters
-                  {showFilters ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  {showFilters ? (
+                    <ChevronUp className="w-4 h-4" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4" />
+                  )}
                 </Button>
               </div>
               <div className="flex items-center gap-3">
@@ -350,8 +418,8 @@ const Vehicles = () => {
                     ))}
                   </SelectContent>
                 </Select>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   onClick={() => refetch()}
                   className="p-2 bg-[#FFD249]/10 hover:bg-[#FFD249]/20 text-[#202020] dark:text-[#FFD249] border-[#FFD249]/30"
@@ -363,32 +431,52 @@ const Vehicles = () => {
                   size="sm"
                   onClick={async () => {
                     try {
-                      toast.loading("Checking for expiring documents...", { duration: 2000 });
-                      
-                      // Call the scheduler API to trigger expiry check
-                      const response = await fetch(`${BASE_URL}/api/vehicles/trigger-scheduler`, {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                        },
-                        credentials: 'include',
+                      toast.loading("Checking for expiring documents...", {
+                        duration: 2000,
                       });
-                      
+
+                      // Call the scheduler API to trigger expiry check
+                      // BASE_URL already includes /api
+                      const base = BASE_URL.endsWith("/")
+                        ? BASE_URL.slice(0, -1)
+                        : BASE_URL;
+                      const response = await fetch(
+                        `${base}/vehicles/trigger-scheduler`,
+                        {
+                          method: "POST",
+                          headers: {
+                            "Content-Type": "application/json",
+                          },
+                          credentials: "include",
+                        }
+                      );
+
                       if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                        throw new Error(
+                          `HTTP error! status: ${response.status}`
+                        );
                       }
-                      
+
                       const result = await response.json();
-                      
+
                       if (result.success) {
-                        toast.success(`Expiry check completed: ${result.result?.message || 'Success'}`, { duration: 5000 });
+                        toast.success(
+                          `Expiry check completed: ${
+                            result.result?.message || "Success"
+                          }`,
+                          { duration: 5000 }
+                        );
                         // Refresh the vehicle data
                         refetch();
                       } else {
-                        toast.error(`Expiry check failed: ${result.message || 'Unknown error'}`);
+                        toast.error(
+                          `Expiry check failed: ${
+                            result.message || "Unknown error"
+                          }`
+                        );
                       }
                     } catch (error) {
-                      console.error('Error checking expiry:', error);
+                      console.error("Error checking expiry:", error);
                       toast.error(`Failed to check expiry: ${error.message}`);
                     }
                   }}
@@ -410,7 +498,9 @@ const Vehicles = () => {
               <div className="mt-6 p-4 bg-gray-50/80 dark:bg-gray-700/80 rounded-xl border border-gray-200/50 dark:border-gray-600/50">
                 <div className="flex flex-wrap gap-4 items-center">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Status:</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Status:
+                    </span>
                     <Select value={status} onValueChange={setStatus}>
                       <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder="All Status" />
@@ -419,15 +509,21 @@ const Vehicles = () => {
                         <SelectItem value="all">All Status</SelectItem>
                         <SelectItem value="active">Active</SelectItem>
                         <SelectItem value="inactive">Inactive</SelectItem>
-                        <SelectItem value="under_maintenance">Under Maintenance</SelectItem>
-                        <SelectItem value="decommissioned">Decommissioned</SelectItem>
+                        <SelectItem value="under_maintenance">
+                          Under Maintenance
+                        </SelectItem>
+                        <SelectItem value="decommissioned">
+                          Decommissioned
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   {isSuperAdmin && (
                     <>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Company:</span>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Company:
+                        </span>
                         <Select
                           value={companyId}
                           onValueChange={(val) => {
@@ -449,7 +545,9 @@ const Vehicles = () => {
                         </Select>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Branch:</span>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Branch:
+                        </span>
                         <Select
                           value={branchId}
                           onValueChange={setBranchId}
@@ -470,8 +568,8 @@ const Vehicles = () => {
                       </div>
                     </>
                   )}
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="sm"
                     onClick={() => {
                       setStatus("all");
@@ -488,27 +586,48 @@ const Vehicles = () => {
           </div>
           {/* Vehicle Table */}
           <div className="bg-white/80 dark:bg-gray-900/80 rounded-2xl shadow-lg overflow-x-auto border border-gray-100 dark:border-gray-800 backdrop-blur-md">
-            <table className="min-w-full text-sm">
+            <table className="min-w-[1100px] w-full text-sm">
               {/* Top thead */}
               <thead className="bg-[#FFD249]/20 dark:bg-[#FFD249]/10 text-center sticky top-0 z-10">
                 <tr>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">No</th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Vehicle No</th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Type</th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Insurance No</th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Fitness No</th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Expiry Status</th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Company</th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Branch</th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Action</th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                    No
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                    Vehicle No
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                    Type
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                    Insurance No
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                    Fitness No
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                    Expiry Status
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                    Company
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                    Branch
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                    Action
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 text-center">
                 {isLoading ? (
                   <tr>
                     <td colSpan="10" className="text-center py-6">
-                      <Loader2 className="animate-spin mx-auto text-[#FFD249]" /> Loading...
+                      <Loader2 className="animate-spin mx-auto text-[#FFD249]" />{" "}
+                      Loading...
                     </td>
                   </tr>
                 ) : data?.vehicles?.length ? (
@@ -522,40 +641,115 @@ const Vehicles = () => {
                             " hover:bg-[#FFD249]/20 dark:hover:bg-[#FFD249]/10 transition "
                       }
                     >
-                      <td className="p-3 font-medium text-[#202020] dark:text-[#FFD249] text-center">{limit * (page - 1) + (i + 1)}</td>
-                      <td className="p-3 text-[#202020] dark:text-[#FFD249] font-semibold">{veh.vehicleNumber}</td>
-                      <td className="p-3 text-[#202020] dark:text-[#FFD249]">{veh.type}</td>
-                      <td className="p-3 text-[#202020] dark:text-[#FFD249]">{veh.vehicleInsuranceNo || <span className="text-gray-400">N/A</span>}</td>
-                      <td className="p-3 text-[#202020] dark:text-[#FFD249]">{veh.fitnessNo || <span className="text-gray-400">N/A</span>}</td>
+                      <td className="p-3 font-medium text-[#202020] dark:text-[#FFD249] text-center">
+                        {limit * (page - 1) + (i + 1)}
+                      </td>
+                      <td className="p-3 text-[#202020] dark:text-[#FFD249] font-semibold">
+                        {veh.vehicleNumber}
+                      </td>
+                      <td className="p-3 text-[#202020] dark:text-[#FFD249]">
+                        {veh.type}
+                      </td>
+                      <td className="p-3 text-[#202020] dark:text-[#FFD249]">
+                        {veh.vehicleInsuranceNo || (
+                          <span className="text-gray-400">N/A</span>
+                        )}
+                      </td>
+                      <td className="p-3 text-[#202020] dark:text-[#FFD249]">
+                        {veh.fitnessNo || (
+                          <span className="text-gray-400">N/A</span>
+                        )}
+                      </td>
                       <td className="p-3 text-center">
                         <div className="flex flex-col gap-1">
                           {veh.fitnessCertificateExpiry && (
-                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getExpiryStatus(veh.fitnessCertificateExpiry).color}`}>
-                              Fitness: {getExpiryStatus(veh.fitnessCertificateExpiry).status === 'expired' ? 'EXPIRED' : 
-                                getExpiryStatus(veh.fitnessCertificateExpiry).status === 'expiring' ? `${getExpiryStatus(veh.fitnessCertificateExpiry).days}d` : 'Valid'}
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                getExpiryStatus(veh.fitnessCertificateExpiry)
+                                  .color
+                              }`}
+                            >
+                              Fitness:{" "}
+                              {getExpiryStatus(veh.fitnessCertificateExpiry)
+                                .status === "expired"
+                                ? "EXPIRED"
+                                : getExpiryStatus(veh.fitnessCertificateExpiry)
+                                    .status === "expiring"
+                                ? `${
+                                    getExpiryStatus(
+                                      veh.fitnessCertificateExpiry
+                                    ).days
+                                  }d`
+                                : "Valid"}
                             </span>
                           )}
                           {veh.insuranceExpiry && (
-                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getExpiryStatus(veh.insuranceExpiry).color}`}>
-                              Insurance: {getExpiryStatus(veh.insuranceExpiry).status === 'expired' ? 'EXPIRED' : 
-                                getExpiryStatus(veh.insuranceExpiry).status === 'expiring' ? `${getExpiryStatus(veh.insuranceExpiry).days}d` : 'Valid'}
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                getExpiryStatus(veh.insuranceExpiry).color
+                              }`}
+                            >
+                              Insurance:{" "}
+                              {getExpiryStatus(veh.insuranceExpiry).status ===
+                              "expired"
+                                ? "EXPIRED"
+                                : getExpiryStatus(veh.insuranceExpiry)
+                                    .status === "expiring"
+                                ? `${
+                                    getExpiryStatus(veh.insuranceExpiry).days
+                                  }d`
+                                : "Valid"}
                             </span>
                           )}
                           {veh.pollutionCertificateExpiry && (
-                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getExpiryStatus(veh.pollutionCertificateExpiry).color}`}>
-                              Pollution: {getExpiryStatus(veh.pollutionCertificateExpiry).status === 'expired' ? 'EXPIRED' : 
-                                getExpiryStatus(veh.pollutionCertificateExpiry).status === 'expiring' ? `${getExpiryStatus(veh.pollutionCertificateExpiry).days}d` : 'Valid'}
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                getExpiryStatus(veh.pollutionCertificateExpiry)
+                                  .color
+                              }`}
+                            >
+                              Pollution:{" "}
+                              {getExpiryStatus(veh.pollutionCertificateExpiry)
+                                .status === "expired"
+                                ? "EXPIRED"
+                                : getExpiryStatus(
+                                    veh.pollutionCertificateExpiry
+                                  ).status === "expiring"
+                                ? `${
+                                    getExpiryStatus(
+                                      veh.pollutionCertificateExpiry
+                                    ).days
+                                  }d`
+                                : "Valid"}
                             </span>
                           )}
-                          {!veh.fitnessCertificateExpiry && !veh.insuranceExpiry && !veh.pollutionCertificateExpiry && (
-                            <span className="text-xs text-gray-400">No expiry dates</span>
-                          )}
+                          {!veh.fitnessCertificateExpiry &&
+                            !veh.insuranceExpiry &&
+                            !veh.pollutionCertificateExpiry && (
+                              <span className="text-xs text-gray-400">
+                                No expiry dates
+                              </span>
+                            )}
                         </div>
                       </td>
-                      <td className="p-3 text-[#202020] dark:text-[#FFD249]">{veh.company?.name || <span className="text-gray-400">N/A</span>}</td>
-                      <td className="p-3 text-[#202020] dark:text-[#FFD249]">{veh.branch?.name || <span className="text-gray-400">N/A</span>}</td>
+                      <td className="p-3 text-[#202020] dark:text-[#FFD249]">
+                        {veh.company?.name || (
+                          <span className="text-gray-400">N/A</span>
+                        )}
+                      </td>
+                      <td className="p-3 text-[#202020] dark:text-[#FFD249]">
+                        {veh.branch?.name || (
+                          <span className="text-gray-400">N/A</span>
+                        )}
+                      </td>
                       <td className="p-3 text-center">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold text-center ${renderStatusBadge(veh.status)}`}>{veh.status}</span>
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-semibold text-center ${renderStatusBadge(
+                            veh.status
+                          )}`}
+                        >
+                          {veh.status}
+                        </span>
                       </td>
                       <td className="p-3 flex gap-2 items-center justify-center">
                         <Button
@@ -582,15 +776,15 @@ const Vehicles = () => {
                         </Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <Button
-                              className="p-2 rounded-full bg-[#FFD249]/30 text-[#202020] hover:bg-[#FFD249]/60 dark:text-[#FFD249]"
-                            >
+                            <Button className="p-2 rounded-full bg-[#FFD249]/30 text-[#202020] hover:bg-[#FFD249]/60 dark:text-[#FFD249]">
                               <FaRegTrashCan />
                             </Button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Vehicle?</AlertDialogTitle>
+                              <AlertDialogTitle>
+                                Delete Vehicle?
+                              </AlertDialogTitle>
                               <AlertDialogDescription>
                                 This action cannot be undone.
                               </AlertDialogDescription>
@@ -610,10 +804,17 @@ const Vehicles = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="10" className="text-center py-10 text-[#828083]">
+                    <td
+                      colSpan="10"
+                      className="text-center py-10 text-[#828083]"
+                    >
                       <Box className="w-8 h-8 mx-auto text-[#828083]" />
-                      <p className="text-[#828083] font-medium">No Vehicles Available</p>
-                      <p className="text-sm text-[#828083]">Add a new vehicle to begin</p>
+                      <p className="text-[#828083] font-medium">
+                        No Vehicles Available
+                      </p>
+                      <p className="text-sm text-[#828083]">
+                        Add a new vehicle to begin
+                      </p>
                     </td>
                   </tr>
                 )}
@@ -621,21 +822,44 @@ const Vehicles = () => {
               {/* Bottom thead */}
               <thead className="bg-[#FFD249]/20 dark:bg-[#FFD249]/10 text-center">
                 <tr>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">No</th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Vehicle No</th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Type</th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Insurance No</th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Fitness No</th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Expiry Status</th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Company</th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Branch</th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Action</th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                    No
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                    Vehicle No
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                    Type
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                    Insurance No
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                    Fitness No
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                    Expiry Status
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                    Company
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                    Branch
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                    Action
+                  </th>
                 </tr>
               </thead>
             </table>
             <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800 text-sm text-[#202020] dark:text-[#FFD249] text-center lg:text-left">
-              Showing {data?.vehicles?.length ? (data?.page - 1) * data?.limit + 1 : 0} to {Math.min(data?.page * data?.limit, data?.total || 0)} of <span className="font-medium">{data?.total || 0}</span> entries
+              Showing{" "}
+              {data?.vehicles?.length ? (data?.page - 1) * data?.limit + 1 : 0}{" "}
+              to {Math.min(data?.page * data?.limit, data?.total || 0)} of{" "}
+              <span className="font-medium">{data?.total || 0}</span> entries
             </div>
           </div>
           {/* Pagination */}
@@ -695,7 +919,11 @@ const Vehicles = () => {
                   </p>
                 </div>
                 <div className="ml-auto">
-                  <span className={`inline-flex items-center gap-2 px-3 py-2 rounded-full font-medium ${renderStatusBadge(selectedVehicle?.status)}`}>
+                  <span
+                    className={`inline-flex items-center gap-2 px-3 py-2 rounded-full font-medium ${renderStatusBadge(
+                      selectedVehicle?.status
+                    )}`}
+                  >
                     {selectedVehicle?.status}
                   </span>
                 </div>
@@ -737,112 +965,286 @@ const Vehicles = () => {
             ) : (
               <div className="p-6 space-y-6 overflow-x-hidden">
                 <InfoCard icon={Car} title="Basic Vehicle Information">
-                  <InfoRow label="Vehicle Number" value={selectedVehicle.vehicleNumber} icon={Car} />
-                  <InfoRow label="Type" value={selectedVehicle.type} icon={Car} />
-                  <InfoRow label="Status" value={selectedVehicle.status} icon={Car} />
-                  <InfoRow label="Company" value={selectedVehicle.company?.name} icon={Building2} />
-                  <InfoRow label="Branch" value={selectedVehicle.branch?.name} icon={MapPin} />
-                  <InfoRow label="Current Driver" value={selectedVehicle.currentDriver?.name || "Not Assigned"} icon={Car} />
-                  <InfoRow label="Vehicle Insurance No" value={selectedVehicle.vehicleInsuranceNo || "N/A"} icon={Hash} />
-                  <InfoRow label="Fitness No" value={selectedVehicle.fitnessNo || "N/A"} icon={Hash} />
+                  <InfoRow
+                    label="Vehicle Number"
+                    value={selectedVehicle.vehicleNumber}
+                    icon={Car}
+                  />
+                  <InfoRow
+                    label="Type"
+                    value={selectedVehicle.type}
+                    icon={Car}
+                  />
+                  <InfoRow
+                    label="Status"
+                    value={selectedVehicle.status}
+                    icon={Car}
+                  />
+                  <InfoRow
+                    label="Company"
+                    value={selectedVehicle.company?.name}
+                    icon={Building2}
+                  />
+                  <InfoRow
+                    label="Branch"
+                    value={selectedVehicle.branch?.name}
+                    icon={MapPin}
+                  />
+                  <InfoRow
+                    label="Current Driver"
+                    value={
+                      selectedVehicle.currentDriver?.name || "Not Assigned"
+                    }
+                    icon={Car}
+                  />
+                  <InfoRow
+                    label="Vehicle Insurance No"
+                    value={selectedVehicle.vehicleInsuranceNo || "N/A"}
+                    icon={Hash}
+                  />
+                  <InfoRow
+                    label="Fitness No"
+                    value={selectedVehicle.fitnessNo || "N/A"}
+                    icon={Hash}
+                  />
                 </InfoCard>
 
                 <InfoCard icon={Car} title="Vehicle Specifications">
-                  <InfoRow label="Brand" value={selectedVehicle.brand || "N/A"} icon={Car} />
-                  <InfoRow label="Model" value={selectedVehicle.model || "N/A"} icon={Car} />
-                  <InfoRow label="Year of Manufacture" value={selectedVehicle.yearOfManufacture || "N/A"} icon={Calendar} />
-                  <InfoRow label="Registration Date" value={selectedVehicle.registrationDate ? new Date(selectedVehicle.registrationDate).toLocaleDateString() : "N/A"} icon={Calendar} />
+                  <InfoRow
+                    label="Brand"
+                    value={selectedVehicle.brand || "N/A"}
+                    icon={Car}
+                  />
+                  <InfoRow
+                    label="Model"
+                    value={selectedVehicle.model || "N/A"}
+                    icon={Car}
+                  />
+                  <InfoRow
+                    label="Year of Manufacture"
+                    value={selectedVehicle.yearOfManufacture || "N/A"}
+                    icon={Calendar}
+                  />
+                  <InfoRow
+                    label="Registration Date"
+                    value={
+                      selectedVehicle.registrationDate
+                        ? new Date(
+                            selectedVehicle.registrationDate
+                          ).toLocaleDateString()
+                        : "N/A"
+                    }
+                    icon={Calendar}
+                  />
                 </InfoCard>
 
                 <InfoCard icon={ImageIcon} title="Fitness Certificate">
-                  <InfoRow label="Fitness Certificate Expiry" value={selectedVehicle.fitnessCertificateExpiry ? new Date(selectedVehicle.fitnessCertificateExpiry).toLocaleDateString() : "N/A"} icon={Calendar} />
+                  <InfoRow
+                    label="Fitness Certificate Expiry"
+                    value={
+                      selectedVehicle.fitnessCertificateExpiry
+                        ? new Date(
+                            selectedVehicle.fitnessCertificateExpiry
+                          ).toLocaleDateString()
+                        : "N/A"
+                    }
+                    icon={Calendar}
+                  />
                   {selectedVehicle.fitnessCertificateImage && (
-                    <InfoRow label="Certificate Image" value="Available" icon={ImageIcon} />
+                    <InfoRow
+                      label="Certificate Image"
+                      value="Available"
+                      icon={ImageIcon}
+                    />
                   )}
                 </InfoCard>
 
                 <InfoCard icon={ImageIcon} title="Insurance Details">
-                  <InfoRow label="Insurance Expiry" value={selectedVehicle.insuranceExpiry ? new Date(selectedVehicle.insuranceExpiry).toLocaleDateString() : "N/A"} icon={Calendar} />
+                  <InfoRow
+                    label="Insurance Expiry"
+                    value={
+                      selectedVehicle.insuranceExpiry
+                        ? new Date(
+                            selectedVehicle.insuranceExpiry
+                          ).toLocaleDateString()
+                        : "N/A"
+                    }
+                    icon={Calendar}
+                  />
                   {selectedVehicle.insuranceImage && (
-                    <InfoRow label="Insurance Image" value="Available" icon={ImageIcon} />
+                    <InfoRow
+                      label="Insurance Image"
+                      value="Available"
+                      icon={ImageIcon}
+                    />
                   )}
                 </InfoCard>
 
                 <InfoCard icon={ImageIcon} title="Pollution Certificate">
-                  <InfoRow label="Pollution Certificate Expiry" value={selectedVehicle.pollutionCertificateExpiry ? new Date(selectedVehicle.pollutionCertificateExpiry).toLocaleDateString() : "N/A"} icon={Calendar} />
+                  <InfoRow
+                    label="Pollution Certificate Expiry"
+                    value={
+                      selectedVehicle.pollutionCertificateExpiry
+                        ? new Date(
+                            selectedVehicle.pollutionCertificateExpiry
+                          ).toLocaleDateString()
+                        : "N/A"
+                    }
+                    icon={Calendar}
+                  />
                   {selectedVehicle.pollutionCertificateImage && (
-                    <InfoRow label="Certificate Image" value="Available" icon={ImageIcon} />
+                    <InfoRow
+                      label="Certificate Image"
+                      value="Available"
+                      icon={ImageIcon}
+                    />
                   )}
                 </InfoCard>
 
                 <InfoCard icon={ImageIcon} title="Registration Certificate">
                   {selectedVehicle.registrationCertificateImage && (
-                    <InfoRow label="Registration Certificate Image" value="Available" icon={ImageIcon} />
+                    <InfoRow
+                      label="Registration Certificate Image"
+                      value="Available"
+                      icon={ImageIcon}
+                    />
                   )}
                 </InfoCard>
 
                 {/* Additional fields that might exist in the database */}
                 {selectedVehicle.registrationNumber && (
                   <InfoCard icon={ImageIcon} title="Registration Details">
-                    <InfoRow label="Registration Number" value={selectedVehicle.registrationNumber} icon={ImageIcon} />
+                    <InfoRow
+                      label="Registration Number"
+                      value={selectedVehicle.registrationNumber}
+                      icon={ImageIcon}
+                    />
                     {selectedVehicle.registrationExpiry && (
-                      <InfoRow label="Registration Expiry" value={new Date(selectedVehicle.registrationExpiry).toLocaleDateString()} icon={Calendar} />
+                      <InfoRow
+                        label="Registration Expiry"
+                        value={new Date(
+                          selectedVehicle.registrationExpiry
+                        ).toLocaleDateString()}
+                        icon={Calendar}
+                      />
                     )}
                   </InfoCard>
                 )}
 
                 {selectedVehicle.insuranceNumber && (
                   <InfoCard icon={ImageIcon} title="Insurance Details">
-                    <InfoRow label="Insurance Number" value={selectedVehicle.insuranceNumber} icon={ImageIcon} />
+                    <InfoRow
+                      label="Insurance Number"
+                      value={selectedVehicle.insuranceNumber}
+                      icon={ImageIcon}
+                    />
                     {selectedVehicle.insuranceExpiry && (
-                      <InfoRow label="Insurance Expiry" value={new Date(selectedVehicle.insuranceExpiry).toLocaleDateString()} icon={Calendar} />
+                      <InfoRow
+                        label="Insurance Expiry"
+                        value={new Date(
+                          selectedVehicle.insuranceExpiry
+                        ).toLocaleDateString()}
+                        icon={Calendar}
+                      />
                     )}
                   </InfoCard>
                 )}
 
                 {selectedVehicle.fitnessNumber && (
                   <InfoCard icon={ImageIcon} title="Fitness Details">
-                    <InfoRow label="Fitness Number" value={selectedVehicle.fitnessNumber} icon={ImageIcon} />
+                    <InfoRow
+                      label="Fitness Number"
+                      value={selectedVehicle.fitnessNumber}
+                      icon={ImageIcon}
+                    />
                     {selectedVehicle.fitnessExpiry && (
-                      <InfoRow label="Fitness Expiry" value={new Date(selectedVehicle.fitnessExpiry).toLocaleDateString()} icon={Calendar} />
+                      <InfoRow
+                        label="Fitness Expiry"
+                        value={new Date(
+                          selectedVehicle.fitnessExpiry
+                        ).toLocaleDateString()}
+                        icon={Calendar}
+                      />
                     )}
                   </InfoCard>
                 )}
 
                 {selectedVehicle.permitNumber && (
                   <InfoCard icon={ImageIcon} title="Permit Details">
-                    <InfoRow label="Permit Number" value={selectedVehicle.permitNumber} icon={ImageIcon} />
+                    <InfoRow
+                      label="Permit Number"
+                      value={selectedVehicle.permitNumber}
+                      icon={ImageIcon}
+                    />
                     {selectedVehicle.permitExpiry && (
-                      <InfoRow label="Permit Expiry" value={new Date(selectedVehicle.permitExpiry).toLocaleDateString()} icon={Calendar} />
+                      <InfoRow
+                        label="Permit Expiry"
+                        value={new Date(
+                          selectedVehicle.permitExpiry
+                        ).toLocaleDateString()}
+                        icon={Calendar}
+                      />
                     )}
                   </InfoCard>
                 )}
 
                 {selectedVehicle.pucNumber && (
                   <InfoCard icon={ImageIcon} title="PUC Details">
-                    <InfoRow label="PUC Number" value={selectedVehicle.pucNumber} icon={ImageIcon} />
+                    <InfoRow
+                      label="PUC Number"
+                      value={selectedVehicle.pucNumber}
+                      icon={ImageIcon}
+                    />
                     {selectedVehicle.pucExpiry && (
-                      <InfoRow label="PUC Expiry" value={new Date(selectedVehicle.pucExpiry).toLocaleDateString()} icon={Calendar} />
+                      <InfoRow
+                        label="PUC Expiry"
+                        value={new Date(
+                          selectedVehicle.pucExpiry
+                        ).toLocaleDateString()}
+                        icon={Calendar}
+                      />
                     )}
                   </InfoCard>
                 )}
 
                 {/* Maintenance History */}
-                {selectedVehicle.maintenanceHistory && selectedVehicle.maintenanceHistory.length > 0 && (
-                  <InfoCard icon={Car} title="Recent Maintenance">
-                    {selectedVehicle.maintenanceHistory.slice(0, 3).map((maintenance, index) => (
-                      <div key={index} className="border-l-2 border-blue-200 pl-3 mb-2">
-                        <InfoRow label="Service Date" value={new Date(maintenance.serviceDate).toLocaleDateString()} icon={Calendar} />
-                        <InfoRow label="Service Type" value={maintenance.serviceType} icon={Car} />
-                        <InfoRow label="Cost" value={`₹${maintenance.cost}`} icon={Car} />
-                      </div>
-                    ))}
-                  </InfoCard>
-                )}
+                {selectedVehicle.maintenanceHistory &&
+                  selectedVehicle.maintenanceHistory.length > 0 && (
+                    <InfoCard icon={Car} title="Recent Maintenance">
+                      {selectedVehicle.maintenanceHistory
+                        .slice(0, 3)
+                        .map((maintenance, index) => (
+                          <div
+                            key={index}
+                            className="border-l-2 border-blue-200 pl-3 mb-2"
+                          >
+                            <InfoRow
+                              label="Service Date"
+                              value={new Date(
+                                maintenance.serviceDate
+                              ).toLocaleDateString()}
+                              icon={Calendar}
+                            />
+                            <InfoRow
+                              label="Service Type"
+                              value={maintenance.serviceType}
+                              icon={Car}
+                            />
+                            <InfoRow
+                              label="Cost"
+                              value={`₹${maintenance.cost}`}
+                              icon={Car}
+                            />
+                          </div>
+                        ))}
+                    </InfoCard>
+                  )}
                 {selectedVehicle && (
                   <Button
                     className="w-full mt-4 bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020] font-semibold py-2 px-4 rounded-lg shadow border border-[#FFD249]"
-                    onClick={() => navigate(`/admin/vehicles/${selectedVehicle._id}`)}
+                    onClick={() =>
+                      navigate(`/admin/vehicles/${selectedVehicle._id}`)
+                    }
                   >
                     View Detail Page
                   </Button>
@@ -874,11 +1276,7 @@ export default Vehicles;
 // } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
-const AddMaintenanceDialog = ({
-  open,
-  onClose,
-  vehicleId,
-}) => {
+const AddMaintenanceDialog = ({ open, onClose, vehicleId }) => {
   const [form, setForm] = useState({
     serviceDate: "",
     serviceType: "",
@@ -906,9 +1304,15 @@ const AddMaintenanceDialog = ({
   const handleSubmit = async () => {
     // Prevent multiple submissions
     if (isSubmitting) return;
-    
+
     // Validate required fields
-    if (!form.serviceDate || !form.serviceType || !form.cost || !form.description || !form.servicedBy) {
+    if (
+      !form.serviceDate ||
+      !form.serviceType ||
+      !form.cost ||
+      !form.description ||
+      !form.servicedBy
+    ) {
       toast.error("Please fill all required fields");
       return;
     }
@@ -931,7 +1335,7 @@ const AddMaintenanceDialog = ({
         formData.append("vehicleId", vehicleId);
         formData.append("maintenance", JSON.stringify(maintenanceData));
         formData.append("billImage", form.billImage);
-        
+
         console.log("=== Sending FormData ===");
         console.log("vehicleId:", vehicleId);
         console.log("maintenance:", maintenanceData);
@@ -940,7 +1344,7 @@ const AddMaintenanceDialog = ({
         for (let [key, value] of formData.entries()) {
           console.log(key, ":", value);
         }
-        
+
         // Use the RTK Query mutation with FormData
         await addMaintenance(formData);
       } else {
@@ -948,15 +1352,15 @@ const AddMaintenanceDialog = ({
         console.log("=== Sending JSON ===");
         console.log("vehicleId:", vehicleId);
         console.log("maintenance:", maintenanceData);
-        
+
         await addMaintenance({
           vehicleId,
-          maintenance: maintenanceData
+          maintenance: maintenanceData,
         });
       }
-      
+
       toast.success("Maintenance record added successfully");
-      
+
       // Close dialog and reset form
       onClose();
       setForm({
@@ -968,10 +1372,13 @@ const AddMaintenanceDialog = ({
         billImage: null,
       });
       setBillPreview(null);
-      
     } catch (error) {
       console.error("Error submitting maintenance:", error);
-      toast.error(`Failed to submit maintenance: ${error?.data?.message || error.message || 'Unknown error'}`);
+      toast.error(
+        `Failed to submit maintenance: ${
+          error?.data?.message || error.message || "Unknown error"
+        }`
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -1030,7 +1437,7 @@ const AddMaintenanceDialog = ({
             required
             className="dark:bg-gray-700 dark:text-white dark:border-gray-600"
           />
-          
+
           {/* Bill Upload Section */}
           <div>
             <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
@@ -1064,7 +1471,7 @@ const AddMaintenanceDialog = ({
               </div>
             )}
           </div>
-          
+
           <Button
             onClick={handleSubmit}
             disabled={isSubmitting}

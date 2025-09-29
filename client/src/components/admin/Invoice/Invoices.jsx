@@ -203,6 +203,7 @@ const Invoices = () => {
   const user = useSelector((state) => state.auth.user);
   const isBranchAdmin = user?.role === "branchAdmin";
   const isSuperAdmin = user?.role === "superAdmin";
+  const isVendor = user?.role === "vendor";
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(5);
   const [search, setSearch] = useState("");
@@ -261,7 +262,7 @@ const Invoices = () => {
     if (!invoice?.createdAt) return false;
     // Superadmin can always edit
     if (isSuperAdmin) return true;
-    
+
     const createdAt = new Date(invoice.createdAt);
     const now = new Date();
     const hoursDiff = (now - createdAt) / (1000 * 60 * 60);
@@ -305,7 +306,12 @@ const Invoices = () => {
     filters.companyId = isBranchAdmin ? user?.company?._id : companyId;
   if (isBranchAdmin || branchId)
     filters.branchId = isBranchAdmin ? user?.branch?._id : branchId;
-  if (customerId) filters.customerId = customerId;
+  // If vendor, force assigned customer's invoices
+  if (isVendor && user?.assignedClient?._id) {
+    filters.customerId = user.assignedClient._id;
+  } else if (customerId) {
+    filters.customerId = customerId;
+  }
   if (paymentType) filters.paymentType = paymentType;
   if (vehicleType) filters.vehicleType = vehicleType;
   if (fromDate) filters.fromDate = fromDate;
@@ -376,6 +382,46 @@ const Invoices = () => {
     // Create a deep, mutable copy of the invoice object to avoid read-only errors.
     let processedInvoice = JSON.parse(JSON.stringify(invoice));
 
+    // Compute Post Office details for From/To using pincode API (best-effort, non-blocking)
+    const computePostOffice = async (pincode) => {
+      if (!pincode || String(pincode).length !== 6) return null;
+      try {
+        const resp = await fetch(
+          `https://api.postalpincode.in/pincode/${pincode}`
+        );
+        const data = await resp.json();
+        const entry = Array.isArray(data) ? data[0] : data;
+        const po = entry?.PostOffice?.[0];
+        if (!po) return null;
+        return {
+          name: po.Name,
+          taluk: po.Block || po.Taluk,
+          district: po.District,
+          division: po.Division,
+          region: po.Region,
+          state: po.State,
+          country: po.Country,
+        };
+      } catch (e) {
+        return null;
+      }
+    };
+
+    try {
+      const [fromPO, toPO] = await Promise.all([
+        computePostOffice(
+          processedInvoice?.fromAddress?.pincode ||
+            processedInvoice?.fromAddress?.pincode?.code
+        ),
+        computePostOffice(
+          processedInvoice?.toAddress?.pincode ||
+            processedInvoice?.toAddress?.pincode?.code
+        ),
+      ]);
+      if (fromPO) processedInvoice.fromPostOfficeComputed = fromPO;
+      if (toPO) processedInvoice.toPostOfficeComputed = toPO;
+    } catch (_) {}
+
     if (processedInvoice.deliveryProof?.signature) {
       try {
         const signatureBase64 = await imageUrlToBase64(
@@ -411,6 +457,46 @@ const Invoices = () => {
 
       // Create a deep, mutable copy of the invoice object to avoid read-only errors.
       let processedInvoice = JSON.parse(JSON.stringify(invoice));
+
+      // Compute Post Office details for From/To using pincode API (best-effort)
+      const computePostOffice = async (pincode) => {
+        if (!pincode || String(pincode).length !== 6) return null;
+        try {
+          const resp = await fetch(
+            `https://api.postalpincode.in/pincode/${pincode}`
+          );
+          const data = await resp.json();
+          const entry = Array.isArray(data) ? data[0] : data;
+          const po = entry?.PostOffice?.[0];
+          if (!po) return null;
+          return {
+            name: po.Name,
+            taluk: po.Block || po.Taluk,
+            district: po.District,
+            division: po.Division,
+            region: po.Region,
+            state: po.State,
+            country: po.Country,
+          };
+        } catch (e) {
+          return null;
+        }
+      };
+
+      try {
+        const [fromPO, toPO] = await Promise.all([
+          computePostOffice(
+            processedInvoice?.fromAddress?.pincode ||
+              processedInvoice?.fromAddress?.pincode?.code
+          ),
+          computePostOffice(
+            processedInvoice?.toAddress?.pincode ||
+              processedInvoice?.toAddress?.pincode?.code
+          ),
+        ]);
+        if (fromPO) processedInvoice.fromPostOfficeComputed = fromPO;
+        if (toPO) processedInvoice.toPostOfficeComputed = toPO;
+      } catch (_) {}
 
       if (processedInvoice.deliveryProof?.signature) {
         const signatureBase64 = await imageUrlToBase64(
@@ -1119,25 +1205,33 @@ const Invoices = () => {
                           <span
                             className={`px-2 py-1 rounded-full text-xs font-medium text-center ${
                               canEditInvoice(inv)
-                                ? isSuperAdmin && (new Date() - new Date(inv.createdAt)) / (1000 * 60 * 60) > 24
+                                ? isSuperAdmin &&
+                                  (new Date() - new Date(inv.createdAt)) /
+                                    (1000 * 60 * 60) >
+                                    24
                                   ? "bg-blue-100 text-blue-700"
                                   : "bg-green-100 text-green-700"
                                 : "bg-red-100 text-red-700"
                             }`}
                             title={
                               canEditInvoice(inv)
-                                ? isSuperAdmin && (new Date() - new Date(inv.createdAt)) / (1000 * 60 * 60) > 24
+                                ? isSuperAdmin &&
+                                  (new Date() - new Date(inv.createdAt)) /
+                                    (1000 * 60 * 60) >
+                                    24
                                   ? "Can be edited (Superadmin override)"
                                   : "Can be edited (within 24 hours)"
                                 : "Cannot be edited (after 24 hours)"
                             }
                           >
-                            {canEditInvoice(inv) 
-                              ? isSuperAdmin && (new Date() - new Date(inv.createdAt)) / (1000 * 60 * 60) > 24
+                            {canEditInvoice(inv)
+                              ? isSuperAdmin &&
+                                (new Date() - new Date(inv.createdAt)) /
+                                  (1000 * 60 * 60) >
+                                  24
                                 ? "Override"
                                 : "Editable"
-                              : "Locked"
-                            }
+                              : "Locked"}
                           </span>
                         )}
                       </div>
@@ -1164,7 +1258,10 @@ const Invoices = () => {
                           }
                           className="text-[#202020] hover:text-[#FFD249] dark:text-[#FFD249] dark:hover:text-[#FFD249] rounded-full p-2 border border-[#FFD249]/40 hover:bg-[#FFD249]/20"
                           title={
-                            isSuperAdmin && (new Date() - new Date(inv.createdAt)) / (1000 * 60 * 60) > 24
+                            isSuperAdmin &&
+                            (new Date() - new Date(inv.createdAt)) /
+                              (1000 * 60 * 60) >
+                              24
                               ? "Edit Invoice (Superadmin override)"
                               : "Edit Invoice (within 24 hours)"
                           }
@@ -1182,7 +1279,7 @@ const Invoices = () => {
                           <MdOutlineEdit className="h-4 w-4" />
                         </Button>
                       )}
-                      
+
                       {/* Delete Button - Only superadmin can delete */}
                       {isSuperAdmin && (
                         <AlertDialog>
@@ -1198,9 +1295,12 @@ const Invoices = () => {
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Invoice?</AlertDialogTitle>
+                              <AlertDialogTitle>
+                                Delete Invoice?
+                              </AlertDialogTitle>
                               <AlertDialogDescription>
-                                This action cannot be undone. Only superadmins can delete invoices.
+                                This action cannot be undone. Only superadmins
+                                can delete invoices.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>

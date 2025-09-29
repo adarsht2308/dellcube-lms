@@ -1,16 +1,17 @@
 import { Customer } from "../models/customer.js";
+import { User } from "../models/user.js";
 
 // Create Customer
 export const createCustomer = async (req, res) => {
   try {
-    const { 
-      name, 
-      email, 
-      phone, 
-      address, 
-      company, 
-      branch, 
-      status, 
+    const {
+      name,
+      email,
+      phone,
+      address,
+      company,
+      branch,
+      status,
       gstNumber,
       companyName,
       companyContactName,
@@ -18,7 +19,7 @@ export const createCustomer = async (req, res) => {
       taxType,
       taxValue,
       consignees,
-      consignors
+      consignors,
     } = req.body;
 
     console.log(req.body);
@@ -78,6 +79,19 @@ export const getAllCustomers = async (req, res) => {
     if (companyId) query.company = companyId;
     if (branchId) query.branch = branchId;
 
+    // If vendor is logged in, restrict to their assigned client only
+    if (req.user?.role === "vendor") {
+      const vendor = await User.findById(req.user.userId).select(
+        "assignedClient"
+      );
+      if (vendor?.assignedClient) {
+        query._id = vendor.assignedClient;
+      } else {
+        // No assigned client -> return empty result set
+        query._id = null;
+      }
+    }
+
     const customers = await Customer.find(query)
       .populate("company branch")
       .sort({ createdAt: -1 })
@@ -136,14 +150,14 @@ export const getCustomerById = async (req, res) => {
 // Update Customer
 export const updateCustomer = async (req, res) => {
   try {
-    const { 
-      customerId, 
-      name, 
-      email, 
-      phone, 
-      address, 
-      company, 
-      branch, 
+    const {
+      customerId,
+      name,
+      email,
+      phone,
+      address,
+      company,
+      branch,
       status,
       gstNumber,
       companyName,
@@ -152,7 +166,7 @@ export const updateCustomer = async (req, res) => {
       taxType,
       taxValue,
       consignees,
-      consignors
+      consignors,
     } = req.body;
 
     const customer = await Customer.findById(customerId);
@@ -172,10 +186,13 @@ export const updateCustomer = async (req, res) => {
     if (branch) customer.branch = branch;
     if (status !== undefined) customer.status = status;
     if (companyName !== undefined) customer.companyName = companyName;
-    if (companyContactName !== undefined) customer.companyContactName = companyContactName;
-    if (companyContactInfo !== undefined) customer.companyContactInfo = companyContactInfo;
+    if (companyContactName !== undefined)
+      customer.companyContactName = companyContactName;
+    if (companyContactInfo !== undefined)
+      customer.companyContactInfo = companyContactInfo;
     if (taxType !== undefined) customer.taxType = taxType;
-    if (taxValue !== undefined) customer.taxValue = taxValue ? parseFloat(taxValue) : undefined;
+    if (taxValue !== undefined)
+      customer.taxValue = taxValue ? parseFloat(taxValue) : undefined;
     if (consignees !== undefined) customer.consignees = consignees;
     if (consignors !== undefined) customer.consignors = consignors;
 

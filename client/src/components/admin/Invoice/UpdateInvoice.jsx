@@ -21,7 +21,12 @@ import { Hash } from "lucide-react";
 import { FileText } from "lucide-react";
 import { AlertCircle } from "lucide-react";
 import { Plus, Building2, MapPin, RefreshCw } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // API imports
 import {
@@ -38,13 +43,16 @@ import { useGetLocalitiesByCityMutation } from "@/features/api/Region/LocalityAp
 import { useGetPincodesByLocalityMutation } from "@/features/api/Region/pincodeApi.js";
 import { useGetAllGoodsQuery } from "@/features/api/Goods/goodsApi.js";
 import { useGetAllVehiclesQuery } from "@/features/api/Vehicle/vehicleApi.js";
-import { useSearchVehiclesMutation } from '@/features/api/Vehicle/vehicleApi.js';
-import { useDebounce } from '@/hooks/Debounce.jsx';
+import { useSearchVehiclesMutation } from "@/features/api/Vehicle/vehicleApi.js";
+import { useDebounce } from "@/hooks/Debounce.jsx";
 import {
   useGetAllVendorsQuery,
   useGetVendorByIdMutation,
 } from "@/features/api/Vendor/vendorApi.js";
-import { useGetAllDriversQuery, useCreateDriverMutation } from "@/features/api/authApi";
+import {
+  useGetAllDriversQuery,
+  useCreateDriverMutation,
+} from "@/features/api/authApi";
 import { useGetAllSiteTypesQuery } from "@/features/api/SiteType/siteTypeApi.js";
 import { useGetAllTransportModesQuery } from "@/features/api/TransportMode/transportModeApi.js";
 import { imageUrlToBase64 } from "@/utils/imageUrlToBase64.js";
@@ -60,7 +68,7 @@ const UpdateInvoice = () => {
     if (!invoice?.createdAt) return false;
     // Superadmin can always edit
     if (isSuperAdmin) return true;
-    
+
     const createdAt = new Date(invoice.createdAt);
     const now = new Date();
     const hoursDiff = (now - createdAt) / (1000 * 60 * 60);
@@ -86,9 +94,8 @@ const UpdateInvoice = () => {
   const debouncedSearchTerm = useDebounce(vehicleNumber, 500);
   const vehicleSearchRef = React.useRef(null);
   const [suggestionsPosition, setSuggestionsPosition] = useState("top");
-  const [searchVehicles, { isLoading: isSearchingVehicle }] = useSearchVehiclesMutation();
-
-
+  const [searchVehicles, { isLoading: isSearchingVehicle }] =
+    useSearchVehiclesMutation();
 
   // Handle vehicle selection (same as CreateInvoice)
   const handleVehicleSelect = (vehicle) => {
@@ -139,7 +146,8 @@ const UpdateInvoice = () => {
   const [selectedVehicle, setSelectedVehicle] = useState("");
   const [selectedVendor, setSelectedVendor] = useState("");
   const [selectedVendorVehicle, setSelectedVendorVehicle] = useState("");
-  const [selectedVendorVehicleNumber, setSelectedVendorVehicleNumber] = useState("");
+  const [selectedVendorVehicleNumber, setSelectedVendorVehicleNumber] =
+    useState("");
   const [selectedDriver, setSelectedDriver] = useState("");
   const [driverContactNumber, setDriverContactNumber] = useState("");
   const [vehicleSize, setVehicleSize] = useState("");
@@ -159,7 +167,12 @@ const UpdateInvoice = () => {
   const [selectedTransportMode, setSelectedTransportMode] = useState("");
   const [status, setStatus] = useState("");
   const [deliveredAt, setDeliveredAt] = useState("");
-  const [deliveryProof, setDeliveryProof] = useState({ receiverName: "", receiverMobile: "", remarks: "", signature: "" });
+  const [deliveryProof, setDeliveryProof] = useState({
+    receiverName: "",
+    receiverMobile: "",
+    remarks: "",
+    signature: "",
+  });
   // Current vehicle information (read-only display)
   const [currentVehicleNumber, setCurrentVehicleNumber] = useState("");
   const [currentDriverName, setCurrentDriverName] = useState("");
@@ -171,7 +184,7 @@ const UpdateInvoice = () => {
   const [selectedConsignee, setSelectedConsignee] = useState("");
   const [availableConsignors, setAvailableConsignors] = useState([]);
   const [availableConsignees, setAvailableConsignees] = useState([]);
-  
+
   // Add driver creation state
   const [showAddDriverDialog, setShowAddDriverDialog] = useState(false);
   const [newDriverData, setNewDriverData] = useState({
@@ -180,11 +193,12 @@ const UpdateInvoice = () => {
     password: "",
     licenseNumber: "",
     experienceYears: "",
-    driverType: "dellcube"
+    driverType: user?.role === "vendor" ? "vendor" : "dellcube",
   });
-  
+
   // Add driver creation mutation
-  const [createDriver, { isLoading: isCreatingDriver }] = useCreateDriverMutation();
+  const [createDriver, { isLoading: isCreatingDriver }] =
+    useCreateDriverMutation();
 
   // Replace old region system with pincode-based address fields
   const [fromPincode, setFromPincode] = useState("");
@@ -193,36 +207,38 @@ const UpdateInvoice = () => {
   const [toAddressDetails, setToAddressDetails] = useState(null);
   const [isLoadingFromPincode, setIsLoadingFromPincode] = useState(false);
   const [isLoadingToPincode, setIsLoadingToPincode] = useState(false);
-  
+
   // Add state for the old region system (for backward compatibility)
   const [fromRegion, setFromRegion] = useState({
     country: "",
     state: "",
     city: "",
     locality: "",
-    pincode: ""
+    pincode: "",
   });
   const [toRegion, setToRegion] = useState({
     country: "",
     state: "",
     city: "",
     locality: "",
-    pincode: ""
+    pincode: "",
   });
 
   // Function to fetch address details from pincode
   const fetchAddressFromPincode = async (pincode, type) => {
     if (!pincode || pincode.length !== 6) return;
-    
-    const setIsLoading = type === 'from' ? setIsLoadingFromPincode : setIsLoadingToPincode;
-    const setAddressDetails = type === 'from' ? setFromAddressDetails : setToAddressDetails;
-    
+
+    const setIsLoading =
+      type === "from" ? setIsLoadingFromPincode : setIsLoadingToPincode;
+    const setAddressDetails =
+      type === "from" ? setFromAddressDetails : setToAddressDetails;
+
     setIsLoading(true);
     try {
       // Try multiple CORS proxies and direct API calls
       let response;
       let data;
-      
+
       // Try different approaches in sequence
       const attempts = [
         // Direct HTTPS call
@@ -230,22 +246,33 @@ const UpdateInvoice = () => {
         // Alternative API endpoint
         () => fetch(`https://api.postalpincode.in/pincode/${pincode}`),
         // CORS proxy 1
-        () => fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(`http://www.postalpincode.in/api/pincode/${pincode}`)}`),
+        () =>
+          fetch(
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(
+              `http://www.postalpincode.in/api/pincode/${pincode}`
+            )}`
+          ),
         // CORS proxy 2
-        () => fetch(`https://cors-anywhere.herokuapp.com/https://www.postalpincode.in/api/pincode/${pincode}`),
+        () =>
+          fetch(
+            `https://cors-anywhere.herokuapp.com/https://www.postalpincode.in/api/pincode/${pincode}`
+          ),
         // CORS proxy 3
-        () => fetch(`https://thingproxy.freeboard.io/fetch/https://www.postalpincode.in/api/pincode/${pincode}`)
+        () =>
+          fetch(
+            `https://thingproxy.freeboard.io/fetch/https://www.postalpincode.in/api/pincode/${pincode}`
+          ),
       ];
-      
+
       for (let i = 0; i < attempts.length; i++) {
         try {
           // Add timeout to prevent hanging
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-          
+
           response = await attempts[i]();
           clearTimeout(timeoutId);
-          
+
           if (response.ok) {
             data = await response.json();
             break;
@@ -255,27 +282,31 @@ const UpdateInvoice = () => {
           continue;
         }
       }
-      
+
       if (!data) {
         throw new Error("All API attempts failed");
       }
-      
+
       // Debug logging
       console.log("API Response:", data);
       console.log("Response type:", typeof data);
       console.log("Is array:", Array.isArray(data));
-      
+
       // Handle different API response formats
       let postOfficeData = data;
-      
+
       // Check if response is wrapped in an array (like your API response)
       if (Array.isArray(data) && data.length > 0) {
         postOfficeData = data[0];
       }
-      
+
       console.log("Processed postOfficeData:", postOfficeData);
-      
-      if (postOfficeData.Status === "Success" && postOfficeData.PostOffice && postOfficeData.PostOffice.length > 0) {
+
+      if (
+        postOfficeData.Status === "Success" &&
+        postOfficeData.PostOffice &&
+        postOfficeData.PostOffice.length > 0
+      ) {
         if (postOfficeData.PostOffice.length === 1) {
           // Single post office, set directly
           const postOffice = postOfficeData.PostOffice[0];
@@ -290,9 +321,9 @@ const UpdateInvoice = () => {
             branchType: postOffice.BranchType,
             deliveryStatus: postOffice.DeliveryStatus,
             allPostOffices: postOfficeData.PostOffice,
-            selectedPostOffice: postOffice
+            selectedPostOffice: postOffice,
           };
-          
+
           console.log("Setting address details:", addressData);
           setAddressDetails(addressData);
         } else {
@@ -308,7 +339,7 @@ const UpdateInvoice = () => {
             state: null,
             country: null,
             branchType: null,
-            deliveryStatus: null
+            deliveryStatus: null,
           });
         }
       } else {
@@ -318,14 +349,18 @@ const UpdateInvoice = () => {
     } catch (error) {
       console.error("Error fetching pincode data:", error);
       setAddressDetails(null);
-      
+
       // Provide more specific error messages
-      if (error.message.includes('Failed to fetch')) {
-        toast.error("Network error. Please check your internet connection or try again later.");
-      } else if (error.message.includes('CORS')) {
+      if (error.message.includes("Failed to fetch")) {
+        toast.error(
+          "Network error. Please check your internet connection or try again later."
+        );
+      } else if (error.message.includes("CORS")) {
         toast.error("Service temporarily unavailable. Please try again later.");
-      } else if (error.message.includes('All API attempts failed')) {
-        toast.error("Unable to fetch address details. Please try again later or enter address manually.");
+      } else if (error.message.includes("All API attempts failed")) {
+        toast.error(
+          "Unable to fetch address details. Please try again later or enter address manually."
+        );
       } else {
         toast.error("Error fetching address details. Please try again.");
       }
@@ -336,9 +371,10 @@ const UpdateInvoice = () => {
 
   // Function to select a specific post office from multiple options
   const selectPostOffice = (postOffice, type) => {
-    const setAddressDetails = type === 'from' ? setFromAddressDetails : setToAddressDetails;
-    
-    setAddressDetails(prev => ({
+    const setAddressDetails =
+      type === "from" ? setFromAddressDetails : setToAddressDetails;
+
+    setAddressDetails((prev) => ({
       ...prev,
       name: postOffice.Name,
       taluk: postOffice.Block || postOffice.Taluk, // Handle both field names
@@ -349,40 +385,82 @@ const UpdateInvoice = () => {
       country: postOffice.Country,
       branchType: postOffice.BranchType,
       deliveryStatus: postOffice.DeliveryStatus,
-      selectedPostOffice: postOffice
+      selectedPostOffice: postOffice,
     }));
   };
 
   // All API hooks (mutations/queries)
-  const [getInvoiceById, { data: fetchedInvoiceData, isLoading: isInvoiceLoading, isError: isInvoiceError, error: invoiceError }] = useGetInvoiceByIdMutation();
+  const [
+    getInvoiceById,
+    {
+      data: fetchedInvoiceData,
+      isLoading: isInvoiceLoading,
+      isError: isInvoiceError,
+      error: invoiceError,
+    },
+  ] = useGetInvoiceByIdMutation();
   const { data: companies } = useGetAllCompaniesQuery({});
   const [getBranchesByCompany] = useGetBranchesByCompanyMutation();
   const { data: customersData } = useGetAllCustomersQuery({});
-  const { data: countries } = useGetAllCountriesQuery({ page: 1, limit: 10000 });
-  const { data: driversData, isLoading: isDriversLoading } = useGetAllDriversQuery({});
+  const { data: countries } = useGetAllCountriesQuery({
+    page: 1,
+    limit: 10000,
+  });
+  const { data: driversData, isLoading: isDriversLoading } =
+    useGetAllDriversQuery({});
   const { data: goodsData } = useGetAllGoodsQuery({ page: 1, limit: 1000 });
-  const { data: siteTypesData } = useGetAllSiteTypesQuery({ page: 1, limit: 1000, status: "true" });
-  const { data: transportModesData } = useGetAllTransportModesQuery({ page: 1, limit: 1000, status: "true" });
-  const { data: vehicleData, refetch: refetchVehicles } = useGetAllVehiclesQuery({ page: 1, limit: 1000, companyId: companyId, branchId: branchId });
-  const { data: vendorData, refetch: refetchVendors } = useGetAllVendorsQuery({ companyId: companyId, branchId: branchId });
+  const { data: siteTypesData } = useGetAllSiteTypesQuery({
+    page: 1,
+    limit: 1000,
+    status: "true",
+  });
+  const { data: transportModesData } = useGetAllTransportModesQuery({
+    page: 1,
+    limit: 1000,
+    status: "true",
+  });
+  const { data: vehicleData, refetch: refetchVehicles } =
+    useGetAllVehiclesQuery({
+      page: 1,
+      limit: 1000,
+      companyId: companyId,
+      branchId: branchId,
+    });
+  const { data: vendorData, refetch: refetchVendors } = useGetAllVendorsQuery({
+    companyId: companyId,
+    branchId: branchId,
+  });
   const [getVendorById, { data: vendorDetails }] = useGetVendorByIdMutation();
   const [updateInvoice, { isLoading: isUpdating }] = useUpdateInvoiceMutation();
 
   // API hooks for "From" address
-  const [getFromStatesByCountry, { data: fromStateData }] = useGetStatesByCountryMutation();
-  const [getFromCitiesByState, { data: fromCityData }] = useGetCitiesByStateMutation();
-  const [getFromLocalitiesByCity, { data: fromLocalityData }] = useGetLocalitiesByCityMutation();
-  const [getFromPincodesByLocality, { data: fromPincodeData }] = useGetPincodesByLocalityMutation();
+  const [getFromStatesByCountry, { data: fromStateData }] =
+    useGetStatesByCountryMutation();
+  const [getFromCitiesByState, { data: fromCityData }] =
+    useGetCitiesByStateMutation();
+  const [getFromLocalitiesByCity, { data: fromLocalityData }] =
+    useGetLocalitiesByCityMutation();
+  const [getFromPincodesByLocality, { data: fromPincodeData }] =
+    useGetPincodesByLocalityMutation();
 
   // API hooks for "To" address
-  const [getToStatesByCountry, { data: toStateData }] = useGetStatesByCountryMutation();
-  const [getToCitiesByState, { data: toCityData }] = useGetCitiesByStateMutation();
-  const [getToLocalitiesByCity, { data: toLocalityData }] = useGetLocalitiesByCityMutation();
-  const [getToPincodesByLocality, { data: toPincodeData }] = useGetPincodesByLocalityMutation();
+  const [getToStatesByCountry, { data: toStateData }] =
+    useGetStatesByCountryMutation();
+  const [getToCitiesByState, { data: toCityData }] =
+    useGetCitiesByStateMutation();
+  const [getToLocalitiesByCity, { data: toLocalityData }] =
+    useGetLocalitiesByCityMutation();
+  const [getToPincodesByLocality, { data: toPincodeData }] =
+    useGetPincodesByLocalityMutation();
 
   // Vehicle search useEffect (moved after all state variables are declared)
   useEffect(() => {
-    if (debouncedSearchTerm && debouncedSearchTerm.length >= 1 && companyId && branchId) {
+    if (
+      debouncedSearchTerm &&
+      debouncedSearchTerm.length >= 1 &&
+      companyId &&
+      branchId
+    ) {
       const searchVehiclesAsync = async () => {
         try {
           setVehicleSearchError("");
@@ -405,23 +483,27 @@ const UpdateInvoice = () => {
     }
   }, [debouncedSearchTerm, companyId, branchId, searchVehicles]);
 
-  const isFormDisabled = isInvoiceLoading || !fetchedInvoiceData?.invoice || (fetchedInvoiceData?.invoice && !canEditInvoice(fetchedInvoiceData.invoice) && !isSuperAdmin);
-  
+  const isFormDisabled =
+    isInvoiceLoading ||
+    !fetchedInvoiceData?.invoice ||
+    (fetchedInvoiceData?.invoice &&
+      !canEditInvoice(fetchedInvoiceData.invoice) &&
+      !isSuperAdmin);
+
   // Only after all hooks:
- 
 
   useEffect(() => {
     getInvoiceById(invoiceId);
-  }, [invoiceId, getInvoiceById]); 
+  }, [invoiceId, getInvoiceById]);
 
   // Add pincode change handlers with debounce to prevent input focus loss
   useEffect(() => {
     if (fromPincode.length === 6) {
       // Add a small delay to prevent immediate API calls on every keystroke
       const timer = setTimeout(() => {
-        fetchAddressFromPincode(fromPincode, 'from');
+        fetchAddressFromPincode(fromPincode, "from");
       }, 500); // 500ms delay
-      
+
       return () => clearTimeout(timer);
     }
   }, [fromPincode]);
@@ -430,9 +512,9 @@ const UpdateInvoice = () => {
     if (toPincode.length === 6) {
       // Add a small delay to prevent immediate API calls on every keystroke
       const timer = setTimeout(() => {
-        fetchAddressFromPincode(toPincode, 'to');
+        fetchAddressFromPincode(toPincode, "to");
       }, 500); // 500ms delay
-      
+
       return () => clearTimeout(timer);
     }
   }, [toPincode]);
@@ -440,7 +522,7 @@ const UpdateInvoice = () => {
   useEffect(() => {
     if (fetchedInvoiceData && fetchedInvoiceData.invoice) {
       const invoice = fetchedInvoiceData.invoice;
-      console.log(invoice)
+      console.log(invoice);
       console.log(invoice);
       setCompanyId(invoice.company?._id || user?.company?._id || "");
       setBranchId(invoice.branch?._id || user?.branch?._id || "");
@@ -471,7 +553,7 @@ const UpdateInvoice = () => {
       setDriverContactNumber(invoice.driver?.mobile || "");
       setVehicleSize(invoice.vehicleSize || "");
       setVehicleModel(invoice.vehicleModel || "");
-      
+
       // Set current vehicle information for display
       if (invoice.vehicleType === "Dellcube" && invoice.vehicle) {
         setCurrentVehicleNumber(invoice.vehicle.vehicleNumber || "");
@@ -483,14 +565,18 @@ const UpdateInvoice = () => {
         setCurrentVehicleNumber("");
         setCurrentVehicleType("");
       }
-      
+
       setCurrentDriverName(invoice.driver?.name || "");
       setCurrentDriverContact(invoice.driver?.driverContactNumber || "");
       setOrderNumber(invoice.orderNumber || "");
       setSelectedTransportMode(invoice.transportMode?._id || "");
       setStatus(invoice.status || "Created");
-      setDeliveredAt(invoice.deliveredAt ? new Date(invoice.deliveredAt).toISOString().slice(0, 16) : "");
-      
+      setDeliveredAt(
+        invoice.deliveredAt
+          ? new Date(invoice.deliveredAt).toISOString().slice(0, 16)
+          : ""
+      );
+
       if (invoice.deliveryProof) {
         setDeliveryProof({
           receiverName: invoice.deliveryProof.receiverName || "",
@@ -515,7 +601,7 @@ const UpdateInvoice = () => {
         locality: invoice.toAddress?.locality?._id || "",
         pincode: invoice.toAddress?.pincode || "",
       });
-      
+
       // Set pincode values for the new system
       setFromPincode(invoice.fromAddress?.pincode || "");
       setToPincode(invoice.toAddress?.pincode || "");
@@ -535,17 +621,26 @@ const UpdateInvoice = () => {
       setSiteId(invoice.siteId || "");
       setSealNo(invoice.sealNo || "");
       setSelectedSiteType(invoice.siteType?._id || "");
-      
+
       // Check if invoice can still be edited (within 24 hours)
       if (!canEditInvoice(invoice) && !isSuperAdmin) {
-        toast.error("This invoice cannot be edited as it was created more than 24 hours ago.");
+        toast.error(
+          "This invoice cannot be edited as it was created more than 24 hours ago."
+        );
         // Redirect back to invoices list after a short delay
         setTimeout(() => {
           navigate("/admin/invoices");
         }, 2000);
       }
     }
-  }, [fetchedInvoiceData, user, isInvoiceLoading, isInvoiceError, canEditInvoice, navigate]);
+  }, [
+    fetchedInvoiceData,
+    user,
+    isInvoiceLoading,
+    isInvoiceError,
+    canEditInvoice,
+    navigate,
+  ]);
 
   useEffect(() => {
     if (isInvoiceError) {
@@ -671,7 +766,9 @@ const UpdateInvoice = () => {
       fetchedInvoiceData.invoice.vendorVehicle?.vehicleNumber
     ) {
       const match = vendorDetails.vendor.availableVehicles.find(
-        (v) => v.vehicleNumber === fetchedInvoiceData.invoice.vendorVehicle.vehicleNumber
+        (v) =>
+          v.vehicleNumber ===
+          fetchedInvoiceData.invoice.vendorVehicle.vehicleNumber
       );
       if (match) {
         setSelectedVendorVehicle(match);
@@ -683,14 +780,18 @@ const UpdateInvoice = () => {
   useEffect(() => {
     // Prefill with invoice's driverContactNumber on mount
     if (fetchedInvoiceData && fetchedInvoiceData.invoice) {
-      setDriverContactNumber(fetchedInvoiceData.invoice.driverContactNumber || "");
+      setDriverContactNumber(
+        fetchedInvoiceData.invoice.driverContactNumber || ""
+      );
     }
   }, [fetchedInvoiceData]);
 
   useEffect(() => {
     // When driver changes, update to selected driver's mobile
     if (selectedDriver && driversData?.drivers) {
-      const driverObj = driversData.drivers.find(d => d._id === selectedDriver);
+      const driverObj = driversData.drivers.find(
+        (d) => d._id === selectedDriver
+      );
       setDriverContactNumber(driverObj?.mobile || "");
     } else if (fetchedInvoiceData?.invoice?.driverContactNumber) {
       setDriverContactNumber(fetchedInvoiceData.invoice.driverContactNumber);
@@ -701,19 +802,19 @@ const UpdateInvoice = () => {
 
   // Add effect to auto-select driver when Dellcube vehicle is selected (same as CreateInvoice)
   useEffect(() => {
-    if (searchedVehicle?.ownerType === "Dellcube" && searchedVehicle?.currentDriver && searchedVehicle.currentDriver._id) {
+    if (
+      searchedVehicle?.ownerType === "Dellcube" &&
+      searchedVehicle?.currentDriver &&
+      searchedVehicle.currentDriver._id
+    ) {
       setSelectedDriver(searchedVehicle.currentDriver._id);
     }
   }, [searchedVehicle]);
 
   //Validations
   const handleSubmit = async () => {
-    if (
-      !customerId
-    ) {
-      toast.error(
-        "Please select a customer to create the docket."
-      );
+    if (!customerId) {
+      toast.error("Please select a customer to create the docket.");
       return;
     }
 
@@ -727,25 +828,31 @@ const UpdateInvoice = () => {
       ...(paymentType && { paymentType }),
       ...(remarks && { remarks }),
       ...(vehicleNumber && { vehicleNumber }),
-      ...(searchedVehicle?.ownerType && { vehicleType: searchedVehicle.ownerType }),
+      ...(searchedVehicle?.ownerType && {
+        vehicleType: searchedVehicle.ownerType,
+      }),
       ...(totalWeight !== "" && { totalWeight: Number(totalWeight) }),
       ...(freightCharges !== "" && { freightCharges: Number(freightCharges) }),
-      ...(numberOfPackages !== "" && { numberOfPackages: Number(numberOfPackages) }),
+      ...(numberOfPackages !== "" && {
+        numberOfPackages: Number(numberOfPackages),
+      }),
       ...(selectedGood && { goodsType: selectedGood }),
-      ...(selectedItems.length > 0 && { goodItems: selectedItems.map((name) => ({ name })) }),
+      ...(selectedItems.length > 0 && {
+        goodItems: selectedItems.map((name) => ({ name })),
+      }),
       fromAddress: {
         ...(fromRegion.country && { country: fromRegion.country }),
         ...(fromRegion.state && { state: fromRegion.state }),
         ...(fromRegion.city && { city: fromRegion.city }),
         ...(fromRegion.locality && { locality: fromRegion.locality }),
-        ...(fromPincode && { pincode: fromPincode })
+        ...(fromPincode && { pincode: fromPincode }),
       },
       toAddress: {
         ...(toRegion.country && { country: toRegion.country }),
         ...(toRegion.state && { state: toRegion.state }),
         ...(toRegion.city && { city: toRegion.city }),
         ...(toRegion.locality && { locality: toRegion.locality }),
-        ...(toPincode && { pincode: toPincode })
+        ...(toPincode && { pincode: toPincode }),
       },
       ...(selectedDriver && { driver: selectedDriver }),
       ...(driverContactNumber && { driverContactNumber }),
@@ -766,14 +873,20 @@ const UpdateInvoice = () => {
       ...(selectedTransportMode && { transportMode: selectedTransportMode }),
       ...(status && { status }),
       ...(deliveredAt && { deliveredAt }),
-      ...(Object.values(deliveryProof).some(val => val) && {
+      ...(Object.values(deliveryProof).some((val) => val) && {
         deliveryProof: {
-          ...(deliveryProof.receiverName && { receiverName: deliveryProof.receiverName }),
-          ...(deliveryProof.receiverMobile && { receiverMobile: deliveryProof.receiverMobile }),
+          ...(deliveryProof.receiverName && {
+            receiverName: deliveryProof.receiverName,
+          }),
+          ...(deliveryProof.receiverMobile && {
+            receiverMobile: deliveryProof.receiverMobile,
+          }),
           ...(deliveryProof.remarks && { remarks: deliveryProof.remarks }),
-          ...(deliveryProof.signature && { signature: deliveryProof.signature })
-        }
-      })
+          ...(deliveryProof.signature && {
+            signature: deliveryProof.signature,
+          }),
+        },
+      }),
     };
 
     // Set vehicle-related fields based on searched vehicle
@@ -830,21 +943,22 @@ const UpdateInvoice = () => {
   };
 
   const handleDeliveryProofChange = (field, value) => {
-    setDeliveryProof(prev => ({ ...prev, [field]: value }));
+    setDeliveryProof((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSignatureUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    if (file.size > 2 * 1024 * 1024) { // 2MB limit
+    if (file.size > 2 * 1024 * 1024) {
+      // 2MB limit
       toast.error("Signature file is too large. Max size is 2MB.");
       return;
     }
 
     try {
       const base64 = await imageUrlToBase64(file);
-      setDeliveryProof(prev => ({ ...prev, signature: base64 }));
+      setDeliveryProof((prev) => ({ ...prev, signature: base64 }));
       toast.success("Signature image ready for upload.");
     } catch (error) {
       toast.error("Failed to process signature image.");
@@ -852,16 +966,17 @@ const UpdateInvoice = () => {
     }
   };
 
-
   // New simplified Address Fields component with pincode-based system
   const AddressFields = ({ type }) => {
-    const pincode = type === 'from' ? fromPincode : toPincode;
-    const setPincode = type === 'from' ? setFromPincode : setToPincode;
-    const addressDetails = type === 'from' ? fromAddressDetails : toAddressDetails;
-    const isLoading = type === 'from' ? isLoadingFromPincode : isLoadingToPincode;
-    const address = type === 'from' ? pickupAddress : deliveryAddress;
-    const setAddress = type === 'from' ? setPickupAddress : setDeliveryAddress;
-    
+    const pincode = type === "from" ? fromPincode : toPincode;
+    const setPincode = type === "from" ? setFromPincode : setToPincode;
+    const addressDetails =
+      type === "from" ? fromAddressDetails : toAddressDetails;
+    const isLoading =
+      type === "from" ? isLoadingFromPincode : isLoadingToPincode;
+    const address = type === "from" ? pickupAddress : deliveryAddress;
+    const setAddress = type === "from" ? setPickupAddress : setDeliveryAddress;
+
     // Debug logging
     console.log(`${type} addressDetails:`, addressDetails);
     console.log(`${type} pincode:`, pincode);
@@ -872,7 +987,10 @@ const UpdateInvoice = () => {
           <CardTitle className="flex items-center gap-2 text-base">
             <MapPin className="w-4 h-4 text-blue-600" />
             {type === "from" ? "Pickup Address" : "Delivery Address"}
-            <Badge variant={type === "from" ? "default" : "secondary"} className="ml-auto text-xs">
+            <Badge
+              variant={type === "from" ? "default" : "secondary"}
+              className="ml-auto text-xs"
+            >
               {type === "from" ? "FROM" : "TO"}
             </Badge>
           </CardTitle>
@@ -884,12 +1002,14 @@ const UpdateInvoice = () => {
               <Textarea
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                placeholder={`Enter ${type === 'from' ? 'pickup' : 'delivery'} address`}
+                placeholder={`Enter ${
+                  type === "from" ? "pickup" : "delivery"
+                } address`}
                 className="w-full"
                 rows={3}
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label className="text-sm font-medium">Pincode</Label>
               <div className="flex gap-2">
@@ -933,36 +1053,51 @@ const UpdateInvoice = () => {
             </div>
 
             {/* Post Office Selection Dropdown */}
-            {addressDetails?.allPostOffices && addressDetails.allPostOffices.length > 0 && (
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Select Post Office</Label>
-                <Select
-                  value={addressDetails.selectedPostOffice ? addressDetails.selectedPostOffice.Name : ""}
-                  onValueChange={(postOfficeName) => {
-                    const selectedPostOffice = addressDetails.allPostOffices.find(po => po.Name === postOfficeName);
-                    if (selectedPostOffice) {
-                      selectPostOffice(selectedPostOffice, type);
+            {addressDetails?.allPostOffices &&
+              addressDetails.allPostOffices.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">
+                    Select Post Office
+                  </Label>
+                  <Select
+                    value={
+                      addressDetails.selectedPostOffice
+                        ? addressDetails.selectedPostOffice.Name
+                        : ""
                     }
-                  }}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a post office" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {addressDetails.allPostOffices.map((postOffice, index) => (
-                      <SelectItem key={index} value={postOffice.Name}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{postOffice.Name}</span>
-                          <span className="text-xs text-gray-500">
-                            {postOffice.Block || postOffice.Taluk}, {postOffice.District}, {postOffice.State}
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+                    onValueChange={(postOfficeName) => {
+                      const selectedPostOffice =
+                        addressDetails.allPostOffices.find(
+                          (po) => po.Name === postOfficeName
+                        );
+                      if (selectedPostOffice) {
+                        selectPostOffice(selectedPostOffice, type);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a post office" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {addressDetails.allPostOffices.map(
+                        (postOffice, index) => (
+                          <SelectItem key={index} value={postOffice.Name}>
+                            <div className="flex flex-col">
+                              <span className="font-medium">
+                                {postOffice.Name}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {postOffice.Block || postOffice.Taluk},{" "}
+                                {postOffice.District}, {postOffice.State}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        )
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
             {/* Display selected address details */}
             {addressDetails?.name && (
@@ -971,12 +1106,34 @@ const UpdateInvoice = () => {
                   Selected Address Details
                 </Label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                  <div><span className="font-medium">City:</span> {addressDetails.name}</div>
-                  <div><span className="font-medium">District:</span> {addressDetails.district}</div>
-                  <div><span className="font-medium">State:</span> {addressDetails.state}</div>
-                  <div><span className="font-medium">Country:</span> {addressDetails.country}</div>
-                  {addressDetails.taluk && <div><span className="font-medium">Taluk:</span> {addressDetails.taluk}</div>}
-                  {addressDetails.division && <div><span className="font-medium">Division:</span> {addressDetails.division}</div>}
+                  <div>
+                    <span className="font-medium">City:</span>{" "}
+                    {addressDetails.name}
+                  </div>
+                  <div>
+                    <span className="font-medium">District:</span>{" "}
+                    {addressDetails.district}
+                  </div>
+                  <div>
+                    <span className="font-medium">State:</span>{" "}
+                    {addressDetails.state}
+                  </div>
+                  <div>
+                    <span className="font-medium">Country:</span>{" "}
+                    {addressDetails.country}
+                  </div>
+                  {addressDetails.taluk && (
+                    <div>
+                      <span className="font-medium">Taluk:</span>{" "}
+                      {addressDetails.taluk}
+                    </div>
+                  )}
+                  {addressDetails.division && (
+                    <div>
+                      <span className="font-medium">Division:</span>{" "}
+                      {addressDetails.division}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -985,8 +1142,6 @@ const UpdateInvoice = () => {
       </Card>
     );
   };
-
- 
 
   useEffect(() => {
     if (fetchedInvoiceData?.invoice) {
@@ -1029,18 +1184,42 @@ const UpdateInvoice = () => {
   // Effect to update consignor/consignee lists when customer changes
   useEffect(() => {
     if (customerId && customersData?.customers) {
-      const selectedCustomer = customersData.customers.find(c => c._id === customerId);
+      const selectedCustomer = customersData.customers.find(
+        (c) => c._id === customerId
+      );
       if (selectedCustomer) {
         setAvailableConsignors(selectedCustomer.consignors || []);
         setAvailableConsignees(selectedCustomer.consignees || []);
+
+        // If invoice already has values, preselect matching entries
+        if (
+          fetchedInvoiceData?.invoice?.consignor &&
+          selectedCustomer.consignors?.length
+        ) {
+          const matchConsignor = selectedCustomer.consignors.find(
+            (c) => c.consignor === fetchedInvoiceData.invoice.consignor
+          );
+          if (matchConsignor) setSelectedConsignor(matchConsignor._id);
+        }
+        if (
+          fetchedInvoiceData?.invoice?.consignee &&
+          selectedCustomer.consignees?.length
+        ) {
+          const matchConsignee = selectedCustomer.consignees.find(
+            (c) => c.consignee === fetchedInvoiceData.invoice.consignee
+          );
+          if (matchConsignee) setSelectedConsignee(matchConsignee._id);
+        }
       }
     }
-  }, [customerId, customersData]);
+  }, [customerId, customersData, fetchedInvoiceData]);
 
   // Effect to auto-fill consignee when site ID changes
   useEffect(() => {
     if (siteId && availableConsignees.length > 0) {
-      const matchingConsignee = availableConsignees.find(c => c.siteId === siteId);
+      const matchingConsignee = availableConsignees.find(
+        (c) => c.siteId === siteId
+      );
       if (matchingConsignee) {
         setSelectedConsignee(matchingConsignee._id);
         setConsignee(matchingConsignee.consignee);
@@ -1051,7 +1230,9 @@ const UpdateInvoice = () => {
   // Effect to update consignor/consignee text when dropdowns change
   useEffect(() => {
     if (selectedConsignor && availableConsignors.length > 0) {
-      const consignorObj = availableConsignors.find(c => c._id === selectedConsignor);
+      const consignorObj = availableConsignors.find(
+        (c) => c._id === selectedConsignor
+      );
       if (consignorObj) {
         setConsignor(consignorObj.consignor);
       }
@@ -1060,7 +1241,9 @@ const UpdateInvoice = () => {
 
   useEffect(() => {
     if (selectedConsignee && availableConsignees.length > 0) {
-      const consigneeObj = availableConsignees.find(c => c._id === selectedConsignee);
+      const consigneeObj = availableConsignees.find(
+        (c) => c._id === selectedConsignee
+      );
       if (consigneeObj) {
         setConsignee(consigneeObj.consignee);
       }
@@ -1070,20 +1253,28 @@ const UpdateInvoice = () => {
   // Auto-fetch address details when pincode reaches 6 digits
   useEffect(() => {
     if (fromPincode.length === 6) {
-      fetchAddressFromPincode(fromPincode, 'from');
+      fetchAddressFromPincode(fromPincode, "from");
     }
   }, [fromPincode]);
 
   useEffect(() => {
     if (toPincode.length === 6) {
-      fetchAddressFromPincode(toPincode, 'to');
+      fetchAddressFromPincode(toPincode, "to");
     }
   }, [toPincode]);
 
   // Handle driver creation
   const handleCreateDriver = async () => {
-    if (!newDriverData.name || !newDriverData.mobile || !newDriverData.password || !newDriverData.licenseNumber || !newDriverData.experienceYears) {
-      toast.error("Driver name, mobile, password, license number, and experience years are required");
+    if (
+      !newDriverData.name ||
+      !newDriverData.mobile ||
+      !newDriverData.password ||
+      !newDriverData.licenseNumber ||
+      !newDriverData.experienceYears
+    ) {
+      toast.error(
+        "Driver name, mobile, password, license number, and experience years are required"
+      );
       return;
     }
 
@@ -1111,7 +1302,14 @@ const UpdateInvoice = () => {
       if (result?.success) {
         toast.success("Driver created successfully");
         setShowAddDriverDialog(false);
-        setNewDriverData({ name: "", mobile: "", password: "", licenseNumber: "", experienceYears: "", driverType: "dellcube" });
+        setNewDriverData({
+          name: "",
+          mobile: "",
+          password: "",
+          licenseNumber: "",
+          experienceYears: "",
+          driverType: "dellcube",
+        });
         // Refresh drivers list
         // Note: You might need to add a refetch function to the drivers query
       }
@@ -1158,40 +1356,46 @@ const UpdateInvoice = () => {
           <p className="text-sm md:text-base text-gray-600 dark:text-gray-400 mt-1">
             Edit the details below to update the docket
           </p>
-          
+
           {/* Edit time warning banner */}
-          {fetchedInvoiceData?.invoice && !canEditInvoice(fetchedInvoiceData.invoice) && !isSuperAdmin && (
-            <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="w-5 h-4 text-red-600" />
-                <div>
-                  <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
-                    Edit Locked
-                  </h3>
-                  <p className="text-sm text-red-700 dark:text-red-300">
-                    This docket was created more than 24 hours ago and cannot be edited. You will be redirected to the invoices list.
-                  </p>
+          {fetchedInvoiceData?.invoice &&
+            !canEditInvoice(fetchedInvoiceData.invoice) &&
+            !isSuperAdmin && (
+              <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-5 h-4 text-red-600" />
+                  <div>
+                    <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
+                      Edit Locked
+                    </h3>
+                    <p className="text-sm text-red-700 dark:text-red-300">
+                      This docket was created more than 24 hours ago and cannot
+                      be edited. You will be redirected to the invoices list.
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-          
+            )}
+
           {/* Superadmin override notice */}
-          {fetchedInvoiceData?.invoice && !canEditInvoice(fetchedInvoiceData.invoice) && isSuperAdmin && (
-            <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="w-5 h-4 text-blue-600" />
-                <div>
-                  <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                    Superadmin Override
-                  </h3>
-                  <p className="text-sm text-blue-700 dark:text-blue-300">
-                    This docket was created more than 24 hours ago, but you can edit it as a superadmin.
-                  </p>
+          {fetchedInvoiceData?.invoice &&
+            !canEditInvoice(fetchedInvoiceData.invoice) &&
+            isSuperAdmin && (
+              <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-5 h-4 text-blue-600" />
+                  <div>
+                    <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                      Superadmin Override
+                    </h3>
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      This docket was created more than 24 hours ago, but you
+                      can edit it as a superadmin.
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
         </div>
 
         {/* Single column layout for mobile, two-sided for desktop */}
@@ -1281,7 +1485,7 @@ const UpdateInvoice = () => {
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-medium flex items-center gap-2">
-                    Docket Date
+                      Docket Date
                     </Label>
                     <Input
                       type="date"
@@ -1323,7 +1527,7 @@ const UpdateInvoice = () => {
                     <Input
                       type="text"
                       value={pickupAddress}
-                      onChange={e => setPickupAddress(e.target.value)}
+                      onChange={(e) => setPickupAddress(e.target.value)}
                       placeholder="Enter pickup address"
                       className="w-full"
                     />
@@ -1335,7 +1539,7 @@ const UpdateInvoice = () => {
                     <Input
                       type="text"
                       value={deliveryAddress}
-                      onChange={e => setDeliveryAddress(e.target.value)}
+                      onChange={(e) => setDeliveryAddress(e.target.value)}
                       placeholder="Enter delivery address"
                       className="w-full"
                     />
@@ -1343,12 +1547,8 @@ const UpdateInvoice = () => {
                 </div>
                 {/* Add Pickup/Delivery Address region fields side by side */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
-                  <AddressFields
-                    type="from"
-                  />
-                  <AddressFields
-                    type="to"
-                  />
+                  <AddressFields type="from" />
+                  <AddressFields type="to" />
                 </div>
                 {/* Remaining Delivery Details fields */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 mt-4">
@@ -1357,17 +1557,26 @@ const UpdateInvoice = () => {
                       Consignor/Sender
                     </Label>
                     <div className="flex flex-col sm:flex-row gap-2">
-                      <Select 
-                        value={selectedConsignor} 
+                      <Select
+                        value={selectedConsignor}
                         onValueChange={setSelectedConsignor}
                         disabled={!customerId || isFormDisabled}
                       >
                         <SelectTrigger className="w-full">
-                          <SelectValue placeholder={customerId ? "Select Consignor" : "Select Customer First"} />
+                          <SelectValue
+                            placeholder={
+                              customerId
+                                ? "Select Consignor"
+                                : "Select Customer First"
+                            }
+                          />
                         </SelectTrigger>
                         <SelectContent>
                           {availableConsignors.map((consignor) => (
-                            <SelectItem key={consignor._id} value={consignor._id}>
+                            <SelectItem
+                              key={consignor._id}
+                              value={consignor._id}
+                            >
                               {consignor.consignor}
                             </SelectItem>
                           ))}
@@ -1392,7 +1601,11 @@ const UpdateInvoice = () => {
                       <Building2 className="w-4 h-4" />
                       Site Type
                     </Label>
-                    <Select value={selectedSiteType} onValueChange={setSelectedSiteType} disabled={isFormDisabled}>
+                    <Select
+                      value={selectedSiteType}
+                      onValueChange={setSelectedSiteType}
+                      disabled={isFormDisabled}
+                    >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select Site Type" />
                       </SelectTrigger>
@@ -1413,7 +1626,7 @@ const UpdateInvoice = () => {
                     <Input
                       type="text"
                       value={siteId}
-                      onChange={e => setSiteId(e.target.value)}
+                      onChange={(e) => setSiteId(e.target.value)}
                       placeholder="Enter site ID"
                       className="w-full"
                       disabled={isFormDisabled}
@@ -1424,17 +1637,26 @@ const UpdateInvoice = () => {
                       Consignee/Receiver
                     </Label>
                     <div className="flex flex-col sm:flex-row gap-2">
-                      <Select 
-                        value={selectedConsignee} 
+                      <Select
+                        value={selectedConsignee}
                         onValueChange={setSelectedConsignee}
                         disabled={!customerId || isFormDisabled}
                       >
                         <SelectTrigger className="w-full">
-                          <SelectValue placeholder={customerId ? "Select Consignee" : "Select Customer First"} />
+                          <SelectValue
+                            placeholder={
+                              customerId
+                                ? "Select Consignee"
+                                : "Select Customer First"
+                            }
+                          />
                         </SelectTrigger>
                         <SelectContent>
                           {availableConsignees.map((consignee) => (
-                            <SelectItem key={consignee._id} value={consignee._id}>
+                            <SelectItem
+                              key={consignee._id}
+                              value={consignee._id}
+                            >
                               {consignee.siteId} - {consignee.consignee}
                             </SelectItem>
                           ))}
@@ -1496,7 +1718,7 @@ const UpdateInvoice = () => {
                     <Input
                       type="text"
                       value={orderNumber}
-                      onChange={e => setOrderNumber(e.target.value)}
+                      onChange={(e) => setOrderNumber(e.target.value)}
                       placeholder="Enter order number"
                       className="w-full"
                     />
@@ -1508,7 +1730,7 @@ const UpdateInvoice = () => {
                     <Input
                       type="number"
                       value={numberOfPackages}
-                      onChange={e => setNumberOfPackages(e.target.value)}
+                      onChange={(e) => setNumberOfPackages(e.target.value)}
                       placeholder="Enter number of boxes/packages"
                       className="w-full"
                     />
@@ -1520,7 +1742,7 @@ const UpdateInvoice = () => {
                     <Input
                       type="number"
                       value={totalWeight}
-                      onChange={e => setTotalWeight(e.target.value)}
+                      onChange={(e) => setTotalWeight(e.target.value)}
                       placeholder="Enter total weight"
                       className="w-full"
                     />
@@ -1530,13 +1752,21 @@ const UpdateInvoice = () => {
                 {selectedGood && (
                   <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                     <Label className="text-sm font-medium mb-2 block">
-                      Select Items from {goodsData?.goodss?.find((g) => g._id === selectedGood)?.name}:
+                      Select Items from{" "}
+                      {
+                        goodsData?.goodss?.find((g) => g._id === selectedGood)
+                          ?.name
+                      }
+                      :
                     </Label>
                     <div className="flex flex-wrap gap-3">
                       {goodsData?.goodss
                         ?.find((g) => g._id === selectedGood)
                         ?.items?.map((item) => (
-                          <div key={item} className="flex items-center space-x-2">
+                          <div
+                            key={item}
+                            className="flex items-center space-x-2"
+                          >
                             <input
                               type="checkbox"
                               id={`item-${item}`}
@@ -1577,7 +1807,7 @@ const UpdateInvoice = () => {
                           Current Vehicle Information
                         </Label>
                       </div>
-                      
+
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                         <div className="space-y-2">
                           <Label className="text-xs font-medium text-gray-600">
@@ -1590,7 +1820,7 @@ const UpdateInvoice = () => {
                             className="w-full bg-white border-gray-300"
                           />
                         </div>
-                        
+
                         <div className="space-y-2">
                           <Label className="text-xs font-medium text-gray-600">
                             Current Vehicle Type
@@ -1602,7 +1832,7 @@ const UpdateInvoice = () => {
                             className="w-full bg-white border-gray-300"
                           />
                         </div>
-                        
+
                         <div className="space-y-2">
                           <Label className="text-xs font-medium text-gray-600">
                             Current Driver Name
@@ -1614,7 +1844,7 @@ const UpdateInvoice = () => {
                             className="w-full bg-white border-gray-300"
                           />
                         </div>
-                        
+
                         <div className="space-y-2">
                           <Label className="text-xs font-medium text-gray-600">
                             Current Driver Contact
@@ -1640,7 +1870,13 @@ const UpdateInvoice = () => {
                       <div className="space-y-2 mb-4">
                         <Label className="text-sm font-medium">Owner</Label>
                         <Input
-                          value={searchedVehicle.ownerType === 'Vendor' ? `Vendor: ${searchedVehicle.vendor?.name || 'Unknown'}` : 'Dellcube'}
+                          value={
+                            searchedVehicle.ownerType === "Vendor"
+                              ? `Vendor: ${
+                                  searchedVehicle.vendor?.name || "Unknown"
+                                }`
+                              : "Dellcube"
+                          }
                           disabled
                           className="w-full bg-gray-50"
                         />
@@ -1654,12 +1890,18 @@ const UpdateInvoice = () => {
                           const val = e.target.value.toUpperCase();
                           setVehicleNumber(val);
                           // Only clear searchedVehicle if the value does not match the selected vehicle
-                          if (!searchedVehicle || searchedVehicle.vehicleNumber !== val) {
+                          if (
+                            !searchedVehicle ||
+                            searchedVehicle.vehicleNumber !== val
+                          ) {
                             setSearchedVehicle(null);
                           }
                         }}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter' && vehicleSuggestions.length > 0) {
+                          if (
+                            e.key === "Enter" &&
+                            vehicleSuggestions.length > 0
+                          ) {
                             handleVehicleSelect(vehicleSuggestions[0]);
                             e.preventDefault();
                           }
@@ -1672,28 +1914,45 @@ const UpdateInvoice = () => {
                         <div className="text-red-500 text-sm mt-2 flex items-center gap-2">
                           <AlertCircle className="w-4 h-4" />
                           {vehicleSearchError}
-                          <Button variant="outline" size="sm" onClick={() => navigate("/admin/create-vehicle")}>Create Dellcube Vehicle</Button>
-                          <Button variant="outline" size="sm" onClick={() => navigate("/admin/vendors")}>Add to Vendor</Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate("/admin/create-vehicle")}
+                          >
+                            Create Dellcube Vehicle
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate("/admin/vendors")}
+                          >
+                            Add to Vendor
+                          </Button>
                         </div>
                       )}
                       {vehicleSuggestions.length > 0 && (
                         <div
                           className={`absolute z-50 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto ${
-                            suggestionsPosition === "top" ? "bottom-full mb-1" : "top-full mt-1"
+                            suggestionsPosition === "top"
+                              ? "bottom-full mb-1"
+                              : "top-full mt-1"
                           }`}
                         >
-                                                  {vehicleSuggestions.map((vehicle, index) => (
-                          <div
-                            key={vehicle._id || vehicle.vehicleNumber}
-                            className="px-3 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
-                            onClick={() => handleVehicleSelect(vehicle)}
-                          >
-                            <div className="font-medium">{vehicle.vehicleNumber}</div>
-                            <div className="text-sm text-gray-600">
-                              {vehicle.ownerType} - {vehicle.type || 'No type'}
+                          {vehicleSuggestions.map((vehicle, index) => (
+                            <div
+                              key={vehicle._id || vehicle.vehicleNumber}
+                              className="px-3 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
+                              onClick={() => handleVehicleSelect(vehicle)}
+                            >
+                              <div className="font-medium">
+                                {vehicle.vehicleNumber}
+                              </div>
+                              <div className="text-sm text-gray-600">
+                                {vehicle.ownerType} -{" "}
+                                {vehicle.type || "No type"}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
                         </div>
                       )}
                     </div>
@@ -1722,8 +1981,8 @@ const UpdateInvoice = () => {
                           <Label className="text-sm font-medium flex items-center gap-2">
                             Vehicle Type/Size
                           </Label>
-                          <Select 
-                            value={vehicleSize} 
+                          <Select
+                            value={vehicleSize}
                             onValueChange={setVehicleSize}
                             disabled={isFormDisabled}
                           >
@@ -1731,8 +1990,17 @@ const UpdateInvoice = () => {
                               <SelectValue placeholder="Select Vehicle Size" />
                             </SelectTrigger>
                             <SelectContent>
-                              {["7ft", "10ft", "14ft", "18ft", "24ft", "32ft"].map(size => (
-                                <SelectItem key={size} value={size}>{size}</SelectItem>
+                              {[
+                                "7ft",
+                                "10ft",
+                                "14ft",
+                                "18ft",
+                                "24ft",
+                                "32ft",
+                              ].map((size) => (
+                                <SelectItem key={size} value={size}>
+                                  {size}
+                                </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -1755,10 +2023,12 @@ const UpdateInvoice = () => {
                       {/* Only show dropdown if driver is missing */}
                       {!searchedVehicle.currentDriver && (
                         <div className="space-y-2">
-                          <Label className="text-sm font-medium">Assign Driver</Label>
+                          <Label className="text-sm font-medium">
+                            Assign Driver
+                          </Label>
                           <div className="flex flex-col sm:flex-row gap-2">
-                            <Select 
-                              value={selectedDriver} 
+                            <Select
+                              value={selectedDriver}
                               onValueChange={setSelectedDriver}
                               disabled={isFormDisabled}
                               className="w-full"
@@ -1768,8 +2038,12 @@ const UpdateInvoice = () => {
                               </SelectTrigger>
                               <SelectContent>
                                 {driversData?.drivers?.map((driver) => (
-                                  <SelectItem key={driver._id} value={driver._id}>
-                                    {driver.name} - {driver.mobile} - {driver.driverType}
+                                  <SelectItem
+                                    key={driver._id}
+                                    value={driver._id}
+                                  >
+                                    {driver.name} - {driver.mobile} -{" "}
+                                    {driver.driverType}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
@@ -1796,7 +2070,13 @@ const UpdateInvoice = () => {
                         </Label>
                         <Input
                           type="text"
-                          value={searchedVehicle.currentDriver?.mobile || (driversData?.drivers?.find(d => d._id === selectedDriver)?.mobile || 'N/A')}
+                          value={
+                            searchedVehicle.currentDriver?.mobile ||
+                            driversData?.drivers?.find(
+                              (d) => d._id === selectedDriver
+                            )?.mobile ||
+                            "N/A"
+                          }
                           disabled
                           className="w-full bg-gray-50"
                         />
@@ -1814,12 +2094,14 @@ const UpdateInvoice = () => {
             <Card className="shadow-sm border border-gray-200">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-2 text-lg">
-                Docket Details
+                  Docket Details
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">Payment Mode/Type</Label>
+                  <Label className="text-sm font-medium">
+                    Payment Mode/Type
+                  </Label>
                   <Select
                     value={paymentType}
                     onValueChange={setPaymentType}
@@ -1840,7 +2122,7 @@ const UpdateInvoice = () => {
                   <Input
                     type="text"
                     value={ewayBillNo}
-                    onChange={e => setEwayBillNo(e.target.value)}
+                    onChange={(e) => setEwayBillNo(e.target.value)}
                     placeholder="Enter eway bill no"
                     className="w-full"
                     disabled={isFormDisabled}
@@ -1851,7 +2133,7 @@ const UpdateInvoice = () => {
                   <Input
                     type="text"
                     value={invoiceNumber}
-                    onChange={e => setInvoiceNumber(e.target.value)}
+                    onChange={(e) => setInvoiceNumber(e.target.value)}
                     placeholder="Enter invoice no"
                     className="w-full"
                     disabled={isFormDisabled}
@@ -1862,7 +2144,7 @@ const UpdateInvoice = () => {
                   <Input
                     type="number"
                     value={invoiceBill}
-                    onChange={e => setInvoiceBill(e.target.value)}
+                    onChange={(e) => setInvoiceBill(e.target.value)}
                     placeholder="Enter invoice amount"
                     className="w-full"
                     disabled={isFormDisabled}
@@ -1870,13 +2152,19 @@ const UpdateInvoice = () => {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Transport Mode</Label>
-                  <Select value={selectedTransportMode} onValueChange={setSelectedTransportMode} disabled={isFormDisabled}>
+                  <Select
+                    value={selectedTransportMode}
+                    onValueChange={setSelectedTransportMode}
+                    disabled={isFormDisabled}
+                  >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select Transport Mode" />
                     </SelectTrigger>
                     <SelectContent>
                       {transportModesData?.transportModes?.map((mode) => (
-                        <SelectItem key={mode._id} value={mode._id}>{mode.name}</SelectItem>
+                        <SelectItem key={mode._id} value={mode._id}>
+                          {mode.name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -1886,7 +2174,7 @@ const UpdateInvoice = () => {
                   <Input
                     type="number"
                     value={freightCharges}
-                    onChange={e => setFreightCharges(e.target.value)}
+                    onChange={(e) => setFreightCharges(e.target.value)}
                     placeholder="Enter freight charges"
                     className="w-full"
                     disabled={isFormDisabled}
@@ -1901,7 +2189,7 @@ const UpdateInvoice = () => {
                 <CardTitle>Delivery Proof</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                 <div className="space-y-2">
+                <div className="space-y-2">
                   <Label>Delivered At</Label>
                   <Input
                     type="datetime-local"
@@ -1913,7 +2201,9 @@ const UpdateInvoice = () => {
                   <Label>Receiver's Name</Label>
                   <Input
                     value={deliveryProof.receiverName}
-                    onChange={e => handleDeliveryProofChange('receiverName', e.target.value)}
+                    onChange={(e) =>
+                      handleDeliveryProofChange("receiverName", e.target.value)
+                    }
                     placeholder="Enter receiver's name"
                   />
                 </div>
@@ -1921,7 +2211,12 @@ const UpdateInvoice = () => {
                   <Label>Receiver's Mobile</Label>
                   <Input
                     value={deliveryProof.receiverMobile}
-                    onChange={e => handleDeliveryProofChange('receiverMobile', e.target.value)}
+                    onChange={(e) =>
+                      handleDeliveryProofChange(
+                        "receiverMobile",
+                        e.target.value
+                      )
+                    }
                     placeholder="Enter receiver's mobile"
                   />
                 </div>
@@ -1929,7 +2224,9 @@ const UpdateInvoice = () => {
                   <Label>Delivery Remarks</Label>
                   <Textarea
                     value={deliveryProof.remarks}
-                    onChange={e => handleDeliveryProofChange('remarks', e.target.value)}
+                    onChange={(e) =>
+                      handleDeliveryProofChange("remarks", e.target.value)
+                    }
                     placeholder="Enter delivery remarks"
                   />
                 </div>
@@ -1942,14 +2239,19 @@ const UpdateInvoice = () => {
                   />
                   {deliveryProof.signature && (
                     <div className="mt-2 p-2 border rounded-md bg-gray-50">
-                      <p className="text-xs text-green-600 font-semibold mb-2">Signature Preview:</p>
-                      <img src={deliveryProof.signature} alt="Signature Preview" className="max-h-24 border rounded shadow-sm" />
+                      <p className="text-xs text-green-600 font-semibold mb-2">
+                        Signature Preview:
+                      </p>
+                      <img
+                        src={deliveryProof.signature}
+                        alt="Signature Preview"
+                        className="max-h-24 border rounded shadow-sm"
+                      />
                     </div>
                   )}
                 </div>
               </CardContent>
             </Card>
-
 
             {/* Submit Button */}
             <Card className="shadow-sm border border-gray-200">
@@ -1976,101 +2278,127 @@ const UpdateInvoice = () => {
         </div>
       </div>
 
-        {/* Add Driver Dialog */}
-        <Dialog open={showAddDriverDialog} onOpenChange={setShowAddDriverDialog}>
-          <DialogContent className="max-w-md mx-4">
-            <DialogHeader>
-              <DialogTitle>Add New Driver</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Driver Name *</Label>
-                <Input
-                  value={newDriverData.name}
-                  onChange={(e) => setNewDriverData(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="Enter driver name"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Mobile Number * (10 digits)</Label>
-                <Input
-                  value={newDriverData.mobile}
-                  placeholder="Enter 10 digit mobile number"
-                  onChange={(e) => setNewDriverData(prev => ({ ...prev, mobile: e.target.value }))}
-                  maxLength={10}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Password *</Label>
-                <Input
-                  type="password"
-                  value={newDriverData.password}
-                  onChange={(e) => setNewDriverData(prev => ({ ...prev, password: e.target.value }))}
-                  placeholder="Enter password"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>License Number *</Label>
-                <Input
-                  value={newDriverData.licenseNumber}
-                  onChange={(e) => setNewDriverData(prev => ({ ...prev, licenseNumber: e.target.value }))}
-                  placeholder="Enter license number"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Experience Years * (0-50)</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  max="50"
-                  value={newDriverData.experienceYears}
-                  onChange={(e) => setNewDriverData(prev => ({ ...prev, experienceYears: e.target.value }))}
-                  placeholder="Enter experience years (0-50)"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Driver Type</Label>
-                <Select 
-                  value={newDriverData.driverType} 
-                  onValueChange={(value) => setNewDriverData(prev => ({ ...prev, driverType: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="dellcube">Dellcube</SelectItem>
-                    <SelectItem value="vendor">Vendor</SelectItem>
-                    <SelectItem value="temporary">Temporary</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2 pt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowAddDriverDialog(false)}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleCreateDriver}
-                  disabled={isCreatingDriver}
-                  className="flex-1 bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020]"
-                >
-                  {isCreatingDriver ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      Creating...
-                    </>
-                  ) : (
-                    "Create Driver"
-                  )}
-                </Button>
-              </div>
+      {/* Add Driver Dialog */}
+      <Dialog open={showAddDriverDialog} onOpenChange={setShowAddDriverDialog}>
+        <DialogContent className="max-w-md mx-4">
+          <DialogHeader>
+            <DialogTitle>Add New Driver</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Driver Name *</Label>
+              <Input
+                value={newDriverData.name}
+                onChange={(e) =>
+                  setNewDriverData((prev) => ({
+                    ...prev,
+                    name: e.target.value,
+                  }))
+                }
+                placeholder="Enter driver name"
+              />
             </div>
-          </DialogContent>
-        </Dialog>
-      
+            <div className="space-y-2">
+              <Label>Mobile Number * (10 digits)</Label>
+              <Input
+                value={newDriverData.mobile}
+                placeholder="Enter 10 digit mobile number"
+                onChange={(e) =>
+                  setNewDriverData((prev) => ({
+                    ...prev,
+                    mobile: e.target.value,
+                  }))
+                }
+                maxLength={10}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Password *</Label>
+              <Input
+                type="password"
+                value={newDriverData.password}
+                onChange={(e) =>
+                  setNewDriverData((prev) => ({
+                    ...prev,
+                    password: e.target.value,
+                  }))
+                }
+                placeholder="Enter password"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>License Number *</Label>
+              <Input
+                value={newDriverData.licenseNumber}
+                onChange={(e) =>
+                  setNewDriverData((prev) => ({
+                    ...prev,
+                    licenseNumber: e.target.value,
+                  }))
+                }
+                placeholder="Enter license number"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Experience Years * (0-50)</Label>
+              <Input
+                type="number"
+                min="0"
+                max="50"
+                value={newDriverData.experienceYears}
+                onChange={(e) =>
+                  setNewDriverData((prev) => ({
+                    ...prev,
+                    experienceYears: e.target.value,
+                  }))
+                }
+                placeholder="Enter experience years (0-50)"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Driver Type</Label>
+              <Select
+                value={newDriverData.driverType}
+                onValueChange={(value) =>
+                  setNewDriverData((prev) => ({ ...prev, driverType: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="dellcube">Dellcube</SelectItem>
+                  <SelectItem value="vendor">Vendor</SelectItem>
+                  <SelectItem value="temporary">Temporary</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setShowAddDriverDialog(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleCreateDriver}
+                disabled={isCreatingDriver}
+                className="flex-1 bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020]"
+              >
+                {isCreatingDriver ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Creating...
+                  </>
+                ) : (
+                  "Create Driver"
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

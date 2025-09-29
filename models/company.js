@@ -52,7 +52,12 @@ const companySchema = new mongoose.Schema(
     companyType: {
       type: String,
       required: true,
-      enum: ["counter company", "logistic company", "transport company", "warehouse company"],
+      enum: [
+        "counter company",
+        "logistic company",
+        "transport company",
+        "warehouse company",
+      ],
     },
     address: {
       type: String,
@@ -64,20 +69,13 @@ const companySchema = new mongoose.Schema(
       trim: true,
       match: [/^\d{10}$/, "Invalid mobile number"],
     },
-    bankDetails: {
-      bankName: {
-        type: String,
-        trim: true,
+    bankDetails: [
+      {
+        bankName: { type: String, trim: true },
+        accountNumber: { type: String, trim: true },
+        ifsc: { type: String, trim: true },
       },
-      accountNumber: {
-        type: String,
-        trim: true,
-      },
-      ifsc: {
-        type: String,
-        trim: true,
-      },
-    },
+    ],
     emergencyContact: {
       name: {
         type: String,

@@ -1,7 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import { Loader2, CreditCard, Building, User, Mail, MapPin, Banknote, Hash, Building2, Camera } from "lucide-react";
+import {
+  Loader2,
+  CreditCard,
+  Building,
+  User,
+  Mail,
+  MapPin,
+  Banknote,
+  Hash,
+  Building2,
+  Camera,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,11 +47,13 @@ const UpdateOperations = () => {
     useUpdateOperationUserMutation();
 
   const { data: companies } = useGetAllCompaniesQuery({});
-  const [getBranches, { data: branchesData }] = useGetBranchesByCompanyMutation();
+  const [getBranches, { data: branchesData }] =
+    useGetBranchesByCompanyMutation();
 
   const [formData, setFormData] = useState({
     name: "",
     email: "",
+    mobile: "",
     company: "",
     branch: "",
     status: true,
@@ -67,6 +80,7 @@ const UpdateOperations = () => {
       setFormData({
         name: u.name || "",
         email: u.email || "",
+        mobile: u.mobile || "",
         company: u.company?._id || "",
         branch: u.branch?._id || "",
         status: u.status || false,
@@ -86,8 +100,8 @@ const UpdateOperations = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    if (name.startsWith('bank.')) {
-      const bankField = name.split('.')[1];
+    if (name.startsWith("bank.")) {
+      const bankField = name.split(".")[1];
       setFormData((prev) => ({
         ...prev,
         bankDetails: {
@@ -95,11 +109,14 @@ const UpdateOperations = () => {
           [bankField]: value,
         },
       }));
-    } else if (name === 'aadharNumber') {
+    } else if (name === "aadharNumber") {
       // Only allow digits for Aadhar
-      const numericValue = value.replace(/\D/g, '');
+      const numericValue = value.replace(/\D/g, "");
       setFormData((prev) => ({ ...prev, [name]: numericValue }));
-    } else if (name === 'panNumber') {
+    } else if (name === "mobile") {
+      const numericValue = value.replace(/\D/g, "");
+      setFormData((prev) => ({ ...prev, [name]: numericValue.slice(0, 10) }));
+    } else if (name === "panNumber") {
       // Convert to uppercase for PAN
       setFormData((prev) => ({ ...prev, [name]: value.toUpperCase() }));
     } else {
@@ -113,10 +130,23 @@ const UpdateOperations = () => {
   };
 
   const validateForm = () => {
-    const { name, email, company, branch, aadharNumber, panNumber, bankDetails } = formData;
+    const {
+      name,
+      email,
+      company,
+      branch,
+      aadharNumber,
+      panNumber,
+      bankDetails,
+      mobile,
+    } = formData;
 
     if (!name || !email || !company || !branch || !aadharNumber || !panNumber) {
       toast.error("All basic fields are required.");
+      return false;
+    }
+    if (mobile && mobile.length !== 10) {
+      toast.error("Mobile must be 10 digits if provided.");
       return false;
     }
 
@@ -130,12 +160,20 @@ const UpdateOperations = () => {
       return false;
     }
 
-    if (!bankDetails.accountNumber || !bankDetails.ifscCode || !bankDetails.bankName || !bankDetails.accountHolderName) {
+    if (
+      !bankDetails.accountNumber ||
+      !bankDetails.ifscCode ||
+      !bankDetails.bankName ||
+      !bankDetails.accountHolderName
+    ) {
       toast.error("All bank details are required.");
       return false;
     }
 
-    if (bankDetails.accountNumber.length < 9 || bankDetails.accountNumber.length > 18) {
+    if (
+      bankDetails.accountNumber.length < 9 ||
+      bankDetails.accountNumber.length > 18
+    ) {
       toast.error("Account number must be between 9-18 digits.");
       return false;
     }
@@ -157,6 +195,7 @@ const UpdateOperations = () => {
     payload.append("userId", userId);
     payload.append("name", formData.name);
     payload.append("email", formData.email);
+    if (formData.mobile) payload.append("mobile", formData.mobile);
     payload.append("company", formData.company);
     payload.append("branch", formData.branch);
     payload.append("status", formData.status);
@@ -206,9 +245,28 @@ const UpdateOperations = () => {
           </Label>
           <Input
             value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, email: e.target.value })
+            }
             placeholder="Email"
             className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249]"
+          />
+        </div>
+
+        <div>
+          <Label className="flex items-center gap-2">
+            <Hash className="w-4 h-4 text-[#FFD249]" />
+            Mobile
+          </Label>
+          <Input
+            value={formData.mobile}
+            onChange={(e) => {
+              const v = e.target.value.replace(/\D/g, "").slice(0, 10);
+              setFormData({ ...formData, mobile: v });
+            }}
+            placeholder="10-digit mobile number"
+            maxLength="10"
+            className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249] font-mono"
           />
         </div>
 
@@ -217,10 +275,10 @@ const UpdateOperations = () => {
             <Camera className="w-4 h-4 text-[#FFD249]" />
             Change Profile Image
           </Label>
-          <Input 
-            type="file" 
-            accept="image/*" 
-            onChange={handleImageChange} 
+          <Input
+            type="file"
+            accept="image/*"
+            onChange={handleImageChange}
             className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249]"
           />
         </div>
@@ -234,7 +292,8 @@ const UpdateOperations = () => {
           {isBranchAdmin ? (
             <Input
               value={
-                companies?.companies?.find((c) => c._id === formData.company)?.name || "Company"
+                companies?.companies?.find((c) => c._id === formData.company)
+                  ?.name || "Company"
               }
               disabled
               className="bg-gray-100 cursor-not-allowed mt-2"
@@ -270,7 +329,8 @@ const UpdateOperations = () => {
           {isBranchAdmin ? (
             <Input
               value={
-                branchesData?.branches?.find((b) => b._id === formData.branch)?.name || "Branch"
+                branchesData?.branches?.find((b) => b._id === formData.branch)
+                  ?.name || "Branch"
               }
               disabled
               className="bg-gray-100 cursor-not-allowed mt-2"
@@ -278,9 +338,7 @@ const UpdateOperations = () => {
           ) : (
             <Select
               value={formData.branch}
-              onValueChange={(val) =>
-                setFormData({ ...formData, branch: val })
-              }
+              onValueChange={(val) => setFormData({ ...formData, branch: val })}
               disabled={!formData.company}
             >
               <SelectTrigger className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249]">
@@ -323,7 +381,7 @@ const UpdateOperations = () => {
             onChange={handleInputChange}
             placeholder="ABCDE1234F"
             maxLength="10"
-            style={{ textTransform: 'uppercase' }}
+            style={{ textTransform: "uppercase" }}
             className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249] font-mono"
           />
         </div>
@@ -387,7 +445,7 @@ const UpdateOperations = () => {
             value={formData.bankDetails.ifscCode}
             onChange={handleInputChange}
             placeholder="ABCD0123456"
-            style={{ textTransform: 'uppercase' }}
+            style={{ textTransform: "uppercase" }}
             maxLength="11"
             className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249] font-mono"
           />
@@ -407,10 +465,17 @@ const UpdateOperations = () => {
       </div>
 
       <div className="flex gap-2 mt-6">
-        <Button variant="outline" onClick={() => navigate("/admin/operation-users")}>
+        <Button
+          variant="outline"
+          onClick={() => navigate("/admin/operation-users")}
+        >
           Cancel
         </Button>
-        <Button disabled={isLoading} onClick={handleUpdate} className="bg-[#FFD249] text-[#202020] hover:bg-[#FFD249]/90">
+        <Button
+          disabled={isLoading}
+          onClick={handleUpdate}
+          className="bg-[#FFD249] text-[#202020] hover:bg-[#FFD249]/90"
+        >
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating...

@@ -93,7 +93,7 @@ export const updateProfileController = async (req, res) => {
 
     if (req.files && req.files.profilePhoto) {
       if (user.photoUrlPublicId) {
-        await cloudinary.uploader.destroy(user.photoUrlPublicId)
+        await cloudinary.uploader.destroy(user.photoUrlPublicId);
       }
       photoUrl = req.files.profilePhoto[0].path;
       photoUrlPublicId = req.files.profilePhoto[0].filename;
@@ -101,14 +101,20 @@ export const updateProfileController = async (req, res) => {
 
     if (req.files && req.files.bannerImage) {
       if (user.bannerUrlPublicId) {
-        await cloudinary.uploader.destroy(user.bannerUrlPublicId)
+        await cloudinary.uploader.destroy(user.bannerUrlPublicId);
       }
       bannerUrl = req.files.bannerImage[0].path;
-      bannerUrlPublicId = req.files.bannerImage[0].filename
+      bannerUrlPublicId = req.files.bannerImage[0].filename;
     }
     const updatedData = { name };
-    if (photoUrl) { updatedData.photoUrl = photoUrl; updatedData.photoUrlPublicId = photoUrlPublicId }
-    if (bannerUrl) { updatedData.bannerUrl = bannerUrl; updatedData.bannerUrlPublicId = bannerUrlPublicId }
+    if (photoUrl) {
+      updatedData.photoUrl = photoUrl;
+      updatedData.photoUrlPublicId = photoUrlPublicId;
+    }
+    if (bannerUrl) {
+      updatedData.bannerUrl = bannerUrl;
+      updatedData.bannerUrlPublicId = bannerUrlPublicId;
+    }
 
     const updatedUser = await User.findByIdAndUpdate(userId, updatedData, {
       new: true,
@@ -124,9 +130,11 @@ export const updateProfileController = async (req, res) => {
     console.log("Error message:", error.message);
     console.log("Error stack:", error.stack);
     console.log(error);
-    return res
-      .status(500)
-      .json({ success: false, message: "Something went wrong", error: error.message });
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+      error: error.message,
+    });
   }
 };
 
@@ -266,29 +274,46 @@ export const logoutController = async (req, res) => {
 // === BRANCH ADMIN CONTROLLERS ===
 export const createBranchAdminController = async (req, res) => {
   try {
-    const { 
-      name, 
-      email, 
-      password, 
-      company, 
-      branch, 
-      aadharNumber, 
-      panNumber, 
-      bankDetails 
+    const {
+      name,
+      email,
+      password,
+      company,
+      branch,
+      mobile,
+      aadharNumber,
+      panNumber,
+      bankDetails,
     } = req.body;
 
-    if (!name || !email || !password || !company || !branch || !aadharNumber || !panNumber || !bankDetails) {
+    if (
+      !name ||
+      !email ||
+      !password ||
+      !company ||
+      !branch ||
+      !aadharNumber ||
+      !panNumber ||
+      !bankDetails
+    ) {
       return res.status(400).json({
         success: false,
-        message: "All fields are required including Aadhar, PAN, and Bank details.",
+        message:
+          "All fields are required including Aadhar, PAN, and Bank details.",
       });
     }
 
     // Validate bank details
-    if (!bankDetails.accountNumber || !bankDetails.ifscCode || !bankDetails.bankName || !bankDetails.accountHolderName) {
+    if (
+      !bankDetails.accountNumber ||
+      !bankDetails.ifscCode ||
+      !bankDetails.bankName ||
+      !bankDetails.accountHolderName
+    ) {
       return res.status(400).json({
         success: false,
-        message: "All bank details are required: account number, IFSC code, bank name, and account holder name.",
+        message:
+          "All bank details are required: account number, IFSC code, bank name, and account holder name.",
       });
     }
 
@@ -319,6 +344,14 @@ export const createBranchAdminController = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Validate optional mobile
+    if (mobile && !/^\d{10}$/.test(mobile)) {
+      return res.status(400).json({
+        success: false,
+        message: "Mobile must be 10 digits if provided.",
+      });
+    }
+
     const newUser = await User.create({
       name,
       email,
@@ -326,6 +359,7 @@ export const createBranchAdminController = async (req, res) => {
       role: "branchAdmin",
       company,
       branch,
+      ...(mobile && { mobile }),
       aadharNumber,
       panNumber,
       bankDetails,
@@ -456,16 +490,17 @@ export const deleteBranchAdminController = async (req, res) => {
 
 export const updateBranchAdminController = async (req, res) => {
   try {
-    const { 
-      userId, 
-      name, 
-      email, 
-      company, 
-      branch, 
-      status, 
-      aadharNumber, 
-      panNumber, 
-      bankDetails 
+    const {
+      userId,
+      name,
+      email,
+      company,
+      branch,
+      status,
+      mobile,
+      aadharNumber,
+      panNumber,
+      bankDetails,
     } = req.body;
 
     if (!userId || !name) {
@@ -486,7 +521,10 @@ export const updateBranchAdminController = async (req, res) => {
 
     // Check for existing users with same Aadhar or PAN (excluding current user)
     if (aadharNumber && aadharNumber !== user.aadharNumber) {
-      const existingAadhar = await User.findOne({ aadharNumber, _id: { $ne: userId } });
+      const existingAadhar = await User.findOne({
+        aadharNumber,
+        _id: { $ne: userId },
+      });
       if (existingAadhar) {
         return res.status(400).json({
           success: false,
@@ -496,7 +534,10 @@ export const updateBranchAdminController = async (req, res) => {
     }
 
     if (panNumber && panNumber !== user.panNumber) {
-      const existingPAN = await User.findOne({ panNumber, _id: { $ne: userId } });
+      const existingPAN = await User.findOne({
+        panNumber,
+        _id: { $ne: userId },
+      });
       if (existingPAN) {
         return res.status(400).json({
           success: false,
@@ -517,7 +558,7 @@ export const updateBranchAdminController = async (req, res) => {
 
     // Parse bankDetails if it's a JSON string
     let parsedBankDetails = bankDetails;
-    if (typeof bankDetails === 'string') {
+    if (typeof bankDetails === "string") {
       try {
         parsedBankDetails = JSON.parse(bankDetails);
       } catch (error) {
@@ -528,12 +569,21 @@ export const updateBranchAdminController = async (req, res) => {
       }
     }
 
+    // Validate optional mobile
+    if (mobile && !/^\d{10}$/.test(mobile)) {
+      return res.status(400).json({
+        success: false,
+        message: "Mobile must be 10 digits if provided.",
+      });
+    }
+
     const updatedData = {
       name,
       email,
       ...(company && { company }),
       ...(branch && { branch }),
       ...(status !== undefined && { status }),
+      ...(mobile && { mobile }),
       ...(aadharNumber && { aadharNumber }),
       ...(panNumber && { panNumber }),
       ...(parsedBankDetails && { bankDetails: parsedBankDetails }),
@@ -565,29 +615,46 @@ export const updateBranchAdminController = async (req, res) => {
 // === OPERATION USER CONTROLLERS ===
 export const createOperationUserController = async (req, res) => {
   try {
-    const { 
-      name, 
-      email, 
-      password, 
-      company, 
-      branch, 
-      aadharNumber, 
-      panNumber, 
-      bankDetails 
+    const {
+      name,
+      email,
+      password,
+      company,
+      branch,
+      mobile,
+      aadharNumber,
+      panNumber,
+      bankDetails,
     } = req.body;
-    
-    if (!name || !email || !password || !company || !branch || !aadharNumber || !panNumber || !bankDetails) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "All fields are required including Aadhar, PAN, and Bank details." 
+
+    if (
+      !name ||
+      !email ||
+      !password ||
+      !company ||
+      !branch ||
+      !aadharNumber ||
+      !panNumber ||
+      !bankDetails
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "All fields are required including Aadhar, PAN, and Bank details.",
       });
     }
 
     // Validate bank details
-    if (!bankDetails.accountNumber || !bankDetails.ifscCode || !bankDetails.bankName || !bankDetails.accountHolderName) {
+    if (
+      !bankDetails.accountNumber ||
+      !bankDetails.ifscCode ||
+      !bankDetails.bankName ||
+      !bankDetails.accountHolderName
+    ) {
       return res.status(400).json({
         success: false,
-        message: "All bank details are required: account number, IFSC code, bank name, and account holder name.",
+        message:
+          "All bank details are required: account number, IFSC code, bank name, and account holder name.",
       });
     }
 
@@ -610,10 +677,22 @@ export const createOperationUserController = async (req, res) => {
 
     const existing = await User.findOne({ email });
     if (existing) {
-      return res.status(400).json({ success: false, message: "User with this email already exists." });
+      return res.status(400).json({
+        success: false,
+        message: "User with this email already exists.",
+      });
     }
-    
+
     const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Validate optional mobile
+    if (mobile && !/^\d{10}$/.test(mobile)) {
+      return res.status(400).json({
+        success: false,
+        message: "Mobile must be 10 digits if provided.",
+      });
+    }
+
     const newUser = await User.create({
       name,
       email,
@@ -621,15 +700,23 @@ export const createOperationUserController = async (req, res) => {
       role: "operation",
       company,
       branch,
+      ...(mobile && { mobile }),
       aadharNumber,
       panNumber,
       bankDetails,
       status: true,
     });
-    return res.status(201).json({ success: true, message: "Operation User created successfully.", user: newUser });
+    return res.status(201).json({
+      success: true,
+      message: "Operation User created successfully.",
+      user: newUser,
+    });
   } catch (error) {
     console.error("Error creating operation user:", error.message);
-    return res.status(500).json({ success: false, message: "Server error while creating operation user" });
+    return res.status(500).json({
+      success: false,
+      message: "Server error while creating operation user",
+    });
   }
 };
 
@@ -664,24 +751,36 @@ export const getAllOperationUsers = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching operation users:", error);
-    return res.status(500).json({ success: false, message: "Something went wrong while fetching operation users" });
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong while fetching operation users",
+    });
   }
 };
 
 export const getOperationUserById = async (req, res) => {
   try {
     const { id } = req.body;
-   
+
     const user = await User.findOne({ _id: id, role: "operation" })
       .populate("company", "name")
       .populate("branch", "name");
     if (!user) {
-      return res.status(404).json({ success: false, message: "Operation user not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Operation user not found" });
     }
-    return res.status(200).json({ success: true, message: "Operation user fetched successfully", user });
+    return res.status(200).json({
+      success: true,
+      message: "Operation user fetched successfully",
+      user,
+    });
   } catch (error) {
     console.error("Error fetching operation user:", error);
-    return res.status(500).json({ success: false, message: "Something went wrong while fetching the operation user" });
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong while fetching the operation user",
+    });
   }
 };
 
@@ -689,45 +788,63 @@ export const deleteOperationUserController = async (req, res) => {
   try {
     const { id } = req.body;
     if (!id) {
-      return res.status(400).json({ success: false, message: "Operation User ID is required." });
+      return res
+        .status(400)
+        .json({ success: false, message: "Operation User ID is required." });
     }
     const user = await User.findById(id);
     if (!user || user.role !== "operation") {
-      return res.status(404).json({ success: false, message: "Operation User not found." });
+      return res
+        .status(404)
+        .json({ success: false, message: "Operation User not found." });
     }
     await User.findByIdAndDelete(id);
-    return res.status(200).json({ success: true, message: "Operation User deleted successfully." });
+    return res
+      .status(200)
+      .json({ success: true, message: "Operation User deleted successfully." });
   } catch (error) {
     console.error("Error deleting operation user:", error.message);
-    return res.status(500).json({ success: false, message: "Server error while deleting operation user." });
+    return res.status(500).json({
+      success: false,
+      message: "Server error while deleting operation user.",
+    });
   }
 };
 
 export const updateOperationUserController = async (req, res) => {
   try {
-    const { 
-      userId, 
-      name, 
-      company, 
-      branch, 
-      status, 
-      aadharNumber, 
-      panNumber, 
-      bankDetails 
+    const {
+      userId,
+      name,
+      email,
+      company,
+      branch,
+      status,
+      mobile,
+      aadharNumber,
+      panNumber,
+      bankDetails,
     } = req.body;
-    
+
     if (!userId || !name) {
-      return res.status(400).json({ success: false, message: "User ID and Name are required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "User ID and Name are required" });
     }
-    
+
     const user = await User.findById(userId);
     if (!user || user.role !== "operation") {
-      return res.status(404).json({ success: false, message: "Operation User not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Operation User not found" });
     }
 
     // Check for existing users with same Aadhar or PAN (excluding current user)
     if (aadharNumber && aadharNumber !== user.aadharNumber) {
-      const existingAadhar = await User.findOne({ aadharNumber, _id: { $ne: userId } });
+      const existingAadhar = await User.findOne({
+        aadharNumber,
+        _id: { $ne: userId },
+      });
       if (existingAadhar) {
         return res.status(400).json({
           success: false,
@@ -737,7 +854,10 @@ export const updateOperationUserController = async (req, res) => {
     }
 
     if (panNumber && panNumber !== user.panNumber) {
-      const existingPAN = await User.findOne({ panNumber, _id: { $ne: userId } });
+      const existingPAN = await User.findOne({
+        panNumber,
+        _id: { $ne: userId },
+      });
       if (existingPAN) {
         return res.status(400).json({
           success: false,
@@ -757,7 +877,7 @@ export const updateOperationUserController = async (req, res) => {
 
     // Parse bankDetails if it's a JSON string
     let parsedBankDetails = bankDetails;
-    if (typeof bankDetails === 'string') {
+    if (typeof bankDetails === "string") {
       try {
         parsedBankDetails = JSON.parse(bankDetails);
       } catch (error) {
@@ -768,43 +888,72 @@ export const updateOperationUserController = async (req, res) => {
       }
     }
 
+    // Validate optional mobile
+    if (mobile && !/^\d{10}$/.test(mobile)) {
+      return res.status(400).json({
+        success: false,
+        message: "Mobile must be 10 digits if provided.",
+      });
+    }
+
     const updatedData = {
       name,
+      ...(email && { email }),
       ...(company && { company }),
       ...(branch && { branch }),
       ...(status !== undefined && { status }),
+      ...(mobile && { mobile }),
       ...(aadharNumber && { aadharNumber }),
       ...(panNumber && { panNumber }),
       ...(parsedBankDetails && { bankDetails: parsedBankDetails }),
       ...(photoUrl && { photoUrl, photoUrlPublicId }),
     };
-    
-    const updatedUser = await User.findByIdAndUpdate(userId, updatedData, { new: true }).select("-password");
-    return res.status(200).json({ success: true, message: "Operation User updated successfully", updatedUser });
+
+    const updatedUser = await User.findByIdAndUpdate(userId, updatedData, {
+      new: true,
+    }).select("-password");
+    return res.status(200).json({
+      success: true,
+      message: "Operation User updated successfully",
+      updatedUser,
+    });
   } catch (error) {
     console.error("Update Operation User Error:", error.message);
-    return res.status(500).json({ success: false, message: "Server error while updating Operation User", error: error.message });
+    return res.status(500).json({
+      success: false,
+      message: "Server error while updating Operation User",
+      error: error.message,
+    });
   }
 };
 
 // === DRIVER CONTROLLERS ===
 export const createDriverController = async (req, res) => {
   try {
-    const { 
-      name, 
-      mobile, 
-      password, 
-      company, 
-      branch, 
-      licenseNumber, 
+    const {
+      name,
+      mobile,
+      password,
+      company,
+      branch,
+      licenseNumber,
       experienceYears,
       driverType,
       aadharNumber,
       panNumber,
-      bankDetails
+      bankDetails,
     } = req.body;
 
-    if (!name || !mobile || !password || !company || !branch || !licenseNumber || !experienceYears || !driverType) {
+    if (
+      !name ||
+      !mobile ||
+      !password ||
+      !company ||
+      !branch ||
+      !licenseNumber ||
+      !experienceYears ||
+      !driverType
+    ) {
       return res.status(400).json({
         success: false,
         message: "All required fields are required.",
@@ -838,7 +987,8 @@ export const createDriverController = async (req, res) => {
     if (!/^[A-Za-z0-9\-\s]+$/.test(licenseNumber)) {
       return res.status(400).json({
         success: false,
-        message: "License number can only contain letters, numbers, hyphens, and spaces.",
+        message:
+          "License number can only contain letters, numbers, hyphens, and spaces.",
       });
     }
 
@@ -921,8 +1071,9 @@ export const createDriverController = async (req, res) => {
 
 export const getAllDriversController = async (req, res) => {
   try {
-    let { page, limit, search, company, branch, status, driverType } = req.query;
-    console.log(req.query)
+    let { page, limit, search, company, branch, status, driverType } =
+      req.query;
+    console.log(req.query);
     page = parseInt(page) || 1;
     limit = parseInt(limit) || 10;
     const skip = (page - 1) * limit;
@@ -993,19 +1144,19 @@ export const getDriverByIdController = async (req, res) => {
 
 export const updateDriverController = async (req, res) => {
   try {
-    const { 
-      userId, 
-      name, 
-      mobile, 
-      licenseNumber, 
-      experienceYears, 
-      company, 
-      branch, 
+    const {
+      userId,
+      name,
+      mobile,
+      licenseNumber,
+      experienceYears,
+      company,
+      branch,
       status,
       driverType,
       aadharNumber,
       panNumber,
-      bankDetails
+      bankDetails,
     } = req.body;
 
     if (!userId || !name || !mobile) {
@@ -1016,7 +1167,10 @@ export const updateDriverController = async (req, res) => {
     }
 
     // Driver type validation
-    if (driverType && !["dellcube", "vendor", "temporary"].includes(driverType)) {
+    if (
+      driverType &&
+      !["dellcube", "vendor", "temporary"].includes(driverType)
+    ) {
       return res.status(400).json({
         success: false,
         message: "Driver type must be one of: dellcube, vendor, temporary.",
@@ -1042,7 +1196,8 @@ export const updateDriverController = async (req, res) => {
     if (licenseNumber && !/^[A-Za-z0-9\-\s]+$/.test(licenseNumber)) {
       return res.status(400).json({
         success: false,
-        message: "License number can only contain letters, numbers, hyphens, and spaces.",
+        message:
+          "License number can only contain letters, numbers, hyphens, and spaces.",
       });
     }
 
@@ -1072,7 +1227,10 @@ export const updateDriverController = async (req, res) => {
 
     // Check for existing users with same Aadhar or PAN (excluding current user)
     if (aadharNumber && aadharNumber !== user.aadharNumber) {
-      const existingAadhar = await User.findOne({ aadharNumber, _id: { $ne: userId } });
+      const existingAadhar = await User.findOne({
+        aadharNumber,
+        _id: { $ne: userId },
+      });
       if (existingAadhar) {
         return res.status(400).json({
           success: false,
@@ -1082,7 +1240,10 @@ export const updateDriverController = async (req, res) => {
     }
 
     if (panNumber && panNumber !== user.panNumber) {
-      const existingPAN = await User.findOne({ panNumber, _id: { $ne: userId } });
+      const existingPAN = await User.findOne({
+        panNumber,
+        _id: { $ne: userId },
+      });
       if (existingPAN) {
         return res.status(400).json({
           success: false,
@@ -1103,7 +1264,7 @@ export const updateDriverController = async (req, res) => {
 
     // Parse bankDetails if it's a JSON string
     let parsedBankDetails = bankDetails;
-    if (typeof bankDetails === 'string') {
+    if (typeof bankDetails === "string") {
       try {
         parsedBankDetails = JSON.parse(bankDetails);
       } catch (error) {
@@ -1183,4 +1344,3 @@ export const deleteDriverController = async (req, res) => {
     });
   }
 };
-

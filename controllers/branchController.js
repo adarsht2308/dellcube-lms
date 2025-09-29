@@ -2,7 +2,8 @@ import { Branch } from "../models/branch.js";
 
 export const createBranch = async (req, res) => {
   try {
-    const { name, branchCode, company, address, status, gstNo, branchNo } = req.body;
+    const { name, branchCode, company, address, status, gstNo, branchNo } =
+      req.body;
 
     if (!name || !branchCode || !company || !address) {
       return res.status(400).json({ message: "Required fields are missing" });
@@ -54,7 +55,7 @@ export const getAllBranches = async (req, res) => {
     }
     if (status === "true") query.status = true;
     if (status === "false") query.status = false;
-    
+
     // Handle company filter - skip if "all" is passed
     if (company && company !== "all") {
       // Validate if company is a valid ObjectId
@@ -121,8 +122,16 @@ export const getBranchById = async (req, res) => {
 
 export const updateBranch = async (req, res) => {
   try {
-    const { branchId, name, branchCode, company, address, status, gstNo, branchNo } =
-      req.body;
+    const {
+      branchId,
+      name,
+      branchCode,
+      company,
+      address,
+      status,
+      gstNo,
+      branchNo,
+    } = req.body;
 
     const branch = await Branch.findById(branchId);
     if (!branch) {
@@ -135,7 +144,7 @@ export const updateBranch = async (req, res) => {
     if (branchCode) branch.branchCode = branchCode;
     if (company) branch.company = company;
     if (address) branch.address = address;
-    
+
     if (status !== undefined) branch.status = status;
     if (gstNo !== undefined) branch.gstNo = gstNo;
     if (branchNo !== undefined) branch.branchNo = branchNo;
@@ -184,12 +193,23 @@ export const deleteBranch = async (req, res) => {
 
 export const getBranchesByCompany = async (req, res) => {
   try {
-    const {companyId } = req.body;
+    const { companyId } = req.body;
 
     if (!companyId) {
       return res.status(400).json({
         success: false,
         message: "Company ID is required",
+      });
+    }
+
+    // If client passes "all" or an invalid ObjectId, return empty list gracefully
+    const isValidObjectId =
+      typeof companyId === "string" && companyId.match(/^[0-9a-fA-F]{24}$/);
+    if (companyId === "all" || !isValidObjectId) {
+      return res.status(200).json({
+        success: true,
+        message: "Branches fetched successfully",
+        branches: [],
       });
     }
 

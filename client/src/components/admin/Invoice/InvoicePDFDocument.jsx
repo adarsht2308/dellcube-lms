@@ -36,7 +36,10 @@ const styles = StyleSheet.create({
   page: {
     backgroundColor: "#fff",
     fontFamily: "Helvetica",
-    padding: 0,
+    paddingTop: 0,
+    paddingBottom: 0,
+    paddingLeft: 12,
+    paddingRight: 12,
   },
   pageContainer: {
     width: "100%",
@@ -379,7 +382,26 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
     return date.toLocaleDateString("en-IN");
   };
 
-  const formatAddress = (addressObj, pickupAddress) => {
+  const formatAddress = (addressObj, pickupAddress, postOfficeComputed) => {
+    // Prefer computed post office fields if provided
+    if (
+      postOfficeComputed &&
+      (postOfficeComputed.name ||
+        postOfficeComputed.district ||
+        postOfficeComputed.state)
+    ) {
+      const parts = [
+        postOfficeComputed.name,
+        postOfficeComputed.taluk,
+        postOfficeComputed.district,
+        postOfficeComputed.division,
+        postOfficeComputed.state,
+        postOfficeComputed.country,
+      ].filter(Boolean);
+      const address = parts.join(", ");
+      return address || "-";
+    }
+
     const parts = [
       pickupAddress,
       addressObj?.locality?.name,
@@ -395,8 +417,16 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
     return address + pincode || "-";
   };
 
-  const fromFull = formatAddress(invoice?.fromAddress, invoice?.pickupAddress);
-  const toFull = formatAddress(invoice?.toAddress, invoice?.deliveryAddress);
+  const fromFull = formatAddress(
+    invoice?.fromAddress,
+    invoice?.pickupAddress,
+    invoice?.fromPostOfficeComputed
+  );
+  const toFull = formatAddress(
+    invoice?.toAddress,
+    invoice?.deliveryAddress,
+    invoice?.toPostOfficeComputed
+  );
 
   const signature = invoice?.deliveryProof?.signature;
   const isValidSignature =
@@ -692,14 +722,16 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
         <View style={styles.rightColumn}>
           <View style={styles.freightSection}>
             <Text style={styles.freightHeader}>FREIGHT CHARGES</Text>
-            {freightCharges.map((charge, index) => (
-              <View key={index} style={styles.freightRow}>
-                <Text style={styles.freightLabel}>{charge.label}</Text>
-                <Text style={styles.freightValue}>
-                  {renderCurrency(charge.value)}
-                </Text>
-              </View>
-            ))}
+            {freightCharges
+              .filter((c) => c.label !== "Freight")
+              .map((charge, index) => (
+                <View key={index} style={styles.freightRow}>
+                  <Text style={styles.freightLabel}>{charge.label}</Text>
+                  <Text style={styles.freightValue}>
+                    {renderCurrency(charge.value)}
+                  </Text>
+                </View>
+              ))}
             <View style={[styles.freightRow, styles.freightTotal]}>
               <Text style={[styles.freightLabel, styles.freightTotal]}>
                 TOTAL
@@ -749,7 +781,9 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
           </View>
           <View style={styles.receiverRow}>
             <Text style={styles.receiverLabel}>Remark:</Text>
-            <Text style={styles.receiverValue}>{invoice?.deliveryProof?.remarks}</Text>
+            <Text style={styles.receiverValue}>
+              {invoice?.deliveryProof?.remarks}
+            </Text>
           </View>
           <Text style={{ fontSize: 6, fontWeight: "bold", marginTop: "1mm" }}>
             Receiver's Signature:
@@ -799,21 +833,7 @@ export default function InvoicePDFDocument({ invoice, logoBase64 }) {
           <InvoiceCopy
             invoice={invoice}
             logoBase64={logoBase64}
-            copyType="OFFICE COPY"
-          />
-        </View>
-      </Page>
-      <Page size="A4" style={styles.page}>
-        <View style={styles.pageContainer}>
-          <InvoiceCopy
-            invoice={invoice}
-            logoBase64={logoBase64}
             copyType="CONSIGNEE COPY"
-          />
-          <InvoiceCopy
-            invoice={invoice}
-            logoBase64={logoBase64}
-            copyType="DRIVER COPY"
           />
         </View>
       </Page>

@@ -129,6 +129,50 @@ export const vendorApi = createApi({
       },
       invalidatesTags: ["Vendor"],
     }),
+
+    // 9. Get vendor invoices (GET /api/vendors/my-invoices)
+    getVendorInvoices: builder.query({
+      query: () => ({
+        url: "/my-invoices",
+        method: "GET",
+      }),
+      providesTags: ["Vendor"],
+    }),
+
+    // 10. Get vendor vehicles (GET /api/vendors/my-vehicles)
+    getVendorVehicles: builder.query({
+      query: () => ({
+        url: "/my-vehicles",
+        method: "GET",
+      }),
+      providesTags: ["Vendor"],
+    }),
+
+    // 11. Get vendor profile (GET /api/vendors/my-profile)
+    getVendorProfile: builder.query({
+      query: () => ({
+        url: "/my-profile",
+        method: "GET",
+      }),
+      providesTags: ["Vendor"],
+    }),
+
+    // 12. Update vendor profile (PUT /api/vendors/my-profile)
+    updateVendorProfile: builder.mutation({
+      query: (profileData) => ({
+        url: "/my-profile",
+        method: "PUT",
+        body: profileData,
+      }),
+      invalidatesTags: ["Vendor"],
+    }),
+    testVendorInvoices: builder.query({
+      query: () => ({
+        url: "/test-invoices",
+        method: "GET",
+      }),
+      providesTags: ["Vendor"],
+    }),
   }), // <--- End of endpoints object
 });
 
@@ -142,4 +186,9 @@ export const {
   useAddVehicleMutation, // Export the new hook
   useUpdateVendorVehicleStatusMutation,
   useAddVendorVehicleMaintenanceMutation, // Export the new maintenance hook
+  useGetVendorInvoicesQuery, // Export the new invoices hook
+  useGetVendorVehiclesQuery, // Export the new vehicles hook
+  useGetVendorProfileQuery, // Export the new profile hook
+  useUpdateVendorProfileMutation, // Export the new profile update hook
+  useTestVendorInvoicesQuery,
 } = vendorApi;

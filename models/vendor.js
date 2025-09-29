@@ -56,6 +56,11 @@ const vendorSchema = new mongoose.Schema(
       ref: "Company",
       required: true,
     },
+    assignedClient: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Customer",
+      required: true,
+    },
     availableVehicles: [
       {
         vehicleNumber: {
@@ -66,7 +71,7 @@ const vendorSchema = new mongoose.Schema(
         type: {
           type: String,
           required: true,
-          enum: ["7ft","10ft", "14ft", "18ft", "24ft", "32ft"],
+          enum: ["7ft", "10ft", "14ft", "18ft", "24ft", "32ft"],
         },
         brand: {
           type: String,

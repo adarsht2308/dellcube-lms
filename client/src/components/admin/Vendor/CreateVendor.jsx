@@ -6,7 +6,6 @@ import { Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import { useSelector } from "react-redux";
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -18,6 +17,7 @@ import {
 import { useCreateVendorMutation } from "@/features/api/Vendor/vendorApi";
 import { useGetAllCompaniesQuery } from "@/features/api/Company/companyApi";
 import { useGetBranchesByCompanyMutation } from "@/features/api/Branch/branchApi";
+import { useGetAllCustomersQuery } from "@/features/api/Customer/customerApi";
 
 const CreateVendor = () => {
   const navigate = useNavigate();
@@ -34,13 +34,17 @@ const CreateVendor = () => {
     bankName: "",
     accountNumber: "",
     ifsc: "",
-    status: true,
+    status: "active",
     company: "",
     branch: "",
+    assignedClient: "",
+    password: "",
+    confirmPassword: "",
   });
 
   const [branches, setBranches] = useState([]);
   const { data: companies = [] } = useGetAllCompaniesQuery({ status: "true" });
+  const { data: customers = [] } = useGetAllCustomersQuery({ status: "true" });
   const [getBranchesByCompany] = useGetBranchesByCompanyMutation();
   const [createVendor, { isLoading, isSuccess, isError, error, data }] =
     useCreateVendorMutation();
@@ -96,28 +100,49 @@ const CreateVendor = () => {
     }));
   };
 
-  const handleStatusToggle = (checked) => {
+  const handleStatusChange = (value) => {
     setVendorFormData((prev) => ({
       ...prev,
-      status: checked,
+      status: value,
     }));
   };
 
   const handleSubmit = async () => {
-    const { name, email, phone, company, branch } = vendorFormData;
+    const {
+      name,
+      email,
+      phone,
+      company,
+      branch,
+      assignedClient,
+      password,
+      confirmPassword,
+    } = vendorFormData;
 
-    if (!name || !email || !phone || !company || !branch) {
+    if (!name || !email || !phone || !company || !branch || !assignedClient) {
       toast.error(
-        "Name, Email, Phone, Company and Branch are required fields."
+        "Name, Email, Phone, Company, Branch and Assigned Client are required fields."
       );
       return;
     }
 
-    const statusString = vendorFormData.status ? "active" : "inactive";
+    // Password validation
+    if (!password || !confirmPassword) {
+      toast.error("Password and Confirm Password are required.");
+      return;
+    }
+    if (password.length < 6) {
+      toast.error("Password must be at least 6 characters.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      toast.error("Passwords do not match.");
+      return;
+    }
 
     const payload = {
       ...vendorFormData,
-      status: statusString,
+      password,
       createdBy: user?._id,
     };
 
@@ -221,60 +246,114 @@ const CreateVendor = () => {
             onChange={handleChange}
           />
         </div>
+        <div>
+          <Label htmlFor="assignedClient">Assigned Client*</Label>
+          <Select
+            value={vendorFormData.assignedClient || undefined}
+            onValueChange={(value) =>
+              setVendorFormData({ ...vendorFormData, assignedClient: value })
+            }
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select a customer to assign" />
+            </SelectTrigger>
+            <SelectContent>
+              {(customers?.customers || []).map((customer) => (
+                <SelectItem key={customer._id} value={customer._id}>
+                  {customer.name} - {customer.email}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-        {!isBranchAdmin && (
-          <>
+        <div>
+          <Label htmlFor="company">Company*</Label>
+          <Select
+            value={vendorFormData.company}
+            onValueChange={handleCompanyChange}
+            disabled={isBranchAdmin}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select company" />
+            </SelectTrigger>
+            <SelectContent>
+              {(companies?.companies || []).map((comp) => (
+                <SelectItem key={comp._id} value={comp._id}>
+                  {comp.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="branch">Branch*</Label>
+          <Select
+            value={vendorFormData.branch}
+            onValueChange={(value) =>
+              setVendorFormData({ ...vendorFormData, branch: value })
+            }
+            disabled={isBranchAdmin}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select branch" />
+            </SelectTrigger>
+            <SelectContent>
+              {branches?.map((branch) => (
+                <SelectItem key={branch._id} value={branch._id}>
+                  {branch.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Password Section - Full Width */}
+        <div className="md:col-span-2">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">
+            Login Credentials
+          </h3>
+          <div className="grid md:grid-cols-2 gap-6">
             <div>
-              <Label htmlFor="company">Company*</Label>
-              <Select
-                value={vendorFormData.company}
-                onValueChange={handleCompanyChange}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select company" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(companies?.companies || []).map((comp) => (
-                    <SelectItem key={comp._id} value={comp._id}>
-                      {comp.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="password">Password*</Label>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                value={vendorFormData.password}
+                onChange={handleChange}
+                placeholder="Set a password for vendor login"
+              />
             </div>
-
             <div>
-              <Label htmlFor="branch">Branch*</Label>
-              <Select
-                value={vendorFormData.branch}
-                onValueChange={(value) =>
-                  setVendorFormData({ ...vendorFormData, branch: value })
-                }
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select branch" />
-                </SelectTrigger>
-                <SelectContent>
-                  {branches?.map((branch) => (
-                    <SelectItem key={branch._id} value={branch._id}>
-                      {branch.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="confirmPassword">Confirm Password*</Label>
+              <Input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                value={vendorFormData.confirmPassword}
+                onChange={handleChange}
+                placeholder="Re-enter the password"
+              />
             </div>
-          </>
-        )}
+          </div>
+        </div>
 
-        <div className="flex items-center space-x-2 md:col-span-2 mt-2">
-          <Switch
-            id="status"
-            checked={vendorFormData.status}
-            onCheckedChange={handleStatusToggle}
-          />
-          <Label htmlFor="status">
-            {vendorFormData.status ? "Active" : "Inactive"} Vendor
-          </Label>
+        <div>
+          <Label htmlFor="status">Status*</Label>
+          <Select
+            value={vendorFormData.status}
+            onValueChange={handleStatusChange}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

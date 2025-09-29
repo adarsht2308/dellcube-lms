@@ -4,7 +4,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useNavigate } from "react-router-dom";
-import { Loader2, CreditCard, Building, User, Mail, Lock, MapPin, Banknote, Hash, Building2 } from "lucide-react";
+import {
+  Loader2,
+  CreditCard,
+  Building,
+  User,
+  Mail,
+  Lock,
+  MapPin,
+  Banknote,
+  Hash,
+  Building2,
+} from "lucide-react";
 import toast from "react-hot-toast";
 import {
   Select,
@@ -25,6 +36,7 @@ const CreateBranchAdmin = () => {
     name: "",
     email: "",
     password: "",
+    mobile: "",
     company: "",
     branch: "",
     status: true,
@@ -47,8 +59,8 @@ const CreateBranchAdmin = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    if (name.startsWith('bank.')) {
-      const bankField = name.split('.')[1];
+    if (name.startsWith("bank.")) {
+      const bankField = name.split(".")[1];
       setFormData((prev) => ({
         ...prev,
         bankDetails: {
@@ -56,11 +68,14 @@ const CreateBranchAdmin = () => {
           [bankField]: value,
         },
       }));
-    } else if (name === 'aadharNumber') {
+    } else if (name === "aadharNumber") {
       // Only allow digits for Aadhar
-      const numericValue = value.replace(/\D/g, '');
+      const numericValue = value.replace(/\D/g, "");
       setFormData((prev) => ({ ...prev, [name]: numericValue }));
-    } else if (name === 'panNumber') {
+    } else if (name === "mobile") {
+      const numericValue = value.replace(/\D/g, "");
+      setFormData((prev) => ({ ...prev, [name]: numericValue.slice(0, 10) }));
+    } else if (name === "panNumber") {
       // Convert to uppercase for PAN
       setFormData((prev) => ({ ...prev, [name]: value.toUpperCase() }));
     } else {
@@ -69,10 +84,33 @@ const CreateBranchAdmin = () => {
   };
 
   const validateForm = () => {
-    const { name, email, password, company, branch, aadharNumber, panNumber, bankDetails } = formData;
-    
-    if (!name || !email || !password || !company || !branch || !aadharNumber || !panNumber) {
+    const {
+      name,
+      email,
+      password,
+      company,
+      branch,
+      aadharNumber,
+      panNumber,
+      bankDetails,
+      mobile,
+    } = formData;
+
+    if (
+      !name ||
+      !email ||
+      !password ||
+      !company ||
+      !branch ||
+      !aadharNumber ||
+      !panNumber
+    ) {
       toast.error("All basic fields are required.");
+      return false;
+    }
+
+    if (mobile && !/^\d{10}$/.test(mobile)) {
+      toast.error("Mobile must be 10 digits if provided.");
       return false;
     }
 
@@ -86,12 +124,20 @@ const CreateBranchAdmin = () => {
       return false;
     }
 
-    if (!bankDetails.accountNumber || !bankDetails.ifscCode || !bankDetails.bankName || !bankDetails.accountHolderName) {
+    if (
+      !bankDetails.accountNumber ||
+      !bankDetails.ifscCode ||
+      !bankDetails.bankName ||
+      !bankDetails.accountHolderName
+    ) {
       toast.error("All bank details are required.");
       return false;
     }
 
-    if (bankDetails.accountNumber.length < 9 || bankDetails.accountNumber.length > 18) {
+    if (
+      bankDetails.accountNumber.length < 9 ||
+      bankDetails.accountNumber.length > 18
+    ) {
       toast.error("Account number must be between 9-18 digits.");
       return false;
     }
@@ -153,6 +199,20 @@ const CreateBranchAdmin = () => {
             onChange={handleInputChange}
             placeholder="Email Address"
             className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249]"
+          />
+        </div>
+        <div>
+          <Label className="flex items-center gap-2">
+            <Hash className="w-4 h-4 text-[#FFD249]" />
+            Mobile
+          </Label>
+          <Input
+            name="mobile"
+            value={formData.mobile}
+            onChange={handleInputChange}
+            placeholder="10-digit mobile number"
+            maxLength="10"
+            className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249] font-mono"
           />
         </div>
         <div>
@@ -249,7 +309,7 @@ const CreateBranchAdmin = () => {
             onChange={handleInputChange}
             placeholder="ABCDE1234F"
             maxLength="10"
-            style={{ textTransform: 'uppercase' }}
+            style={{ textTransform: "uppercase" }}
             className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249] font-mono"
           />
         </div>
@@ -313,7 +373,7 @@ const CreateBranchAdmin = () => {
             value={formData.bankDetails.ifscCode}
             onChange={handleInputChange}
             placeholder="ABCD0123456"
-            style={{ textTransform: 'uppercase' }}
+            style={{ textTransform: "uppercase" }}
             maxLength="11"
             className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249] font-mono"
           />
@@ -341,7 +401,11 @@ const CreateBranchAdmin = () => {
         >
           Cancel
         </Button>
-        <Button disabled={isLoading} onClick={handleSubmit} className="bg-[#FFD249] text-[#202020] hover:bg-[#FFD249]/90">
+        <Button
+          disabled={isLoading}
+          onClick={handleSubmit}
+          className="bg-[#FFD249] text-[#202020] hover:bg-[#FFD249]/90"
+        >
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
