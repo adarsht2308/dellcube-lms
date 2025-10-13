@@ -2,11 +2,13 @@ import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowLeft, Users, Building2, CreditCard, PlusCircle } from "lucide-react";
+import { FaRegTrashCan } from "react-icons/fa6";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import {
   Select,
   SelectTrigger,
@@ -141,326 +143,450 @@ const UpdateCustomer = () => {
   }, [isSuccess, isError]);
 
   return (
-    <div className="mx-4 md:mx-10 py-6">
-      <h2 className="text-xl font-bold mb-2">Edit Customer</h2>
-      <p className="text-sm mb-6 text-muted-foreground">
-        Update customer details
-      </p>
-
-      <div className="grid md:grid-cols-2 gap-4">
-        <div>
-          <Label>Name</Label>
-          <Input
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          />
-        </div>
-
-        <div>
-          <Label>Email</Label>
-          <Input
-            value={formData.email}
-            onChange={(e) =>
-              setFormData({ ...formData, email: e.target.value })
-            }
-          />
-        </div>
-
-        <div>
-          <Label>Phone</Label>
-          <Input
-            value={formData.phone}
-            onChange={(e) =>
-              setFormData({ ...formData, phone: e.target.value })
-            }
-          />
-        </div>
-
-        <div>
-          <Label>GST Number</Label>
-          <Input
-            value={formData.gstNumber}
-            onChange={(e) =>
-              setFormData({ ...formData, gstNumber: e.target.value })
-            }
-          />
-        </div>
-
-        <div className="col-span-2">
-          <Label>Address</Label>
-          <Input
-            value={formData.address}
-            onChange={(e) =>
-              setFormData({ ...formData, address: e.target.value })
-            }
-          />
-        </div>
-
-        {/* Company Information Section */}
-        <div className="col-span-2">
-          <Label className="font-semibold text-gray-700">Company Information</Label>
-        </div>
-        
-        <div>
-          <Label>Company Name</Label>
-          <Input
-            value={formData.companyName}
-            onChange={(e) =>
-              setFormData({ ...formData, companyName: e.target.value })
-            }
-          />
-        </div>
-
-        <div>
-          <Label>Company Contact Name</Label>
-          <Input
-            value={formData.companyContactName}
-            onChange={(e) =>
-              setFormData({ ...formData, companyContactName: e.target.value })
-            }
-          />
-        </div>
-
-        <div className="col-span-2">
-          <Label>Company Contact Info</Label>
-          <Input
-            value={formData.companyContactInfo}
-            onChange={(e) =>
-              setFormData({ ...formData, companyContactInfo: e.target.value })
-            }
-          />
-        </div>
-
-        {/* Tax Information Section */}
-        <div className="col-span-2">
-          <Label className="font-semibold text-gray-700">Tax Information</Label>
-        </div>
-
-        <div>
-          <Label>Tax Type</Label>
-          <Select
-            value={formData.taxType}
-            onValueChange={(value) =>
-              setFormData({ ...formData, taxType: value })
-            }
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="px-4 py-6 max-w-5xl">
+        {/* Header */}
+        <div className="mb-6">
+          <Button
+            variant="ghost"
+            onClick={() => navigate("/admin/customers")}
+            className="mb-4 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
           >
-            <SelectTrigger>
-              <SelectValue placeholder="Select tax type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="GST">GST</SelectItem>
-              <SelectItem value="CGST+SGST">CGST+SGST</SelectItem>
-              <SelectItem value="IGST">IGST</SelectItem>
-              <SelectItem value="Exempt">Exempt</SelectItem>
-              <SelectItem value="Other">Other</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div>
-          <Label>Tax Value (%)</Label>
-          <Input
-            type="number"
-            min="0"
-            max="100"
-            step="0.01"
-            value={formData.taxValue}
-            onChange={(e) =>
-              setFormData({ ...formData, taxValue: e.target.value })
-            }
-          />
-        </div>
-
-        <div>
-          <Label>Company</Label>
-          <Select
-            value={formData.company}
-            onValueChange={(val) => handleCompanyChange(val)}
-            disabled={isBranchAdmin}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select Company" />
-            </SelectTrigger>
-            <SelectContent>
-              {(companies?.companies || []).map((c) => (
-                <SelectItem key={c._id} value={c._id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div>
-          <Label>Branch</Label>
-          <Select
-            value={
-              branches.some((b) => b._id === formData.branch)
-                ? formData.branch
-                : ""
-            }
-            onValueChange={(val) => setFormData({ ...formData, branch: val })}
-            disabled={isBranchAdmin}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select Branch" />
-            </SelectTrigger>
-            <SelectContent>
-              {(branches || []).map((b) => (
-                <SelectItem key={b._id} value={b._id}>
-                  {b.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex items-center gap-4 mt-2">
-          <Label>Status</Label>
-          <Switch
-            checked={formData.status}
-            onCheckedChange={(checked) =>
-              setFormData((prev) => ({ ...prev, status: checked }))
-            }
-          />
-          <span>{formData.status ? "Active" : "Inactive"}</span>
-        </div>
-
-        {/* Consignee Section */}
-        <div className="col-span-2">
-          <Label className="font-semibold text-gray-700">Consignees</Label>
-          <div className="space-y-3">
-            {formData.consignees.map((consignee, index) => (
-              <div key={index} className="p-3 border border-gray-200 rounded-lg bg-gray-50">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-xs mb-1">Site ID</Label>
-                    <Input
-                      placeholder="Enter site ID"
-                      value={consignee.siteId}
-                      onChange={(e) => {
-                        const newConsignees = [...formData.consignees];
-                        newConsignees[index].siteId = e.target.value;
-                        setFormData({ ...formData, consignees: newConsignees });
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs mb-1">Consignee</Label>
-                    <Input
-                      placeholder="Enter consignee name"
-                      value={consignee.consignee}
-                      onChange={(e) => {
-                        const newConsignees = [...formData.consignees];
-                        newConsignees[index].consignee = e.target.value;
-                        setFormData({ ...formData, consignees: newConsignees });
-                      }}
-                    />
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="mt-2 text-red-600 hover:text-red-700"
-                  onClick={() => {
-                    const newConsignees = formData.consignees.filter((_, i) => i !== index);
-                    setFormData({ ...formData, consignees: newConsignees });
-                  }}
-                >
-                  Remove Consignee
-                </Button>
-              </div>
-            ))}
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setFormData({
-                  ...formData,
-                  consignees: [
-                    ...formData.consignees,
-                    {
-                      siteId: "",
-                      consignee: "",
-                    },
-                  ],
-                });
-              }}
-            >
-              Add Consignee
-            </Button>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Customers
+          </Button>
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-[#FFD249]/20 rounded-lg">
+              <Users className="w-6 h-6 text-[#202020]" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Update Customer
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Edit customer details and information
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Consignor Section */}
-        <div className="col-span-2">
-          <Label className="font-semibold text-gray-700">Consignors</Label>
-          <div className="space-y-3">
-            {formData.consignors.map((consignor, index) => (
-              <div key={index} className="p-3 border border-gray-200 rounded-lg bg-gray-50">
-                <div className="grid grid-cols-1 gap-3">
-                  <div>
-                    <Label className="text-xs mb-1">Consignor</Label>
-                    <Input
-                      placeholder="Enter consignor name"
-                      value={consignor.consignor}
-                      onChange={(e) => {
-                        const newConsignors = [...formData.consignors];
-                        newConsignors[index].consignor = e.target.value;
+        {!customerData?.customer ? (
+          <div className="flex justify-center items-center h-40">
+            <Loader2 className="w-6 h-6 animate-spin text-[#FFD249]" />
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Basic Information Card */}
+            <Card className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-[#202020] dark:text-[#FFD249] mb-4 flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Basic Information
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Customer Name *
+                  </Label>
+                  <Input
+                    placeholder="e.g., John Doe"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="mt-1.5"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Email
+                  </Label>
+                  <Input
+                    placeholder="e.g., john@example.com"
+                    value={formData.email}
+                    onChange={(e) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
+                    className="mt-1.5"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Phone
+                  </Label>
+                  <Input
+                    placeholder="e.g., +91 9876543210"
+                    value={formData.phone}
+                    onChange={(e) =>
+                      setFormData({ ...formData, phone: e.target.value })
+                    }
+                    className="mt-1.5"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    GST Number
+                  </Label>
+                  <Input
+                    placeholder="e.g., 22AAAAA0000A1Z5"
+                    value={formData.gstNumber}
+                    onChange={(e) =>
+                      setFormData({ ...formData, gstNumber: e.target.value })
+                    }
+                    className="mt-1.5"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Address
+                  </Label>
+                  <Input
+                    placeholder="e.g., 123 Main Street, City, State"
+                    value={formData.address}
+                    onChange={(e) =>
+                      setFormData({ ...formData, address: e.target.value })
+                    }
+                    className="mt-1.5"
+                  />
+                </div>
+              </div>
+            </Card>
+
+            {/* Company Information Card */}
+            <Card className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-[#202020] dark:text-[#FFD249] mb-4 flex items-center gap-2">
+                <Building2 className="w-5 h-5" />
+                Company Information
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Company Name
+                  </Label>
+                  <Input
+                    placeholder="e.g., ABC Corporation"
+                    value={formData.companyName}
+                    onChange={(e) =>
+                      setFormData({ ...formData, companyName: e.target.value })
+                    }
+                    className="mt-1.5"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Company Contact Name
+                  </Label>
+                  <Input
+                    placeholder="e.g., Jane Smith"
+                    value={formData.companyContactName}
+                    onChange={(e) =>
+                      setFormData({ ...formData, companyContactName: e.target.value })
+                    }
+                    className="mt-1.5"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Company Contact Info
+                  </Label>
+                  <Input
+                    placeholder="e.g., Phone, Email, Address"
+                    value={formData.companyContactInfo}
+                    onChange={(e) =>
+                      setFormData({ ...formData, companyContactInfo: e.target.value })
+                    }
+                    className="mt-1.5"
+                  />
+                </div>
+              </div>
+            </Card>
+
+            {/* Tax Information Card */}
+            <Card className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-[#202020] dark:text-[#FFD249] mb-4 flex items-center gap-2">
+                <CreditCard className="w-5 h-5" />
+                Tax Information
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Tax Type
+                  </Label>
+                  <Select
+                    value={formData.taxType}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, taxType: value })
+                    }
+                  >
+                    <SelectTrigger className="w-full mt-1.5">
+                      <SelectValue placeholder="Select tax type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="GST">GST</SelectItem>
+                      <SelectItem value="CGST+SGST">CGST+SGST</SelectItem>
+                      <SelectItem value="IGST">IGST</SelectItem>
+                      <SelectItem value="Exempt">Exempt</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Tax Value (%)
+                  </Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    placeholder="e.g., 18.00"
+                    value={formData.taxValue}
+                    onChange={(e) =>
+                      setFormData({ ...formData, taxValue: e.target.value })
+                    }
+                    className="mt-1.5"
+                  />
+                </div>
+              </div>
+            </Card>
+
+            {/* Organization Assignment Card */}
+            <Card className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-[#202020] dark:text-[#FFD249] mb-4 flex items-center gap-2">
+                <Building2 className="w-5 h-5" />
+                Organization Assignment
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Company *
+                  </Label>
+                  <Select
+                    value={formData.company}
+                    onValueChange={(val) => handleCompanyChange(val)}
+                    disabled={isBranchAdmin}
+                  >
+                    <SelectTrigger className="w-full mt-1.5">
+                      <SelectValue placeholder="Select Company" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(companies?.companies || []).map((c) => (
+                        <SelectItem key={c._id} value={c._id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Branch *
+                  </Label>
+                  <Select
+                    value={
+                      branches.some((b) => b._id === formData.branch)
+                        ? formData.branch
+                        : ""
+                    }
+                    onValueChange={(val) => setFormData({ ...formData, branch: val })}
+                    disabled={isBranchAdmin}
+                  >
+                    <SelectTrigger className="w-full mt-1.5">
+                      <SelectValue placeholder="Select Branch" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(branches || []).map((b) => (
+                        <SelectItem key={b._id} value={b._id}>
+                          {b.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="md:col-span-2">
+                  <div className="flex items-center gap-4 mt-2">
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Status</Label>
+                    <Switch
+                      checked={formData.status}
+                      onCheckedChange={(checked) =>
+                        setFormData((prev) => ({ ...prev, status: checked }))
+                      }
+                    />
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      {formData.status ? "Active" : "Inactive"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* Consignees Card */}
+            <Card className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-[#202020] dark:text-[#FFD249] mb-4 flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Consignees
+              </h3>
+              <div className="space-y-3">
+                {formData.consignees.map((consignee, index) => (
+                  <div key={index} className="p-4 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs font-medium text-gray-600 dark:text-gray-400">Site ID</Label>
+                        <Input
+                          placeholder="Enter site ID"
+                          value={consignee.siteId}
+                          onChange={(e) => {
+                            const newConsignees = [...formData.consignees];
+                            newConsignees[index].siteId = e.target.value;
+                            setFormData({ ...formData, consignees: newConsignees });
+                          }}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs font-medium text-gray-600 dark:text-gray-400">Consignee</Label>
+                        <Input
+                          placeholder="Enter consignee name"
+                          value={consignee.consignee}
+                          onChange={(e) => {
+                            const newConsignees = [...formData.consignees];
+                            newConsignees[index].consignee = e.target.value;
+                            setFormData({ ...formData, consignees: newConsignees });
+                          }}
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-3 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                      onClick={() => {
+                        const newConsignees = formData.consignees.filter((_, i) => i !== index);
+                        setFormData({ ...formData, consignees: newConsignees });
+                      }}
+                    >
+                      <FaRegTrashCan className="w-4 h-4 mr-2" />
+                      Remove Consignee
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setFormData({
+                      ...formData,
+                      consignees: [
+                        ...formData.consignees,
+                        {
+                          siteId: "",
+                          consignee: "",
+                        },
+                      ],
+                    });
+                  }}
+                  className="bg-[#FFD249]/10 hover:bg-[#FFD249]/20 text-[#202020] border-[#FFD249]/30"
+                >
+                  <PlusCircle className="w-4 h-4 mr-2" />
+                  Add Consignee
+                </Button>
+              </div>
+            </Card>
+
+            {/* Consignors Card */}
+            <Card className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-[#202020] dark:text-[#FFD249] mb-4 flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Consignors
+              </h3>
+              <div className="space-y-3">
+                {formData.consignors.map((consignor, index) => (
+                  <div key={index} className="p-4 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700">
+                    <div className="grid grid-cols-1 gap-3">
+                      <div>
+                        <Label className="text-xs font-medium text-gray-600 dark:text-gray-400">Consignor</Label>
+                        <Input
+                          placeholder="Enter consignor name"
+                          value={consignor.consignor}
+                          onChange={(e) => {
+                            const newConsignors = [...formData.consignors];
+                            newConsignors[index].consignor = e.target.value;
+                            setFormData({ ...formData, consignors: newConsignors });
+                          }}
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-3 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                      onClick={() => {
+                        const newConsignors = formData.consignors.filter((_, i) => i !== index);
                         setFormData({ ...formData, consignors: newConsignors });
                       }}
-                    />
+                    >
+                      <FaRegTrashCan className="w-4 h-4 mr-2" />
+                      Remove Consignor
+                    </Button>
                   </div>
-                </div>
+                ))}
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
-                  className="mt-2 text-red-600 hover:text-red-700"
                   onClick={() => {
-                    const newConsignors = formData.consignors.filter((_, i) => i !== index);
-                    setFormData({ ...formData, consignors: newConsignors });
+                    setFormData({
+                      ...formData,
+                      consignors: [
+                        ...formData.consignors,
+                        {
+                          consignor: "",
+                        },
+                      ],
+                    });
                   }}
+                  className="bg-[#FFD249]/10 hover:bg-[#FFD249]/20 text-[#202020] border-[#FFD249]/30"
                 >
-                  Remove Consignor
+                  <PlusCircle className="w-4 h-4 mr-2" />
+                  Add Consignor
                 </Button>
               </div>
-            ))}
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setFormData({
-                  ...formData,
-                  consignors: [
-                    ...formData.consignors,
-                    {
-                      consignor: "",
-                    },
-                  ],
-                });
-              }}
-            >
-              Add Consignor
-            </Button>
+            </Card>
           </div>
-        </div>
-      </div>
+        )}
 
-      <div className="flex gap-2 mt-6">
-        <Button variant="outline" onClick={() => navigate("/admin/customers")}>
-          Cancel
-        </Button>
-        <Button disabled={isLoading} onClick={handleUpdate}>
-          {isLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating...
-            </>
-          ) : (
-            "Update Customer"
-          )}
-        </Button>
+        {/* Action Buttons */}
+        <div className="flex gap-3 justify-end sticky bottom-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg border">
+          <Button 
+            variant="outline" 
+            onClick={() => navigate("/admin/customers")}
+            disabled={isLoading}
+          >
+            Cancel
+          </Button>
+          <Button 
+            disabled={isLoading} 
+            onClick={handleUpdate}
+            className="min-w-[150px] bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020] border border-[#FFD249]"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating...
+              </>
+            ) : (
+              "Update Customer"
+            )}
+          </Button>
+        </div>
       </div>
     </div>
   );

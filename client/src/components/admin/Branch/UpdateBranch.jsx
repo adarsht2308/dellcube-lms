@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowLeft, Building, FileText } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
   SelectTrigger,
@@ -148,202 +149,164 @@ const UpdateBranch = () => {
   }, [isUpdated, error]);
 
   return (
-    <div className="mx-4 md:mx-10 py-6">
-      <h2 className="text-xl font-bold mb-2">Edit Branch</h2>
-      <p className="text-sm mb-6 text-muted-foreground">
-        Update branch details
-      </p>
-
-      <div className="grid md:grid-cols-2 gap-4">
-        <div>
-          <Label>Branch Name</Label>
-          <Input
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="Branch name"
-          />
-        </div>
-
-        <div>
-          <Label>Branch Code</Label>
-          <Input
-            value={formData.branchCode}
-            onChange={(e) =>
-              setFormData({ ...formData, branchCode: e.target.value })
-            }
-            placeholder="Unique code"
-          />
-        </div>
-        <div>
-          <Label>GST No</Label>
-          <Input
-            value={formData.gstNo}
-            onChange={(e) => setFormData({ ...formData, gstNo: e.target.value })}
-            placeholder="GST Number"
-          />
-        </div>
-        <div>
-          <Label>Branch Contact No</Label>
-          <Input
-            value={formData.branchNo}
-            onChange={(e) => setFormData({ ...formData, branchNo: e.target.value })}
-            placeholder="Branch Number"
-          />
-        </div>
-
-        <div>
-          <Label>Company</Label>
-          <Select
-            value={formData.company}
-            onValueChange={(val) =>
-              setFormData((prev) => ({ ...prev, company: val }))
-            }
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="px-4 py-6 max-w-5xl">
+        {/* Header */}
+        <div className="mb-6">
+          <Button
+            variant="ghost"
+            onClick={() => navigate("/admin/branches")}
+            className="mb-4 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
           >
-            <SelectTrigger>
-              <SelectValue placeholder="Select Company" />
-            </SelectTrigger>
-            <SelectContent>
-              {companies?.companies?.map((c) => (
-                <SelectItem key={c._id} value={c._id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Branches
+          </Button>
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-[#FFD249]/20 rounded-lg">
+              <Building className="w-6 h-6 text-[#202020]" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Update Branch
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Edit branch information
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div>
-          <Label>Address</Label>
-          <Input
-            value={formData.address}
-            onChange={(e) =>
-              setFormData({ ...formData, address: e.target.value })
-            }
-            placeholder="Full address"
-          />
+        {/* Form */}
+        <div className="space-y-6">
+          {/* Basic Information */}
+          <Card className="shadow-sm">
+            <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Building className="w-5 h-5 text-[#202020]" />
+                Basic Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Branch Name *</Label>
+                  <Input
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="Branch name"
+                  />
+                </div>
+                <div>
+                  <Label>Branch Code *</Label>
+                  <Input
+                    value={formData.branchCode}
+                    onChange={(e) =>
+                      setFormData({ ...formData, branchCode: e.target.value })
+                    }
+                    placeholder="Unique code"
+                  />
+                </div>
+                <div>
+                  <Label>Company *</Label>
+                  <Select
+                    value={formData.company}
+                    onValueChange={(val) =>
+                      setFormData((prev) => ({ ...prev, company: val }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Company" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {companies?.companies?.map((c) => (
+                        <SelectItem key={c._id} value={c._id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Branch Contact No</Label>
+                  <Input
+                    value={formData.branchNo}
+                    onChange={(e) => setFormData({ ...formData, branchNo: e.target.value })}
+                    placeholder="Branch Number"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label>Address *</Label>
+                  <Input
+                    value={formData.address}
+                    onChange={(e) =>
+                      setFormData({ ...formData, address: e.target.value })
+                    }
+                    placeholder="Full address"
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <Label>Status</Label>
+                  <Switch
+                    checked={formData.status}
+                    onCheckedChange={(checked) =>
+                      setFormData((prev) => ({ ...prev, status: checked }))
+                    }
+                  />
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {formData.status ? "Active" : "Inactive"}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Tax Information */}
+          <Card className="shadow-sm">
+            <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <FileText className="w-5 h-5 text-[#202020]" />
+                Tax Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>GST No</Label>
+                  <Input
+                    value={formData.gstNo}
+                    onChange={(e) => setFormData({ ...formData, gstNo: e.target.value })}
+                    placeholder="GST Number"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Action Buttons */}
+          <div className="flex gap-3 justify-end sticky bottom-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg border">
+            <Button 
+              variant="outline" 
+              onClick={() => navigate("/admin/branches")}
+              disabled={isUpdating}
+            >
+              Cancel
+            </Button>
+            <Button 
+              disabled={isUpdating} 
+              onClick={handleSubmit}
+              className="min-w-[150px] bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020] border border-[#FFD249]"
+            >
+              {isUpdating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                "Update Branch"
+              )}
+            </Button>
+          </div>
         </div>
-
-        {/* <div>
-          <Label>Country</Label>
-          <Select
-            value={formData.region.country}
-            onValueChange={(val) => handleRegionChange("country", val)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select Country" />
-            </SelectTrigger>
-            <SelectContent>
-              {countries?.countries?.map((c) => (
-                <SelectItem key={c._id} value={c._id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div>
-          <Label>State</Label>
-          <Select
-            value={formData.region.state}
-            onValueChange={(val) => handleRegionChange("state", val)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select State" />
-            </SelectTrigger>
-            <SelectContent>
-              {stateData?.data?.map((s) => (
-                <SelectItem key={s._id} value={s._id}>
-                  {s.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div>
-          <Label>City</Label>
-          <Select
-            value={formData.region.city}
-            onValueChange={(val) => handleRegionChange("city", val)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select City" />
-            </SelectTrigger>
-            <SelectContent>
-              {cityData?.cities?.map((c) => (
-                <SelectItem key={c._id} value={c._id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div>
-          <Label>Locality</Label>
-          <Select
-            value={formData.region.locality}
-            onValueChange={(val) => handleRegionChange("locality", val)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select Locality" />
-            </SelectTrigger>
-            <SelectContent>
-              {localityData?.data?.map((l) => (
-                <SelectItem key={l._id} value={l._id}>
-                  {l.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div>
-          <Label>Pincode</Label>
-          <Select
-            value={formData.region.pincode}
-            onValueChange={(val) => handleRegionChange("pincode", val)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select Pincode" />
-            </SelectTrigger>
-            <SelectContent>
-              {pincodeData?.pincodes?.map((p) => (
-                <SelectItem key={p._id} value={p._id}>
-                  {p.code}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div> */}
-
-        <div className="flex items-center gap-4 mt-2">
-          <Label>Status</Label>
-          <Switch
-            checked={formData.status}
-            onCheckedChange={(checked) =>
-              setFormData((prev) => ({ ...prev, status: checked }))
-            }
-          />
-          <span>{formData.status ? "Active" : "Inactive"}</span>
-        </div>
-      </div>
-
-      <div className="flex gap-2 mt-6">
-        <Button variant="outline" onClick={() => navigate("/admin/branches")}>
-          Cancel
-        </Button>
-        <Button disabled={isUpdating} onClick={handleSubmit}>
-          {isUpdating ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Updating...
-            </>
-          ) : (
-            "Update Branch"
-          )}
-        </Button>
       </div>
     </div>
   );

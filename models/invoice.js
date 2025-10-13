@@ -41,6 +41,11 @@ const invoiceSchema = new mongoose.Schema(
       city: { type: mongoose.Schema.Types.ObjectId, ref: "City" },
       locality: { type: mongoose.Schema.Types.ObjectId, ref: "Locality" },
       pincode: { type: String, trim: true, default: "" },
+      postOfficeName: { type: String, trim: true, default: "" }, // Store selected post office name
+      district: { type: String, trim: true, default: "" }, // Store district from post office
+      taluk: { type: String, trim: true, default: "" }, // Store taluk/block from post office
+      stateName: { type: String, trim: true, default: "" }, // Store state name from post office
+      countryName: { type: String, trim: true, default: "" }, // Store country name from post office
     },
 
     // TO ADDRESS - Renamed from toLocation to match frontend
@@ -50,6 +55,11 @@ const invoiceSchema = new mongoose.Schema(
       city: { type: mongoose.Schema.Types.ObjectId, ref: "City" },
       locality: { type: mongoose.Schema.Types.ObjectId, ref: "Locality" },
       pincode: { type: String, trim: true, default: "" },
+      postOfficeName: { type: String, trim: true, default: "" }, // Store selected post office name
+      district: { type: String, trim: true, default: "" }, // Store district from post office
+      taluk: { type: String, trim: true, default: "" }, // Store taluk/block from post office
+      stateName: { type: String, trim: true, default: "" }, // Store state name from post office
+      countryName: { type: String, trim: true, default: "" }, // Store country name from post office
     },
 
     customer: {

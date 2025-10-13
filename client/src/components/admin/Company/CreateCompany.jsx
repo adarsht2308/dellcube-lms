@@ -3,8 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowLeft, Building2, FileText, CreditCard, Phone, Plus } from "lucide-react";
 import toast from "react-hot-toast";
 import { useCreateCompanyMutation } from "@/features/api/Company/companyApi.js";
 
@@ -206,408 +207,376 @@ const CreateCompany = () => {
   }, [isSuccess, isError]);
 
   return (
-    <div className="md:mx-10 p-4 min-h-[100vh]">
-      <h2 className="text-xl font-semibold mb-1">Add New Company</h2>
-      <p className="text-sm mb-4 text-gray-500">Basic details for a company</p>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <Label>Company Name</Label>
-          <Input
-            name="name"
-            value={formData.name}
-            onChange={handleInputChange}
-            placeholder="Company Name"
-          />
-        </div>
-        <div>
-          <Label>Company Code</Label>
-          <Input
-            name="companyCode"
-            value={formData.companyCode}
-            onChange={handleInputChange}
-            placeholder="Unique Company Code"
-          />
-        </div>
-        <div>
-          <Label>Email ID</Label>
-          <Input
-            name="emailId"
-            type="email"
-            value={formData.emailId}
-            onChange={handleInputChange}
-            placeholder="company@example.com"
-          />
-        </div>
-        <div>
-          <Label>Website</Label>
-          <Input
-            name="website"
-            type="url"
-            value={formData.website}
-            onChange={handleInputChange}
-            placeholder="https://www.example.com"
-          />
-        </div>
-        <div>
-          <Label>GST Number</Label>
-          <Input
-            name="gstNumber"
-            value={formData.gstNumber}
-            onChange={handleInputChange}
-            placeholder="GSTIN"
-          />
-        </div>
-        {/* <div>
-          <Label>GST NO</Label>
-          <Input
-            name="gstNo"
-            value={formData.gstNo}
-            onChange={handleInputChange}
-            placeholder="GST NO"
-          />
-        </div> */}
-        <div>
-          <Label>GST Value</Label>
-          <Select
-            value={String(formData.gstValue)}
-            onValueChange={(val) =>
-              setFormData((prev) => ({ ...prev, gstValue: val }))
-            }
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="px-4 py-6 max-w-5xl">
+        {/* Header */}
+        <div className="mb-6">
+          <Button
+            variant="ghost"
+            onClick={() => navigate("/admin/companies")}
+            className="mb-4 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
           >
-            <SelectTrigger>
-              <SelectValue placeholder="Select GST %" />
-            </SelectTrigger>
-            <SelectContent>
-              {["0", "5", "12", "18", "28"].map((rate) => (
-                <SelectItem key={rate} value={rate}>
-                  {rate}%
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label>Company Type</Label>
-          <Select
-            value={formData.companyType}
-            onValueChange={(val) =>
-              setFormData((prev) => ({ ...prev, companyType: val }))
-            }
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select Company Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="counter company">Counter Company</SelectItem>
-              <SelectItem value="logistic company">Logistic Company</SelectItem>
-              <SelectItem value="transport company">
-                Transport Company
-              </SelectItem>
-              <SelectItem value="warehouse company">
-                Warehouse Company
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label>PAN</Label>
-          <Input
-            name="pan"
-            value={formData.pan}
-            onChange={handleInputChange}
-            placeholder="PAN Number"
-          />
-        </div>
-        <div>
-          <Label>SAC/HSN Code</Label>
-          <Input
-            name="sacHsnCode"
-            value={formData.sacHsnCode}
-            onChange={handleInputChange}
-            placeholder="SAC/HSN Code"
-          />
-        </div>
-        <div>
-          <Label>Address</Label>
-          <Input
-            name="address"
-            value={formData.address}
-            onChange={handleInputChange}
-            placeholder="Company Address"
-          />
-        </div>
-        <div>
-          <Label>Contact Phone</Label>
-          <Input
-            name="contactPhone"
-            value={formData.contactPhone}
-            onChange={handleInputChange}
-            placeholder="10-digit mobile number"
-          />
-        </div>
-        <div>
-          <Label>Company Logo</Label>
-          <Input
-            type="file"
-            accept="image/*"
-            onChange={(e) => setLogoFile(e.target.files[0])}
-          />
-        </div>
-
-        {/* Region Selectors */}
-        {/* <div>
-          <Label>Country</Label>
-          <Select
-            value={formData.region.country}
-            onValueChange={(val) => handleRegionChange("country", val)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select Country" />
-            </SelectTrigger>
-            <SelectContent>
-              {countries?.countries?.map((c) => (
-                <SelectItem key={c._id} value={c._id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label>State</Label>
-          <Select
-            value={formData.region.state}
-            onValueChange={(val) => handleRegionChange("state", val)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select State" />
-            </SelectTrigger>
-            <SelectContent>
-              {stateData?.data?.map((s) => (
-                <SelectItem key={s._id} value={s._id}>
-                  {s.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label>City</Label>
-          <Select
-            value={formData.region.city}
-            onValueChange={(val) => handleRegionChange("city", val)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select City" />
-            </SelectTrigger>
-            <SelectContent>
-              {cityData?.cities?.map((c) => (
-                <SelectItem key={c._id} value={c._id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label>Locality</Label>
-          <Select
-            value={formData.region.locality}
-            onValueChange={(val) => handleRegionChange("locality", val)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select Locality" />
-            </SelectTrigger>
-            <SelectContent>
-              {localityData?.data?.map((l) => (
-                <SelectItem key={l._id} value={l._id}>
-                  {l.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label>Pincode</Label>
-          <Select
-            value={formData.region.pincode}
-            onValueChange={(val) => handleRegionChange("pincode", val)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select Pincode" />
-            </SelectTrigger>
-            <SelectContent>
-              {pincodeData?.pincodes?.map((p) => (
-                <SelectItem key={p._id} value={p._id}>
-                  {p.code}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div> */}
-
-        <div className="flex items-center gap-4 mt-2">
-          <Label htmlFor="status-toggle">Active Status</Label>
-          <Switch
-            id="status-toggle"
-            checked={formData.status}
-            onCheckedChange={(checked) =>
-              setFormData((prev) => ({ ...prev, status: checked }))
-            }
-          />
-          <span className="text-sm text-gray-500">
-            {formData.status ? "Active" : "Inactive"}
-          </span>
-        </div>
-
-        {/* Bank Details Section (Multiple) */}
-        {/* Bank Details Section (Multiple) */}
-        <div className="md:col-span-2">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-              Bank Details
-            </h3>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() =>
-                setFormData((prev) => ({
-                  ...prev,
-                  bankDetails: [
-                    ...(prev.bankDetails || []),
-                    { bankName: "", accountNumber: "", ifsc: "" },
-                  ],
-                }))
-              }
-            >
-              Add Bank
-            </Button>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Companies
+          </Button>
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-[#FFD249]/20 rounded-lg">
+              <Building2 className="w-6 h-6 text-[#202020]" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Create New Company
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Add a new company to your organization
+              </p>
+            </div>
           </div>
-          <div className="space-y-3">
-            {(formData.bankDetails || []).map((bank, idx) => (
-              <div
-                key={idx}
-                className="border p-3 rounded-md shadow-sm bg-gray-50 dark:bg-gray-800"
-              >
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <Label>Bank Name</Label>
-                    <Input
-                      value={bank.bankName}
-                      onChange={(e) =>
-                        setFormData((prev) => {
-                          const next = [...prev.bankDetails];
-                          next[idx] = {
-                            ...next[idx],
-                            bankName: e.target.value,
-                          };
-                          return { ...prev, bankDetails: next };
-                        })
-                      }
-                      placeholder="Bank Name"
-                    />
-                  </div>
-                  <div>
-                    <Label>Account Number</Label>
-                    <Input
-                      value={bank.accountNumber}
-                      onChange={(e) =>
-                        setFormData((prev) => {
-                          const next = [...prev.bankDetails];
-                          next[idx] = {
-                            ...next[idx],
-                            accountNumber: e.target.value,
-                          };
-                          return { ...prev, bankDetails: next };
-                        })
-                      }
-                      placeholder="Account Number"
-                    />
-                  </div>
-                  <div>
-                    <Label>IFSC</Label>
-                    <Input
-                      value={bank.ifsc}
-                      onChange={(e) =>
-                        setFormData((prev) => {
-                          const next = [...prev.bankDetails];
-                          next[idx] = {
-                            ...next[idx],
-                            ifsc: e.target.value.toUpperCase(),
-                          };
-                          return { ...prev, bankDetails: next };
-                        })
-                      }
-                      placeholder="IFSC"
-                    />
-                  </div>
-                </div>
+        </div>
 
-                {/* Remove button aligned to the right */}
-                <div className="flex justify-end mt-2">
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    onClick={() =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        bankDetails: (prev.bankDetails || []).filter(
-                          (_, i) => i !== idx
-                        ),
-                      }))
+        {/* Form */}
+        <div className="space-y-6">
+          {/* Basic Information */}
+          <Card className="shadow-sm">
+            <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Building2 className="w-5 h-5 text-[#202020]" />
+                Basic Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Company Name *</Label>
+                  <Input
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    placeholder="Company Name"
+                  />
+                </div>
+                <div>
+                  <Label>Company Code *</Label>
+                  <Input
+                    name="companyCode"
+                    value={formData.companyCode}
+                    onChange={handleInputChange}
+                    placeholder="Unique Company Code"
+                  />
+                </div>
+                <div>
+                  <Label>Email ID *</Label>
+                  <Input
+                    name="emailId"
+                    type="email"
+                    value={formData.emailId}
+                    onChange={handleInputChange}
+                    placeholder="company@example.com"
+                  />
+                </div>
+                <div>
+                  <Label>Website</Label>
+                  <Input
+                    name="website"
+                    type="url"
+                    value={formData.website}
+                    onChange={handleInputChange}
+                    placeholder="https://www.example.com"
+                  />
+                </div>
+                <div>
+                  <Label>Company Type *</Label>
+                  <Select
+                    value={formData.companyType}
+                    onValueChange={(val) =>
+                      setFormData((prev) => ({ ...prev, companyType: val }))
                     }
                   >
-                    Remove
-                  </Button>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Company Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="counter company">Counter Company</SelectItem>
+                      <SelectItem value="logistic company">Logistic Company</SelectItem>
+                      <SelectItem value="transport company">
+                        Transport Company
+                      </SelectItem>
+                      <SelectItem value="warehouse company">
+                        Warehouse Company
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Contact Phone *</Label>
+                  <Input
+                    name="contactPhone"
+                    value={formData.contactPhone}
+                    onChange={handleInputChange}
+                    placeholder="10-digit mobile number"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label>Address *</Label>
+                  <Input
+                    name="address"
+                    value={formData.address}
+                    onChange={handleInputChange}
+                    placeholder="Company Address"
+                  />
+                </div>
+                <div>
+                  <Label>Company Logo</Label>
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setLogoFile(e.target.files[0])}
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <Label htmlFor="status-toggle">Status</Label>
+                  <Switch
+                    id="status-toggle"
+                    checked={formData.status}
+                    onCheckedChange={(checked) =>
+                      setFormData((prev) => ({ ...prev, status: checked }))
+                    }
+                  />
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {formData.status ? "Active" : "Inactive"}
+                  </span>
                 </div>
               </div>
-            ))}
+            </CardContent>
+          </Card>
+
+          {/* Legal & Tax Information */}
+          <Card className="shadow-sm">
+            <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <FileText className="w-5 h-5 text-[#202020]" />
+                Legal & Tax Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>GST Number *</Label>
+                  <Input
+                    name="gstNumber"
+                    value={formData.gstNumber}
+                    onChange={handleInputChange}
+                    placeholder="GSTIN"
+                  />
+                </div>
+                <div>
+                  <Label>GST Value *</Label>
+                  <Select
+                    value={String(formData.gstValue)}
+                    onValueChange={(val) =>
+                      setFormData((prev) => ({ ...prev, gstValue: val }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select GST %" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {["0", "5", "12", "18", "28"].map((rate) => (
+                        <SelectItem key={rate} value={rate}>
+                          {rate}%
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>PAN *</Label>
+                  <Input
+                    name="pan"
+                    value={formData.pan}
+                    onChange={handleInputChange}
+                    placeholder="PAN Number"
+                  />
+                </div>
+                <div>
+                  <Label>SAC/HSN Code *</Label>
+                  <Input
+                    name="sacHsnCode"
+                    value={formData.sacHsnCode}
+                    onChange={handleInputChange}
+                    placeholder="SAC/HSN Code"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Bank Details Section */}
+          <Card className="shadow-sm">
+            <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <CreditCard className="w-5 h-5 text-[#202020]" />
+                  Bank Details
+                </CardTitle>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      bankDetails: [
+                        ...(prev.bankDetails || []),
+                        { bankName: "", accountNumber: "", ifsc: "" },
+                      ],
+                    }))
+                  }
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Bank
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="space-y-4">
+                {(formData.bankDetails || []).map((bank, idx) => (
+                  <div
+                    key={idx}
+                    className="p-4 border rounded-lg bg-gray-50 dark:bg-gray-800/30"
+                  >
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <Label>Bank Name</Label>
+                        <Input
+                          value={bank.bankName}
+                          onChange={(e) =>
+                            setFormData((prev) => {
+                              const next = [...prev.bankDetails];
+                              next[idx] = {
+                                ...next[idx],
+                                bankName: e.target.value,
+                              };
+                              return { ...prev, bankDetails: next };
+                            })
+                          }
+                          placeholder="Bank Name"
+                        />
+                      </div>
+                      <div>
+                        <Label>Account Number</Label>
+                        <Input
+                          value={bank.accountNumber}
+                          onChange={(e) =>
+                            setFormData((prev) => {
+                              const next = [...prev.bankDetails];
+                              next[idx] = {
+                                ...next[idx],
+                                accountNumber: e.target.value,
+                              };
+                              return { ...prev, bankDetails: next };
+                            })
+                          }
+                          placeholder="Account Number"
+                        />
+                      </div>
+                      <div>
+                        <Label>IFSC</Label>
+                        <Input
+                          value={bank.ifsc}
+                          onChange={(e) =>
+                            setFormData((prev) => {
+                              const next = [...prev.bankDetails];
+                              next[idx] = {
+                                ...next[idx],
+                                ifsc: e.target.value.toUpperCase(),
+                              };
+                              return { ...prev, bankDetails: next };
+                            })
+                          }
+                          placeholder="IFSC"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end mt-3">
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            bankDetails: (prev.bankDetails || []).filter(
+                              (_, i) => i !== idx
+                            ),
+                          }))
+                        }
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Emergency Contact Section */}
+          <Card className="shadow-sm">
+            <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Phone className="w-5 h-5 text-[#202020]" />
+                Emergency Contact
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Contact Name</Label>
+                  <Input
+                    name="emergencyContactName"
+                    value={formData.emergencyContactName}
+                    onChange={handleInputChange}
+                    placeholder="Emergency Contact Name"
+                  />
+                </div>
+                <div>
+                  <Label>Contact Mobile</Label>
+                  <Input
+                    name="emergencyContactMobile"
+                    value={formData.emergencyContactMobile}
+                    onChange={handleInputChange}
+                    placeholder="10-digit mobile number"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Action Buttons */}
+          <div className="flex gap-3 justify-end sticky bottom-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg border">
+            <Button 
+              variant="outline" 
+              onClick={() => navigate("/admin/companies")}
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button 
+              disabled={isLoading} 
+              onClick={handleSubmit}
+              className="min-w-[150px] bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020] border border-[#FFD249]"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating...
+                </>
+              ) : (
+                "Create Company"
+              )}
+            </Button>
           </div>
         </div>
-
-        {/* Emergency Contact Section */}
-        <div className="md:col-span-2">
-          <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">
-            Emergency Contact
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label>Contact Name</Label>
-              <Input
-                name="emergencyContactName"
-                value={formData.emergencyContactName}
-                onChange={handleInputChange}
-                placeholder="Emergency Contact Name"
-              />
-            </div>
-            <div>
-              <Label>Contact Mobile</Label>
-              <Input
-                name="emergencyContactMobile"
-                value={formData.emergencyContactMobile}
-                onChange={handleInputChange}
-                placeholder="10-digit mobile number"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex gap-2 mt-6">
-        <Button variant="outline" onClick={() => navigate("/admin/companies")}>
-          Cancel
-        </Button>
-        <Button disabled={isLoading} onClick={handleSubmit}>
-          {isLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating...
-            </>
-          ) : (
-            "Create Company"
-          )}
-        </Button>
       </div>
     </div>
   );

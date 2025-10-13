@@ -343,7 +343,7 @@ const BranchAdmins = () => {
                         className="p-2 rounded-full bg-[#FFD249]/30 text-[#202020] hover:bg-[#FFD249]/60"
                         onClick={() =>
                           navigate("/admin/update-branch-admin", {
-                            state: { adminId: admin._id },
+                            state: { branchAdminId: admin._id },
                           })
                         }
                       >

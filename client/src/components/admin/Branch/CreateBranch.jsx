@@ -3,8 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowLeft, Building, FileText } from "lucide-react";
 import toast from "react-hot-toast";
 import { useCreateBranchMutation } from "@/features/api/Branch/branchApi.js";
 import { useGetAllCompaniesQuery } from "@/features/api/Company/companyApi.js";
@@ -117,194 +118,165 @@ const CreateBranch = () => {
   }, [isSuccess, isError]);
 
   return (
-    <div className="md:mx-10 p-4 min-h-[100vh]">
-      <h2 className="text-xl font-semibold mb-1">Add New Branch</h2>
-      <p className="text-sm mb-4 text-gray-500">Basic details for a branch</p>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="px-4 py-6 max-w-5xl">
+        {/* Header */}
+        <div className="mb-6">
+          <Button
+            variant="ghost"
+            onClick={() => navigate("/admin/branches")}
+            className="mb-4 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Branches
+          </Button>
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-[#FFD249]/20 rounded-lg">
+              <Building className="w-6 h-6 text-[#202020]" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Create New Branch
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Add a new branch to your company
+              </p>
+            </div>
+          </div>
+        </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <Label>Branch Name</Label>
-          <Input
-            name="name"
-            value={formData.name}
-            onChange={handleInputChange}
-            placeholder="Branch Name"
-          />
-        </div>
-        <div>
-          <Label>Branch Code</Label>
-          <Input
-            name="branchCode"
-            value={formData.branchCode}
-            onChange={handleInputChange}
-            placeholder="Unique Branch Code"
-          />
-        </div>
-        <div>
-          <Label>GST No</Label>
-          <Input
-            name="gstNo"
-            value={formData.gstNo}
-            onChange={handleInputChange}
-            placeholder="GST Number"
-          />
-        </div>
-        <div>
-          <Label>Branch No</Label>
-          <Input
-            name="branchNo"
-            value={formData.branchNo}
-            onChange={handleInputChange}
-            placeholder="Branch Number"
-          />
-        </div>
-        <div>
-          <Label>Company</Label>
-          <Select
-            value={formData.company}
-            onValueChange={(val) =>
-              setFormData((prev) => ({ ...prev, company: val }))
-            }
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select Company" />
-            </SelectTrigger>
-            <SelectContent>
-              {companies?.companies?.map((c) => (
-                <SelectItem key={c._id} value={c._id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label>Address</Label>
-          <Input
-            name="address"
-            value={formData.address}
-            onChange={handleInputChange}
-            placeholder="Branch Address"
-          />
-        </div>
-        {/* <div>
-          <Label>Country</Label>
-          <Select
-            value={formData.region.country}
-            onValueChange={(val) => handleRegionChange("country", val)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select Country" />
-            </SelectTrigger>
-            <SelectContent>
-              {countries?.countries?.map((c) => (
-                <SelectItem key={c._id} value={c._id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label>State</Label>
-          <Select
-            value={formData.region.state}
-            onValueChange={(val) => handleRegionChange("state", val)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select State" />
-            </SelectTrigger>
-            <SelectContent>
-              {stateData?.data?.map((s) => (
-                <SelectItem key={s._id} value={s._id}>
-                  {s.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label>City</Label>
-          <Select
-            value={formData.region.city}
-            onValueChange={(val) => handleRegionChange("city", val)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select City" />
-            </SelectTrigger>
-            <SelectContent>
-              {cityData?.cities?.map((c) => (
-                <SelectItem key={c._id} value={c._id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label>Locality</Label>
-          <Select
-            value={formData.region.locality}
-            onValueChange={(val) => handleRegionChange("locality", val)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select Locality" />
-            </SelectTrigger>
-            <SelectContent>
-              {localityData?.data?.map((l) => (
-                <SelectItem key={l._id} value={l._id}>
-                  {l.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label>Pincode</Label>
-          <Select
-            value={formData.region.pincode}
-            onValueChange={(val) => handleRegionChange("pincode", val)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select Pincode" />
-            </SelectTrigger>
-            <SelectContent>
-              {pincodeData?.pincodes?.map((p) => (
-                <SelectItem key={p._id} value={p._id}>
-                  {p.code}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div> */}
-        <div className="flex items-center gap-4 mt-2">
-          <Label htmlFor="status-toggle">Active Status</Label>
-          <Switch
-            id="status-toggle"
-            checked={formData.status}
-            onCheckedChange={(checked) =>
-              setFormData((prev) => ({ ...prev, status: checked }))
-            }
-          />
-          <span className="text-sm text-gray-500">
-            {formData.status ? "Active" : "Inactive"}
-          </span>
-        </div>
-      </div>
+        {/* Form */}
+        <div className="space-y-6">
+          {/* Basic Information */}
+          <Card className="shadow-sm">
+            <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Building className="w-5 h-5 text-[#202020]" />
+                Basic Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Branch Name *</Label>
+                  <Input
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    placeholder="Branch Name"
+                  />
+                </div>
+                <div>
+                  <Label>Branch Code *</Label>
+                  <Input
+                    name="branchCode"
+                    value={formData.branchCode}
+                    onChange={handleInputChange}
+                    placeholder="Unique Branch Code"
+                  />
+                </div>
+                <div>
+                  <Label>Company *</Label>
+                  <Select
+                    value={formData.company}
+                    onValueChange={(val) =>
+                      setFormData((prev) => ({ ...prev, company: val }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Company" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {companies?.companies?.map((c) => (
+                        <SelectItem key={c._id} value={c._id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Branch Contact No</Label>
+                  <Input
+                    name="branchNo"
+                    value={formData.branchNo}
+                    onChange={handleInputChange}
+                    placeholder="Branch Number"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label>Address *</Label>
+                  <Input
+                    name="address"
+                    value={formData.address}
+                    onChange={handleInputChange}
+                    placeholder="Branch Address"
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <Label htmlFor="status-toggle">Status</Label>
+                  <Switch
+                    id="status-toggle"
+                    checked={formData.status}
+                    onCheckedChange={(checked) =>
+                      setFormData((prev) => ({ ...prev, status: checked }))
+                    }
+                  />
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {formData.status ? "Active" : "Inactive"}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-      <div className="flex gap-2 mt-6">
-        <Button variant="outline" onClick={() => navigate("/admin/branches")}>
-          Cancel
-        </Button>
-        <Button disabled={isLoading} onClick={handleSubmit}>
-          {isLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating...
-            </>
-          ) : (
-            "Create Branch"
-          )}
-        </Button>
+          {/* Tax Information */}
+          <Card className="shadow-sm">
+            <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <FileText className="w-5 h-5 text-[#202020]" />
+                Tax Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>GST No</Label>
+                  <Input
+                    name="gstNo"
+                    value={formData.gstNo}
+                    onChange={handleInputChange}
+                    placeholder="GST Number"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Action Buttons */}
+          <div className="flex gap-3 justify-end sticky bottom-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg border">
+            <Button 
+              variant="outline" 
+              onClick={() => navigate("/admin/branches")}
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button 
+              disabled={isLoading} 
+              onClick={handleSubmit}
+              className="min-w-[150px] bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020] border border-[#FFD249]"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating...
+                </>
+              ) : (
+                "Create Branch"
+              )}
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );

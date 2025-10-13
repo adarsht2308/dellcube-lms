@@ -11,6 +11,9 @@ import {
   Phone,
   Building2,
   MapPin,
+  CreditCard,
+  Calendar,
+  Wrench,
 } from "lucide-react";
 import { MdOutlineEdit } from "react-icons/md";
 import { FaRegTrashCan } from "react-icons/fa6";
@@ -64,7 +67,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label"; // Assuming you have a Label component
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 import { useDebounce } from "@/hooks/Debounce"; // Custom hook for debouncing search input
 
@@ -1205,7 +1209,7 @@ const Vendors = () => {
 
 export default Vendors;
 
-// AddVehicleDialog component (no changes needed for filter/design, but included for completeness)
+// AddVehicleDialog component - Professional Card-based Design
 const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
   const [form, setForm] = useState({
     vehicleNumber: "",
@@ -1229,11 +1233,6 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
     insuranceImage: null,
   });
 
-  // Debug form state
-  useEffect(() => {
-    console.log("Form state updated:", form);
-  }, [form]);
-
   const handleFileChange = (field, file) => {
     setFiles((prev) => ({ ...prev, [field]: file }));
   };
@@ -1244,36 +1243,21 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
       return;
     }
 
-    console.log("Form data before submission:", form);
-
-    // Create FormData for file uploads
     const formData = new FormData();
-
-    // Add vehicle data
     Object.keys(form).forEach((key) => {
       if (form[key] !== "") {
         formData.append(key, form[key]);
-        console.log(`Appending ${key}: ${form[key]}`);
-      } else {
-        console.log(`Skipping ${key}: ${form[key]} (empty)`);
       }
     });
 
-    // Add files
     Object.keys(files).forEach((key) => {
       if (files[key]) {
         formData.append(
           `vendorVehicle${key.charAt(0).toUpperCase() + key.slice(1)}`,
           files[key]
         );
-        console.log(`Appending file ${key}: ${files[key].name}`);
       }
     });
-
-    console.log("FormData entries:");
-    for (let [key, value] of formData.entries()) {
-      console.log(`${key}: ${value}`);
-    }
 
     onAddVehicle(vendorId, formData);
     onClose();
@@ -1303,323 +1287,269 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="dark:bg-gray-800 dark:text-white max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="dark:text-white">
-            Add Vehicle to Vendor
-          </DialogTitle>
-        </DialogHeader>
-        {/* Card style for add vehicle form */}
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 shadow-sm dark:bg-yellow-950 dark:border-yellow-700">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Basic Vehicle Information */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200 border-b border-yellow-300 pb-2">
-                Basic Information
-              </h3>
-
-              <div className="grid grid-cols-1 gap-4">
-                <div>
-                  <Label
-                    htmlFor="vehicleNumber"
-                    className="text-yellow-800 dark:text-yellow-200 font-medium"
-                  >
-                    Vehicle Number *
-                  </Label>
-                  <Input
-                    id="vehicleNumber"
-                    name="vehicleNumber"
-                    placeholder="e.g. MH 04 AB 1234"
-                    value={form.vehicleNumber}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        vehicleNumber: e.target.value,
-                      }))
-                    }
-                    className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-                  />
-                </div>
-
-                <div>
-                  <Label
-                    htmlFor="type"
-                    className="text-yellow-800 dark:text-yellow-200 font-medium"
-                  >
-                    Vehicle Type *
-                  </Label>
-                  <Select
-                    value={form.type}
-                    onValueChange={(val) => {
-                      console.log("Setting type to:", val);
-                      setForm((prev) => ({ ...prev, type: val }));
-                    }}
-                  >
-                    <SelectTrigger className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600">
-                      <SelectValue placeholder="Select vehicle type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="7ft">7ft</SelectItem>
-                      <SelectItem value="10ft">10ft</SelectItem>
-                      <SelectItem value="14ft">14ft</SelectItem>
-                      <SelectItem value="18ft">18ft</SelectItem>
-                      <SelectItem value="24ft">24ft</SelectItem>
-                      <SelectItem value="32ft">32ft</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label
-                    htmlFor="brand"
-                    className="text-yellow-800 dark:text-yellow-200 font-medium"
-                  >
-                    Brand *
-                  </Label>
-                  <Input
-                    id="brand"
-                    name="brand"
-                    placeholder="e.g., Toyota"
-                    value={form.brand}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, brand: e.target.value }))
-                    }
-                    className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-                  />
-                </div>
-
-                <div>
-                  <Label
-                    htmlFor="model"
-                    className="text-yellow-800 dark:text-yellow-200 font-medium"
-                  >
-                    Model *
-                  </Label>
-                  <Input
-                    id="model"
-                    name="model"
-                    placeholder="e.g., Camry"
-                    value={form.model}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, model: e.target.value }))
-                    }
-                    className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-                  />
-                </div>
-
-                <div>
-                  <Label
-                    htmlFor="yearOfManufacture"
-                    className="text-yellow-800 dark:text-yellow-200 font-medium"
-                  >
-                    Year of Manufacture
-                  </Label>
-                  <Input
-                    id="yearOfManufacture"
-                    name="yearOfManufacture"
-                    type="number"
-                    placeholder="e.g., 2020"
-                    value={form.yearOfManufacture}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        yearOfManufacture: e.target.value,
-                      }))
-                    }
-                    className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-                  />
-                </div>
-
-                <div>
-                  <Label
-                    htmlFor="status"
-                    className="text-yellow-800 dark:text-yellow-200 font-medium"
-                  >
-                    Status
-                  </Label>
-                  <Select
-                    value={form.status}
-                    onValueChange={(val) =>
-                      setForm((prev) => ({ ...prev, status: val }))
-                    }
-                  >
-                    <SelectTrigger className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600">
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                      <SelectItem value="under_maintenance">
-                        Under Maintenance
-                      </SelectItem>
-                      <SelectItem value="decommissioned">
-                        Decommissioned
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+      <DialogContent className="bg-white dark:bg-gray-900 max-w-5xl max-h-[90vh] overflow-y-auto border-0 shadow-2xl">
+        <DialogHeader className="border-b pb-4 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-[#FFD249]/20 rounded-lg">
+              <Car className="w-6 h-6 text-[#202020] dark:text-[#FFD249]" />
             </div>
+            <div>
+              <DialogTitle className="text-2xl font-bold text-[#202020] dark:text-white">
+                Add Vehicle
+              </DialogTitle>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Add a new vehicle to this vendor
+              </p>
+            </div>
+          </div>
+        </DialogHeader>
 
-            {/* Dates and Documents */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200 border-b border-yellow-300 pb-2">
-                Dates & Documents
-              </h3>
+        <div className="space-y-6">
+          {/* Basic Information Card */}
+          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-[#202020] dark:text-[#FFD249] mb-4 flex items-center gap-2">
+              <Car className="w-5 h-5" />
+              Basic Information
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div>
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Vehicle Number *
+                </Label>
+                <Input
+                  placeholder="e.g. MH 04 AB 1234"
+                  value={form.vehicleNumber}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      vehicleNumber: e.target.value,
+                    }))
+                  }
+                  className="mt-1.5"
+                />
+              </div>
 
-              <div className="grid grid-cols-1 gap-4">
-                <div>
-                  <Label
-                    htmlFor="registrationDate"
-                    className="text-yellow-800 dark:text-yellow-200 font-medium"
-                  >
-                    Registration Date
-                  </Label>
-                  <Input
-                    id="registrationDate"
-                    name="registrationDate"
-                    type="date"
-                    value={form.registrationDate}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        registrationDate: e.target.value,
-                      }))
-                    }
-                    className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-                  />
-                </div>
+              <div>
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Vehicle Type *
+                </Label>
+                <Select
+                  value={form.type}
+                  onValueChange={(val) =>
+                    setForm((prev) => ({ ...prev, type: val }))
+                  }
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder="Select vehicle type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="7ft">7ft</SelectItem>
+                    <SelectItem value="10ft">10ft</SelectItem>
+                    <SelectItem value="14ft">14ft</SelectItem>
+                    <SelectItem value="18ft">18ft</SelectItem>
+                    <SelectItem value="24ft">24ft</SelectItem>
+                    <SelectItem value="32ft">32ft</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-                <div>
-                  <Label
-                    htmlFor="fitnessCertificateExpiry"
-                    className="text-yellow-800 dark:text-yellow-200 font-medium"
-                  >
-                    Fitness Certificate Expiry
-                  </Label>
-                  <Input
-                    id="fitnessCertificateExpiry"
-                    name="fitnessCertificateExpiry"
-                    type="date"
-                    value={form.fitnessCertificateExpiry}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        fitnessCertificateExpiry: e.target.value,
-                      }))
-                    }
-                    className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-                  />
-                </div>
+              <div>
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Brand *
+                </Label>
+                <Input
+                  placeholder="e.g., Tata, Mahindra"
+                  value={form.brand}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, brand: e.target.value }))
+                  }
+                  className="mt-1.5"
+                />
+              </div>
 
-                <div>
-                  <Label
-                    htmlFor="insuranceExpiry"
-                    className="text-yellow-800 dark:text-yellow-200 font-medium"
-                  >
-                    Insurance Expiry
-                  </Label>
-                  <Input
-                    id="insuranceExpiry"
-                    name="insuranceExpiry"
-                    type="date"
-                    value={form.insuranceExpiry}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        insuranceExpiry: e.target.value,
-                      }))
-                    }
-                    className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-                  />
-                </div>
+              <div>
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Model *
+                </Label>
+                <Input
+                  placeholder="e.g., Ace, Bolero"
+                  value={form.model}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, model: e.target.value }))
+                  }
+                  className="mt-1.5"
+                />
+              </div>
 
-                <div>
-                  <Label
-                    htmlFor="pollutionCertificateExpiry"
-                    className="text-yellow-800 dark:text-yellow-200 font-medium"
-                  >
-                    Pollution Certificate Expiry
-                  </Label>
-                  <Input
-                    id="pollutionCertificateExpiry"
-                    name="pollutionCertificateExpiry"
-                    type="date"
-                    value={form.pollutionCertificateExpiry}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        pollutionCertificateExpiry: e.target.value,
-                      }))
-                    }
-                    className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-                  />
-                </div>
+              <div>
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Year of Manufacture
+                </Label>
+                <Input
+                  type="number"
+                  placeholder="e.g., 2020"
+                  value={form.yearOfManufacture}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      yearOfManufacture: e.target.value,
+                    }))
+                  }
+                  className="mt-1.5"
+                />
+              </div>
 
-                <div>
-                  <Label
-                    htmlFor="vehicleInsuranceNo"
-                    className="text-yellow-800 dark:text-yellow-200 font-medium"
-                  >
-                    Vehicle Insurance Number
-                  </Label>
-                  <Input
-                    id="vehicleInsuranceNo"
-                    name="vehicleInsuranceNo"
-                    placeholder="e.g., INS123456789"
-                    value={form.vehicleInsuranceNo}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        vehicleInsuranceNo: e.target.value,
-                      }))
-                    }
-                    className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-                  />
-                </div>
-
-                <div>
-                  <Label
-                    htmlFor="fitnessNo"
-                    className="text-yellow-800 dark:text-yellow-200 font-medium"
-                  >
-                    Fitness Certificate Number
-                  </Label>
-                  <Input
-                    id="fitnessNo"
-                    name="fitnessNo"
-                    placeholder="e.g., FC123456789"
-                    value={form.fitnessNo}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        fitnessNo: e.target.value,
-                      }))
-                    }
-                    className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-                  />
-                </div>
+              <div>
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Status
+                </Label>
+                <Select
+                  value={form.status}
+                  onValueChange={(val) =>
+                    setForm((prev) => ({ ...prev, status: val }))
+                  }
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                    <SelectItem value="under_maintenance">
+                      Under Maintenance
+                    </SelectItem>
+                    <SelectItem value="decommissioned">
+                      Decommissioned
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>
 
-          {/* File Uploads */}
-          <div className="mt-6 space-y-4">
-            <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200 border-b border-yellow-300 pb-2">
-              Certificate Images
+          {/* Dates & Certificate Numbers Card */}
+          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-[#202020] dark:text-[#FFD249] mb-4 flex items-center gap-2">
+              <CreditCard className="w-5 h-5" />
+              Dates & Certificate Numbers
             </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
-                <Label
-                  htmlFor="fitnessCertificateImage"
-                  className="text-yellow-800 dark:text-yellow-200 font-medium"
-                >
-                  Fitness Certificate Image
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Registration Date
                 </Label>
                 <Input
-                  id="fitnessCertificateImage"
-                  name="fitnessCertificateImage"
+                  type="date"
+                  value={form.registrationDate}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      registrationDate: e.target.value,
+                    }))
+                  }
+                  className="mt-1.5"
+                />
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Fitness Certificate Expiry
+                </Label>
+                <Input
+                  type="date"
+                  value={form.fitnessCertificateExpiry}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      fitnessCertificateExpiry: e.target.value,
+                    }))
+                  }
+                  className="mt-1.5"
+                />
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Insurance Expiry
+                </Label>
+                <Input
+                  type="date"
+                  value={form.insuranceExpiry}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      insuranceExpiry: e.target.value,
+                    }))
+                  }
+                  className="mt-1.5"
+                />
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Pollution Certificate Expiry
+                </Label>
+                <Input
+                  type="date"
+                  value={form.pollutionCertificateExpiry}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      pollutionCertificateExpiry: e.target.value,
+                    }))
+                  }
+                  className="mt-1.5"
+                />
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Insurance Number
+                </Label>
+                <Input
+                  placeholder="e.g., INS123456789"
+                  value={form.vehicleInsuranceNo}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      vehicleInsuranceNo: e.target.value,
+                    }))
+                  }
+                  className="mt-1.5"
+                />
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Fitness Certificate Number
+                </Label>
+                <Input
+                  placeholder="e.g., FC123456789"
+                  value={form.fitnessNo}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      fitnessNo: e.target.value,
+                    }))
+                  }
+                  className="mt-1.5"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Certificate Images Card */}
+          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-[#202020] dark:text-[#FFD249] mb-4 flex items-center gap-2">
+              <CreditCard className="w-5 h-5" />
+              Certificate Images (Optional)
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Fitness Certificate
+                </Label>
+                <Input
                   type="file"
                   accept="image/*"
                   onChange={(e) =>
@@ -1628,20 +1558,15 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
                       e.target.files[0]
                     )
                   }
-                  className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                  className="mt-1.5"
                 />
               </div>
 
               <div>
-                <Label
-                  htmlFor="pollutionCertificateImage"
-                  className="text-yellow-800 dark:text-yellow-200 font-medium"
-                >
-                  Pollution Certificate Image
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Pollution Certificate
                 </Label>
                 <Input
-                  id="pollutionCertificateImage"
-                  name="pollutionCertificateImage"
                   type="file"
                   accept="image/*"
                   onChange={(e) =>
@@ -1650,20 +1575,15 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
                       e.target.files[0]
                     )
                   }
-                  className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                  className="mt-1.5"
                 />
               </div>
 
               <div>
-                <Label
-                  htmlFor="registrationCertificateImage"
-                  className="text-yellow-800 dark:text-yellow-200 font-medium"
-                >
-                  Registration Certificate Image
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Registration Certificate
                 </Label>
                 <Input
-                  id="registrationCertificateImage"
-                  name="registrationCertificateImage"
                   type="file"
                   accept="image/*"
                   onChange={(e) =>
@@ -1672,40 +1592,44 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
                       e.target.files[0]
                     )
                   }
-                  className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                  className="mt-1.5"
                 />
               </div>
 
               <div>
-                <Label
-                  htmlFor="insuranceImage"
-                  className="text-yellow-800 dark:text-yellow-200 font-medium"
-                >
-                  Insurance Image
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Insurance Document
                 </Label>
                 <Input
-                  id="insuranceImage"
-                  name="insuranceImage"
                   type="file"
                   accept="image/*"
                   onChange={(e) =>
                     handleFileChange("insuranceImage", e.target.files[0])
                   }
-                  className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                  className="mt-1.5"
                 />
               </div>
             </div>
           </div>
+        </div>
 
-          <div className="flex justify-end mt-6">
+        <DialogFooter className="mt-6 pt-4 border-t">
+          <div className="flex gap-3 w-full justify-end">
+            <Button
+              variant="outline"
+              onClick={onClose}
+              className="min-w-[100px]"
+            >
+              Cancel
+            </Button>
             <Button
               onClick={handleSubmit}
-              className="dark:bg-blue-600 dark:hover:bg-blue-700 dark:text-white"
+              className="min-w-[150px] bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020] border border-[#FFD249]"
             >
               Add Vehicle
             </Button>
           </div>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
@@ -1777,136 +1701,130 @@ const AddMaintenanceForm = ({
   };
 
   return (
-    <div className="space-y-4 py-4">
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 dark:bg-blue-950 dark:border-blue-700">
-        <h4 className="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-3">
-          Vehicle: {vehicle?.vehicleNumber} - {vehicle?.brand} {vehicle?.model}
-        </h4>
+    <div className="space-y-6">
+      {/* Vehicle Info Header */}
+      <div className="bg-gradient-to-r from-[#FFD249]/20 to-[#FFD249]/10 rounded-xl p-4 border border-[#FFD249]/30">
+        <div className="flex items-center gap-3">
+          <Car className="w-5 h-5 text-[#202020] dark:text-[#FFD249]" />
+          <div>
+            <h4 className="font-semibold text-[#202020] dark:text-white">
+              {vehicle?.vehicleNumber}
+            </h4>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {vehicle?.brand} {vehicle?.model}
+            </p>
+          </div>
+        </div>
+      </div>
 
+      {/* Service Information Card */}
+      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+        <h3 className="text-lg font-semibold text-[#202020] dark:text-[#FFD249] mb-4 flex items-center gap-2">
+          <Calendar className="w-5 h-5" />
+          Service Information
+        </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <Label
-              htmlFor="serviceDate"
-              className="text-blue-800 dark:text-blue-200 font-medium"
-            >
+            <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Service Date *
             </Label>
             <Input
-              id="serviceDate"
-              name="serviceDate"
               type="date"
               value={form.serviceDate}
               onChange={(e) =>
                 setForm((prev) => ({ ...prev, serviceDate: e.target.value }))
               }
-              className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+              className="mt-1.5"
             />
           </div>
 
           <div>
-            <Label
-              htmlFor="serviceType"
-              className="text-blue-800 dark:text-blue-200 font-medium"
-            >
+            <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Service Type *
             </Label>
             <Input
-              id="serviceType"
-              name="serviceType"
               placeholder="e.g., Oil Change, Brake Service"
               value={form.serviceType}
               onChange={(e) =>
                 setForm((prev) => ({ ...prev, serviceType: e.target.value }))
               }
-              className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+              className="mt-1.5"
             />
           </div>
 
           <div>
-            <Label
-              htmlFor="cost"
-              className="text-blue-800 dark:text-blue-200 font-medium"
-            >
+            <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Cost (₹)
             </Label>
             <Input
-              id="cost"
-              name="cost"
               type="number"
               placeholder="e.g., 1500"
               value={form.cost}
               onChange={(e) =>
                 setForm((prev) => ({ ...prev, cost: e.target.value }))
               }
-              className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+              className="mt-1.5"
             />
           </div>
 
           <div>
-            <Label
-              htmlFor="servicedBy"
-              className="text-blue-800 dark:text-blue-200 font-medium"
-            >
+            <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Serviced By
             </Label>
             <Input
-              id="servicedBy"
-              name="servicedBy"
               placeholder="e.g., ABC Service Center"
               value={form.servicedBy}
               onChange={(e) =>
                 setForm((prev) => ({ ...prev, servicedBy: e.target.value }))
               }
-              className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+              className="mt-1.5"
             />
           </div>
+        </div>
+      </div>
 
-          <div className="md:col-span-2">
-            <Label
-              htmlFor="description"
-              className="text-blue-800 dark:text-blue-200 font-medium"
-            >
+      {/* Description & Documents Card */}
+      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+        <h3 className="text-lg font-semibold text-[#202020] dark:text-[#FFD249] mb-4 flex items-center gap-2">
+          <Wrench className="w-5 h-5" />
+          Description & Documents
+        </h3>
+        <div className="space-y-4">
+          <div>
+            <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Description *
             </Label>
-            <textarea
-              id="description"
-              name="description"
+            <Textarea
               placeholder="Describe the service performed..."
               value={form.description}
               onChange={(e) =>
                 setForm((prev) => ({ ...prev, description: e.target.value }))
               }
-              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-              rows="3"
+              className="mt-1.5 min-h-[100px]"
             />
           </div>
 
-          <div className="md:col-span-2">
-            <Label
-              htmlFor="billImage"
-              className="text-blue-800 dark:text-blue-200 font-medium"
-            >
-              Bill Image
+          <div>
+            <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Bill Image (Optional)
             </Label>
             <Input
-              id="billImage"
-              name="billImage"
               type="file"
               accept="image/*"
               onChange={(e) => setBillImage(e.target.files[0])}
-              className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+              className="mt-1.5"
             />
           </div>
         </div>
+      </div>
 
-        <div className="flex justify-end mt-4">
-          <Button
-            onClick={handleSubmit}
-            className="dark:bg-blue-600 dark:hover:bg-blue-700 dark:text-white"
-          >
-            Add Maintenance Record
-          </Button>
-        </div>
+      <div className="flex justify-end pt-4 border-t">
+        <Button
+          onClick={handleSubmit}
+          className="min-w-[180px] bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020] border border-[#FFD249]"
+        >
+          Add Maintenance Record
+        </Button>
       </div>
     </div>
   );

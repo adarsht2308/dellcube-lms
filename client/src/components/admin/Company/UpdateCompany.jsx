@@ -1,13 +1,13 @@
-// Final updated code for UpdateCompany.jsx with region dropdowns prefilled
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import { CloudCog, Loader2 } from "lucide-react";
+import { Loader2, ArrowLeft, Building2, FileText, CreditCard, Phone } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
   SelectTrigger,
@@ -149,7 +149,6 @@ const UpdateCompany = () => {
     if (!companyCode.trim()) return toast.error("Company code is required");
     if (!emailId.trim()) return toast.error("Email ID is required");
     if (!gstNumber.trim()) return toast.error("GST Number is required");
-    // if (!gstNo.trim()) return toast.error("GST NO is required");
     if (!gstValue || gstValue <= 0) return toast.error("GST Value is required and must be greater than 0");
     if (!pan.trim()) return toast.error("PAN is required");
     if (!sacHsnCode.trim()) return toast.error("SAC/HSN code is required");
@@ -172,7 +171,6 @@ const UpdateCompany = () => {
     payload.append("emailId", emailId);
     payload.append("website", website);
     payload.append("gstNumber", gstNumber);
-    // payload.append("gstNo", gstNo);
     payload.append("gstValue", gstValue);
     payload.append("pan", pan);
     payload.append("sacHsnCode", sacHsnCode);
@@ -205,336 +203,308 @@ const UpdateCompany = () => {
   }, [isUpdated, error]);
 
   return (
-    <div className="mx-4 md:mx-10 py-6">
-      <h2 className="text-xl font-bold mb-2">Edit Company</h2>
-      <p className="text-sm mb-6 text-muted-foreground">
-        Update company details
-      </p>
-
-      <div className="grid md:grid-cols-2 gap-4">
-        <div>
-          <Label>Company Name</Label>
-          <Input
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="Company name"
-          />
-        </div>
-        <div>
-          <Label>Company Code</Label>
-          <Input
-            value={formData.companyCode}
-            onChange={(e) =>
-              setFormData({ ...formData, companyCode: e.target.value })
-            }
-            placeholder="Company code"
-          />
-        </div>
-        <div>
-          <Label>Email ID</Label>
-          <Input
-            type="email"
-            value={formData.emailId}
-            onChange={(e) =>
-              setFormData({ ...formData, emailId: e.target.value })
-            }
-            placeholder="Email ID"
-          />
-        </div>
-        <div>
-          <Label>Website</Label>
-          <Input
-            type="url"
-            value={formData.website}
-            onChange={(e) =>
-              setFormData({ ...formData, website: e.target.value })
-            }
-            placeholder="Website URL"
-          />
-        </div>
-        <div>
-          <Label>GST Number</Label>
-          <Input
-            value={formData.gstNumber}
-            onChange={(e) =>
-              setFormData({ ...formData, gstNumber: e.target.value })
-            }
-            placeholder="GST number"
-          />
-        </div>
-        {/* <div>
-          <Label>GST NO</Label>
-          <Input
-            value={formData.gstNo}
-            onChange={(e) =>
-              setFormData({ ...formData, gstNo: e.target.value })
-            }
-            placeholder="GST NO"
-          />
-        </div> */}
-        <div>
-          <Label>GST Value</Label>
-          <Input
-            type="number"
-            step="0.01"
-            value={formData.gstValue}
-            onChange={(e) =>
-              setFormData({ ...formData, gstValue: e.target.value })
-            }
-            placeholder="GST Value"
-          />
-        </div>
-        <div>
-          <Label>Company Type</Label>
-          <Select
-            value={formData.companyType}
-            onValueChange={(val) =>
-              setFormData({ ...formData, companyType: val })
-            }
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="px-4 py-6 max-w-5xl">
+        {/* Header */}
+        <div className="mb-6">
+          <Button
+            variant="ghost"
+            onClick={() => navigate("/admin/companies")}
+            className="mb-4 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
           >
-            <SelectTrigger>
-              <SelectValue placeholder="Select Company Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="counter company">Counter Company</SelectItem>
-              <SelectItem value="logistic company">Logistic Company</SelectItem>
-              <SelectItem value="transport company">Transport Company</SelectItem>
-              <SelectItem value="warehouse company">Warehouse Company</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label>PAN</Label>
-          <Input
-            value={formData.pan}
-            onChange={(e) =>
-              setFormData({ ...formData, pan: e.target.value })
-            }
-            placeholder="PAN number"
-          />
-        </div>
-        <div>
-          <Label>SAC/HSN Code</Label>
-          <Input
-            value={formData.sacHsnCode}
-            onChange={(e) =>
-              setFormData({ ...formData, sacHsnCode: e.target.value })
-            }
-            placeholder="SAC/HSN code"
-          />
-        </div>
-        <div>
-          <Label>Contact Phone</Label>
-          <Input
-            value={formData.contactPhone}
-            onChange={(e) =>
-              setFormData({ ...formData, contactPhone: e.target.value })
-            }
-            placeholder="Phone number"
-          />
-        </div>
-        <div>
-          <Label>Address</Label>
-          <Input
-            value={formData.address}
-            onChange={(e) =>
-              setFormData({ ...formData, address: e.target.value })
-            }
-            placeholder="Address"
-          />
-        </div>
-        {/* <div>
-          <Label>Country</Label>
-          <Select
-            value={formData.region.country}
-            onValueChange={(val) => handleRegionChange("country", val)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select Country" />
-            </SelectTrigger>
-            <SelectContent>
-              {countries?.countries?.map((c) => (
-                <SelectItem key={c._id} value={c._id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label>State</Label>
-          <Select
-            value={formData.region.state}
-            onValueChange={(val) => handleRegionChange("state", val)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select State" />
-            </SelectTrigger>
-            <SelectContent>
-              {stateData?.data?.map((s) => (
-                <SelectItem key={s._id} value={s._id}>
-                  {s.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label>City</Label>
-          <Select
-            value={formData.region.city}
-            onValueChange={(val) => handleRegionChange("city", val)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select City" />
-            </SelectTrigger>
-            <SelectContent>
-              {cityData?.cities?.map((c) => (
-                <SelectItem key={c._id} value={c._id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label>Locality</Label>
-          <Select
-            value={formData.region.locality}
-            onValueChange={(val) => handleRegionChange("locality", val)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select Locality" />
-            </SelectTrigger>
-            <SelectContent>
-              {localityData?.data?.map((l) => (
-                <SelectItem key={l._id} value={l._id}>
-                  {l.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label>Pincode</Label>
-          <Select
-            value={formData.region.pincode}
-            onValueChange={(val) => handleRegionChange("pincode", val)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select Pincode" />
-            </SelectTrigger>
-            <SelectContent>
-              {pincodeData?.pincodes?.map((p) => (
-                <SelectItem key={p._id} value={p._id}>
-                  {p.code}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div> */}
-
-        <div>
-          <Label>Logo (optional)</Label>
-          <Input
-            type="file"
-            accept="image/*"
-            onChange={(e) =>
-              setFormData({ ...formData, logo: e.target.files[0] })
-            }
-          />
-        </div>
-        
-
-        {/* Bank Details Section */}
-        <div className="md:col-span-2">
-          <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Bank Details</h3>
-          <div className="grid md:grid-cols-3 gap-4">
-            <div>
-              <Label>Bank Name</Label>
-              <Input
-                value={formData.bankName}
-                onChange={(e) =>
-                  setFormData({ ...formData, bankName: e.target.value })
-                }
-                placeholder="Bank Name"
-              />
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Companies
+          </Button>
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-[#FFD249]/20 rounded-lg">
+              <Building2 className="w-6 h-6 text-[#202020]" />
             </div>
             <div>
-              <Label>Account Number</Label>
-              <Input
-                value={formData.accountNumber}
-                onChange={(e) =>
-                  setFormData({ ...formData, accountNumber: e.target.value })
-                }
-                placeholder="Account Number"
-              />
-            </div>
-            <div>
-              <Label>IFSC Code</Label>
-              <Input
-                value={formData.ifsc}
-                onChange={(e) =>
-                  setFormData({ ...formData, ifsc: e.target.value })
-                }
-                placeholder="IFSC Code"
-              />
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Update Company
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Edit company information
+              </p>
             </div>
           </div>
         </div>
 
-        {/* Emergency Contact Section */}
-        <div className="md:col-span-2">
-          <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Emergency Contact</h3>
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <Label>Contact Name</Label>
-              <Input
-                value={formData.emergencyContactName}
-                onChange={(e) =>
-                  setFormData({ ...formData, emergencyContactName: e.target.value })
-                }
-                placeholder="Emergency Contact Name"
-              />
-            </div>
-            <div>
-              <Label>Contact Mobile</Label>
-              <Input
-                value={formData.emergencyContactMobile}
-                onChange={(e) =>
-                  setFormData({ ...formData, emergencyContactMobile: e.target.value })
-                }
-                placeholder="10-digit mobile number"
-              />
-            </div>
-            <div className="flex items-center gap-4 mt-2">
-          <Label>Status</Label>
-          <Switch
-            checked={formData.status}
-            onCheckedChange={(checked) =>
-              setFormData((prev) => ({ ...prev, status: checked }))
-            }
-          />
-          <span>{formData.status ? "Active" : "Inactive"}</span>
-        </div>
+        {/* Form */}
+        <div className="space-y-6">
+          {/* Basic Information */}
+          <Card className="shadow-sm">
+            <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Building2 className="w-5 h-5 text-[#202020]" />
+                Basic Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Company Name *</Label>
+                  <Input
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="Company name"
+                  />
+                </div>
+                <div>
+                  <Label>Company Code *</Label>
+                  <Input
+                    value={formData.companyCode}
+                    onChange={(e) =>
+                      setFormData({ ...formData, companyCode: e.target.value })
+                    }
+                    placeholder="Company code"
+                  />
+                </div>
+                <div>
+                  <Label>Email ID *</Label>
+                  <Input
+                    type="email"
+                    value={formData.emailId}
+                    onChange={(e) =>
+                      setFormData({ ...formData, emailId: e.target.value })
+                    }
+                    placeholder="Email ID"
+                  />
+                </div>
+                <div>
+                  <Label>Website</Label>
+                  <Input
+                    type="url"
+                    value={formData.website}
+                    onChange={(e) =>
+                      setFormData({ ...formData, website: e.target.value })
+                    }
+                    placeholder="Website URL"
+                  />
+                </div>
+                <div>
+                  <Label>Company Type *</Label>
+                  <Select
+                    value={formData.companyType}
+                    onValueChange={(val) =>
+                      setFormData({ ...formData, companyType: val })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Company Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="counter company">Counter Company</SelectItem>
+                      <SelectItem value="logistic company">Logistic Company</SelectItem>
+                      <SelectItem value="transport company">Transport Company</SelectItem>
+                      <SelectItem value="warehouse company">Warehouse Company</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Contact Phone *</Label>
+                  <Input
+                    value={formData.contactPhone}
+                    onChange={(e) =>
+                      setFormData({ ...formData, contactPhone: e.target.value })
+                    }
+                    placeholder="Phone number"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label>Address *</Label>
+                  <Input
+                    value={formData.address}
+                    onChange={(e) =>
+                      setFormData({ ...formData, address: e.target.value })
+                    }
+                    placeholder="Address"
+                  />
+                </div>
+                <div>
+                  <Label>Company Logo</Label>
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) =>
+                      setFormData({ ...formData, logo: e.target.files[0] })
+                    }
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <Label>Status</Label>
+                  <Switch
+                    checked={formData.status}
+                    onCheckedChange={(checked) =>
+                      setFormData((prev) => ({ ...prev, status: checked }))
+                    }
+                  />
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {formData.status ? "Active" : "Inactive"}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Legal & Tax Information */}
+          <Card className="shadow-sm">
+            <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <FileText className="w-5 h-5 text-[#202020]" />
+                Legal & Tax Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>GST Number *</Label>
+                  <Input
+                    value={formData.gstNumber}
+                    onChange={(e) =>
+                      setFormData({ ...formData, gstNumber: e.target.value })
+                    }
+                    placeholder="GST number"
+                  />
+                </div>
+                <div>
+                  <Label>GST Value *</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={formData.gstValue}
+                    onChange={(e) =>
+                      setFormData({ ...formData, gstValue: e.target.value })
+                    }
+                    placeholder="GST Value"
+                  />
+                </div>
+                <div>
+                  <Label>PAN *</Label>
+                  <Input
+                    value={formData.pan}
+                    onChange={(e) =>
+                      setFormData({ ...formData, pan: e.target.value })
+                    }
+                    placeholder="PAN number"
+                  />
+                </div>
+                <div>
+                  <Label>SAC/HSN Code *</Label>
+                  <Input
+                    value={formData.sacHsnCode}
+                    onChange={(e) =>
+                      setFormData({ ...formData, sacHsnCode: e.target.value })
+                    }
+                    placeholder="SAC/HSN code"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Bank Details */}
+          <Card className="shadow-sm">
+            <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <CreditCard className="w-5 h-5 text-[#202020]" />
+                Bank Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label>Bank Name</Label>
+                  <Input
+                    value={formData.bankName}
+                    onChange={(e) =>
+                      setFormData({ ...formData, bankName: e.target.value })
+                    }
+                    placeholder="Bank Name"
+                  />
+                </div>
+                <div>
+                  <Label>Account Number</Label>
+                  <Input
+                    value={formData.accountNumber}
+                    onChange={(e) =>
+                      setFormData({ ...formData, accountNumber: e.target.value })
+                    }
+                    placeholder="Account Number"
+                  />
+                </div>
+                <div>
+                  <Label>IFSC Code</Label>
+                  <Input
+                    value={formData.ifsc}
+                    onChange={(e) =>
+                      setFormData({ ...formData, ifsc: e.target.value })
+                    }
+                    placeholder="IFSC Code"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Emergency Contact */}
+          <Card className="shadow-sm">
+            <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Phone className="w-5 h-5 text-[#202020]" />
+                Emergency Contact
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Contact Name</Label>
+                  <Input
+                    value={formData.emergencyContactName}
+                    onChange={(e) =>
+                      setFormData({ ...formData, emergencyContactName: e.target.value })
+                    }
+                    placeholder="Emergency Contact Name"
+                  />
+                </div>
+                <div>
+                  <Label>Contact Mobile</Label>
+                  <Input
+                    value={formData.emergencyContactMobile}
+                    onChange={(e) =>
+                      setFormData({ ...formData, emergencyContactMobile: e.target.value })
+                    }
+                    placeholder="10-digit mobile number"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Action Buttons */}
+          <div className="flex gap-3 justify-end sticky bottom-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg border">
+            <Button 
+              variant="outline" 
+              onClick={() => navigate("/admin/companies")}
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button 
+              disabled={isLoading} 
+              onClick={handleUpdate}
+              className="min-w-[150px] bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020] border border-[#FFD249]"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating...
+                </>
+              ) : (
+                "Update Company"
+              )}
+            </Button>
           </div>
         </div>
-      </div>
-      
-
-      <div className="flex gap-2 mt-6">
-        <Button variant="outline" onClick={() => navigate("/admin/companies")}>
-          Cancel
-        </Button>
-        <Button disabled={isLoading} onClick={handleUpdate}>
-          {isLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating...
-            </>
-          ) : (
-            "Update Company"
-          )}
-        </Button>
       </div>
     </div>
   );

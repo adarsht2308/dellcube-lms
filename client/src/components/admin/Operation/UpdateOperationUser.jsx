@@ -12,12 +12,16 @@ import {
   Hash,
   Building2,
   Camera,
+  ArrowLeft,
+  Users,
+  FileText,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
   SelectTrigger,
@@ -41,7 +45,7 @@ const UpdateOperations = () => {
   const currentUser = useSelector((state) => state.auth.user);
   const isBranchAdmin = currentUser?.role === "branchAdmin";
 
-  const [getOperationUserById, { data: userData }] =
+  const [getOperationUserById, { data: userData, isLoading: isUserLoading }] =
     useGetOperationUserByIdMutation();
   const [updateOperationUser, { isLoading, isSuccess, error }] =
     useUpdateOperationUserMutation();
@@ -110,14 +114,12 @@ const UpdateOperations = () => {
         },
       }));
     } else if (name === "aadharNumber") {
-      // Only allow digits for Aadhar
       const numericValue = value.replace(/\D/g, "");
       setFormData((prev) => ({ ...prev, [name]: numericValue }));
     } else if (name === "mobile") {
       const numericValue = value.replace(/\D/g, "");
       setFormData((prev) => ({ ...prev, [name]: numericValue.slice(0, 10) }));
     } else if (name === "panNumber") {
-      // Convert to uppercase for PAN
       setFormData((prev) => ({ ...prev, [name]: value.toUpperCase() }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
@@ -219,271 +221,278 @@ const UpdateOperations = () => {
   }, [isSuccess, error]);
 
   return (
-    <div className="min-h-[100vh] mx-4 md:mx-10 py-6">
-      <h2 className="text-xl font-bold mb-2">Edit Operation User</h2>
-      <p className="text-sm mb-6 text-muted-foreground">
-        Update operation user details
-      </p>
-
-      <div className="grid md:grid-cols-2 gap-4">
-        <div>
-          <Label className="flex items-center gap-2">
-            <User className="w-4 h-4 text-[#FFD249]" />
-            Name
-          </Label>
-          <Input
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="Name"
-            className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249]"
-          />
-        </div>
-        <div>
-          <Label className="flex items-center gap-2">
-            <Mail className="w-4 h-4 text-[#FFD249]" />
-            Email
-          </Label>
-          <Input
-            value={formData.email}
-            onChange={(e) =>
-              setFormData({ ...formData, email: e.target.value })
-            }
-            placeholder="Email"
-            className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249]"
-          />
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="px-4 py-6 max-w-5xl">
+        {/* Header */}
+        <div className="mb-6">
+          <Button
+            variant="ghost"
+            onClick={() => navigate("/admin/operation-users")}
+            className="mb-4 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Operation Users
+          </Button>
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-[#FFD249]/20 rounded-lg">
+              <Users className="w-6 h-6 text-[#202020]" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Update Operation User
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Update operation user details and information
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div>
-          <Label className="flex items-center gap-2">
-            <Hash className="w-4 h-4 text-[#FFD249]" />
-            Mobile
-          </Label>
-          <Input
-            value={formData.mobile}
-            onChange={(e) => {
-              const v = e.target.value.replace(/\D/g, "").slice(0, 10);
-              setFormData({ ...formData, mobile: v });
-            }}
-            placeholder="10-digit mobile number"
-            maxLength="10"
-            className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249] font-mono"
-          />
-        </div>
+        {/* Form */}
+        {isUserLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-[#FFD249]" />
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Basic Information */}
+            <Card className="shadow-sm">
+              <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <User className="w-5 h-5 text-[#202020]" />
+                  Basic Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Name *</Label>
+                    <Input
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="Name"
+                    />
+                  </div>
+                  <div>
+                    <Label>Email *</Label>
+                    <Input
+                      value={formData.email}
+                      onChange={(e) =>
+                        setFormData({ ...formData, email: e.target.value })
+                      }
+                      placeholder="Email"
+                    />
+                  </div>
+                  <div>
+                    <Label>Mobile *</Label>
+                    <Input
+                      value={formData.mobile}
+                      onChange={(e) => {
+                        const v = e.target.value.replace(/\D/g, "").slice(0, 10);
+                        setFormData({ ...formData, mobile: v });
+                      }}
+                      placeholder="10-digit mobile number"
+                      maxLength="10"
+                    />
+                  </div>
+                  <div>
+                    <Label>Profile Image</Label>
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                    />
+                  </div>
+                  <div>
+                    <Label>Company *</Label>
+                    {isBranchAdmin ? (
+                      <Input
+                        value={
+                          companies?.companies?.find((c) => c._id === formData.company)
+                            ?.name || "Company"
+                        }
+                        disabled
+                        className="bg-gray-100 cursor-not-allowed dark:bg-gray-800"
+                      />
+                    ) : (
+                      <Select
+                        value={formData.company}
+                        onValueChange={(val) => {
+                          setFormData({ ...formData, company: val, branch: "" });
+                          getBranches(val);
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Company" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {companies?.companies?.map((c) => (
+                            <SelectItem key={c._id} value={c._id}>
+                              {c.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                  <div>
+                    <Label>Branch *</Label>
+                    {isBranchAdmin ? (
+                      <Input
+                        value={
+                          branchesData?.branches?.find((b) => b._id === formData.branch)
+                            ?.name || "Branch"
+                        }
+                        disabled
+                        className="bg-gray-100 cursor-not-allowed dark:bg-gray-800"
+                      />
+                    ) : (
+                      <Select
+                        value={formData.branch}
+                        onValueChange={(val) => setFormData({ ...formData, branch: val })}
+                        disabled={!formData.company}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Branch" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {branchesData?.branches?.map((b) => (
+                            <SelectItem key={b._id} value={b._id}>
+                              {b.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Label>Status</Label>
+                    <Switch
+                      checked={formData.status}
+                      onCheckedChange={(checked) =>
+                        setFormData((prev) => ({ ...prev, status: checked }))
+                      }
+                    />
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      {formData.status ? "Active" : "Inactive"}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-        <div>
-          <Label className="flex items-center gap-2">
-            <Camera className="w-4 h-4 text-[#FFD249]" />
-            Change Profile Image
-          </Label>
-          <Input
-            type="file"
-            accept="image/*"
-            onChange={handleImageChange}
-            className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249]"
-          />
-        </div>
+            {/* Identity Information */}
+            <Card className="shadow-sm">
+              <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <FileText className="w-5 h-5 text-[#202020]" />
+                  Identity Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Aadhar Card Number *</Label>
+                    <Input
+                      name="aadharNumber"
+                      value={formData.aadharNumber}
+                      onChange={handleInputChange}
+                      placeholder="12-digit Aadhar Number"
+                      maxLength="12"
+                    />
+                  </div>
+                  <div>
+                    <Label>PAN Card Number *</Label>
+                    <Input
+                      name="panNumber"
+                      value={formData.panNumber}
+                      onChange={handleInputChange}
+                      placeholder="ABCDE1234F"
+                      maxLength="10"
+                      style={{ textTransform: "uppercase" }}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-        {/* Company */}
-        <div>
-          <Label className="flex items-center gap-2">
-            <Building className="w-4 h-4 text-[#FFD249]" />
-            Company
-          </Label>
-          {isBranchAdmin ? (
-            <Input
-              value={
-                companies?.companies?.find((c) => c._id === formData.company)
-                  ?.name || "Company"
-              }
-              disabled
-              className="bg-gray-100 cursor-not-allowed mt-2"
-            />
-          ) : (
-            <Select
-              value={formData.company}
-              onValueChange={(val) => {
-                setFormData({ ...formData, company: val, branch: "" });
-                getBranches(val);
-              }}
-            >
-              <SelectTrigger className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249]">
-                <SelectValue placeholder="Select Company" />
-              </SelectTrigger>
-              <SelectContent>
-                {companies?.companies?.map((c) => (
-                  <SelectItem key={c._id} value={c._id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </div>
+            {/* Bank Details */}
+            <Card className="shadow-sm">
+              <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Banknote className="w-5 h-5 text-[#202020]" />
+                  Bank Account Details
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Account Holder Name *</Label>
+                    <Input
+                      name="bank.accountHolderName"
+                      value={formData.bankDetails.accountHolderName}
+                      onChange={handleInputChange}
+                      placeholder="Account Holder Name"
+                    />
+                  </div>
+                  <div>
+                    <Label>Bank Name *</Label>
+                    <Input
+                      name="bank.bankName"
+                      value={formData.bankDetails.bankName}
+                      onChange={handleInputChange}
+                      placeholder="Bank Name"
+                    />
+                  </div>
+                  <div>
+                    <Label>Account Number *</Label>
+                    <Input
+                      name="bank.accountNumber"
+                      value={formData.bankDetails.accountNumber}
+                      onChange={handleInputChange}
+                      placeholder="Account Number"
+                    />
+                  </div>
+                  <div>
+                    <Label>IFSC Code *</Label>
+                    <Input
+                      name="bank.ifscCode"
+                      value={formData.bankDetails.ifscCode}
+                      onChange={handleInputChange}
+                      placeholder="ABCD0123456"
+                      style={{ textTransform: "uppercase" }}
+                      maxLength="11"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-        {/* Branch */}
-        <div>
-          <Label className="flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-[#FFD249]" />
-            Branch
-          </Label>
-          {isBranchAdmin ? (
-            <Input
-              value={
-                branchesData?.branches?.find((b) => b._id === formData.branch)
-                  ?.name || "Branch"
-              }
-              disabled
-              className="bg-gray-100 cursor-not-allowed mt-2"
-            />
-          ) : (
-            <Select
-              value={formData.branch}
-              onValueChange={(val) => setFormData({ ...formData, branch: val })}
-              disabled={!formData.company}
-            >
-              <SelectTrigger className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249]">
-                <SelectValue placeholder="Select Branch" />
-              </SelectTrigger>
-              <SelectContent>
-                {branchesData?.branches?.map((b) => (
-                  <SelectItem key={b._id} value={b._id}>
-                    {b.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </div>
-
-        <div>
-          <Label className="flex items-center gap-2">
-            <CreditCard className="w-4 h-4 text-[#FFD249]" />
-            Aadhar Card Number
-          </Label>
-          <Input
-            name="aadharNumber"
-            value={formData.aadharNumber}
-            onChange={handleInputChange}
-            placeholder="12-digit Aadhar Number"
-            maxLength="12"
-            className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249] font-mono"
-          />
-        </div>
-
-        <div>
-          <Label className="flex items-center gap-2">
-            <Hash className="w-4 h-4 text-[#FFD249]" />
-            PAN Card Number
-          </Label>
-          <Input
-            name="panNumber"
-            value={formData.panNumber}
-            onChange={handleInputChange}
-            placeholder="ABCDE1234F"
-            maxLength="10"
-            style={{ textTransform: "uppercase" }}
-            className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249] font-mono"
-          />
-        </div>
-
-        <div className="md:col-span-2">
-          <Label className="text-lg font-semibold mb-3 block flex items-center gap-2">
-            <Banknote className="w-5 h-5 text-[#FFD249]" />
-            Bank Account Details
-          </Label>
-        </div>
-
-        <div>
-          <Label className="flex items-center gap-2">
-            <User className="w-4 h-4 text-[#FFD249]" />
-            Account Holder Name
-          </Label>
-          <Input
-            name="bank.accountHolderName"
-            value={formData.bankDetails.accountHolderName}
-            onChange={handleInputChange}
-            placeholder="Account Holder Name"
-            className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249]"
-          />
-        </div>
-
-        <div>
-          <Label className="flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-[#FFD249]" />
-            Bank Name
-          </Label>
-          <Input
-            name="bank.bankName"
-            value={formData.bankDetails.bankName}
-            onChange={handleInputChange}
-            placeholder="Bank Name"
-            className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249]"
-          />
-        </div>
-
-        <div>
-          <Label className="flex items-center gap-2">
-            <CreditCard className="w-4 h-4 text-[#FFD249]" />
-            Account Number
-          </Label>
-          <Input
-            name="bank.accountNumber"
-            value={formData.bankDetails.accountNumber}
-            onChange={handleInputChange}
-            placeholder="Account Number"
-            className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249] font-mono"
-          />
-        </div>
-
-        <div>
-          <Label className="flex items-center gap-2">
-            <Hash className="w-4 h-4 text-[#FFD249]" />
-            IFSC Code
-          </Label>
-          <Input
-            name="bank.ifscCode"
-            value={formData.bankDetails.ifscCode}
-            onChange={handleInputChange}
-            placeholder="ABCD0123456"
-            style={{ textTransform: "uppercase" }}
-            maxLength="11"
-            className="focus:border-[#FFD249] mt-2 focus:ring-[#FFD249] font-mono"
-          />
-        </div>
-
-        {/* Status */}
-        <div className="flex items-center gap-4 mt-2">
-          <Label>Status</Label>
-          <Switch
-            checked={formData.status}
-            onCheckedChange={(checked) =>
-              setFormData((prev) => ({ ...prev, status: checked }))
-            }
-          />
-          <span>{formData.status ? "Active" : "Inactive"}</span>
-        </div>
-      </div>
-
-      <div className="flex gap-2 mt-6">
-        <Button
-          variant="outline"
-          onClick={() => navigate("/admin/operation-users")}
-        >
-          Cancel
-        </Button>
-        <Button
-          disabled={isLoading}
-          onClick={handleUpdate}
-          className="bg-[#FFD249] text-[#202020] hover:bg-[#FFD249]/90"
-        >
-          {isLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating...
-            </>
-          ) : (
-            "Update Operation User"
-          )}
-        </Button>
+            {/* Action Buttons */}
+            <div className="flex gap-3 justify-end sticky bottom-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg border">
+              <Button
+                variant="outline"
+                onClick={() => navigate("/admin/operation-users")}
+                disabled={isLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                disabled={isLoading}
+                onClick={handleUpdate}
+                className="min-w-[150px] bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020] border border-[#FFD249]"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating...
+                  </>
+                ) : (
+                  "Update Operation User"
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
