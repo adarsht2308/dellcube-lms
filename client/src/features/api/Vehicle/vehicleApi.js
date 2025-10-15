@@ -21,7 +21,7 @@ export const vehicleApi = createApi({
     // Create a new vehicle
     createVehicle: builder.mutation({
       query: (payload) => ({
-        url: "/create",
+        url: "create",
         method: "POST",
         body: payload,
       }),
@@ -38,7 +38,7 @@ export const vehicleApi = createApi({
         companyId = "",
         branchId = "",
       }) => ({
-        url: "/all",
+        url: "all",
         method: "GET",
         params: { page, limit, search, status, companyId, branchId },
       }),
@@ -48,7 +48,7 @@ export const vehicleApi = createApi({
     // Get single vehicle by ID
     getVehicleById: builder.mutation({
       query: (vehicleId) => ({
-        url: "/view",
+        url: "view",
         method: "POST",
         body: { id: vehicleId },
       }),
@@ -58,7 +58,7 @@ export const vehicleApi = createApi({
     // Update vehicle
     updateVehicle: builder.mutation({
       query: (payload) => ({
-        url: "/update",
+        url: "update",
         method: "PUT",
         body: payload,
         // Let fetchBaseQuery set the Content-Type automatically for FormData
@@ -69,7 +69,7 @@ export const vehicleApi = createApi({
     // Delete vehicle
     deleteVehicle: builder.mutation({
       query: (vehicleId) => ({
-        url: "/delete",
+        url: "delete",
         method: "DELETE",
         body: { id: vehicleId },
       }),
@@ -82,7 +82,7 @@ export const vehicleApi = createApi({
         const isFormData = payload instanceof FormData;
         
         return {
-          url: "/vehicle/maintenance",
+          url: "vehicle/maintenance",
           method: "PUT",
           body: payload,
           // Don't set Content-Type for FormData, let the browser set it with boundary
@@ -97,7 +97,7 @@ export const vehicleApi = createApi({
     }),
     searchVehicles: builder.mutation({
         query: ({ vehicleNumber, companyId, branchId }) => ({
-          url: `/search?vehicleNumber=${vehicleNumber}&companyId=${companyId}&branchId=${branchId}`,
+          url: `search?vehicleNumber=${vehicleNumber}&companyId=${companyId}&branchId=${branchId}`,
           method: 'GET',
         }),
       }),
