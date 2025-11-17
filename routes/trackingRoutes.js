@@ -8,7 +8,9 @@ import {
 const router = express.Router();
 
 // Public endpoint - Track by docket number (no authentication required)
+// Supports both /docket/:docketNumber and /:docketNumber for flexibility
 router.get("/docket/:docketNumber", trackInvoiceByDocketNumber);
+router.get("/:docketNumber", trackInvoiceByDocketNumber);
 
 // Protected endpoint - Track by invoice ID (requires authentication)
 router.get("/invoice/:id", isAuthenticated, trackInvoiceById);

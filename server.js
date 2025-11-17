@@ -12,6 +12,15 @@ connectDB();
 
 const app = express();
 
+// Public CORS for tracking endpoints (allow all origins)
+app.use('/api/tracking', cors({
+  origin: '*',
+  methods: ['GET', 'OPTIONS'],
+  allowedHeaders: ['Content-Type'],
+  credentials: false
+}));
+
+// Restricted CORS for all other endpoints
 app.use(
   cors({
     origin: [

@@ -3,6 +3,11 @@ import { Invoice } from "../models/invoice.js";
 // Track Invoice by Docket Number (Public endpoint - no auth required)
 export const trackInvoiceByDocketNumber = async (req, res) => {
   try {
+    // Set CORS headers explicitly for public access
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET");
+    res.header("Access-Control-Allow-Headers", "Content-Type");
+
     const { docketNumber } = req.params;
 
     if (!docketNumber) {
