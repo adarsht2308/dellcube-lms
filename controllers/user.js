@@ -939,6 +939,7 @@ export const createDriverController = async (req, res) => {
       licenseNumber,
       experienceYears,
       driverType,
+      vendor,
       aadharNumber,
       panNumber,
       bankDetails,
@@ -966,6 +967,25 @@ export const createDriverController = async (req, res) => {
         success: false,
         message: "Driver type must be one of: dellcube, vendor, temporary.",
       });
+    }
+
+    // If driver type is vendor, vendor field is required
+    if (driverType === "vendor" && !vendor) {
+      return res.status(400).json({
+        success: false,
+        message: "Vendor is required when driver type is 'vendor'.",
+      });
+    }
+
+    // Validate vendor exists and is actually a vendor
+    if (driverType === "vendor" && vendor) {
+      const vendorUser = await User.findOne({ _id: vendor, role: "vendor" });
+      if (!vendorUser) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid vendor selected.",
+        });
+      }
     }
 
     // License number validation
@@ -1039,6 +1059,14 @@ export const createDriverController = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Only include bankDetails if it has at least one non-empty field
+    const hasBankDetails = bankDetails && (
+      (bankDetails.accountNumber && bankDetails.accountNumber.trim() !== "") ||
+      (bankDetails.ifscCode && bankDetails.ifscCode.trim() !== "") ||
+      (bankDetails.bankName && bankDetails.bankName.trim() !== "") ||
+      (bankDetails.accountHolderName && bankDetails.accountHolderName.trim() !== "")
+    );
+
     const newDriver = await User.create({
       name,
       mobile,
@@ -1049,9 +1077,10 @@ export const createDriverController = async (req, res) => {
       licenseNumber,
       experienceYears,
       driverType,
+      ...(driverType === "vendor" && vendor && { vendor }),
       ...(aadharNumber && { aadharNumber }),
       ...(panNumber && { panNumber }),
-      ...(bankDetails && { bankDetails }),
+      ...(hasBankDetails && { bankDetails }),
       status: true,
     });
 
@@ -1119,7 +1148,8 @@ export const getDriverByIdController = async (req, res) => {
 
     const driver = await User.findOne({ _id: id, role: "driver" })
       .populate("company", "name")
-      .populate("branch", "name");
+      .populate("branch", "name")
+      .populate("vendor", "name email phone");
 
     if (!driver) {
       return res.status(404).json({
@@ -1154,6 +1184,7 @@ export const updateDriverController = async (req, res) => {
       branch,
       status,
       driverType,
+      vendor,
       aadharNumber,
       panNumber,
       bankDetails,
@@ -1175,6 +1206,28 @@ export const updateDriverController = async (req, res) => {
         success: false,
         message: "Driver type must be one of: dellcube, vendor, temporary.",
       });
+    }
+
+    // Determine the effective driver type (use provided or existing)
+    const effectiveDriverType = driverType || user.driverType;
+
+    // If driver type is vendor, vendor field is required
+    if (effectiveDriverType === "vendor" && !vendor) {
+      return res.status(400).json({
+        success: false,
+        message: "Vendor is required when driver type is 'vendor'.",
+      });
+    }
+
+    // Validate vendor exists and is actually a vendor
+    if (effectiveDriverType === "vendor" && vendor) {
+      const vendorUser = await User.findOne({ _id: vendor, role: "vendor" });
+      if (!vendorUser) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid vendor selected.",
+        });
+      }
     }
 
     // License number validation
@@ -1275,6 +1328,17 @@ export const updateDriverController = async (req, res) => {
       }
     }
 
+    // Only include bankDetails if it has at least one non-empty field
+    const hasBankDetails = parsedBankDetails && (
+      (parsedBankDetails.accountNumber && parsedBankDetails.accountNumber.trim() !== "") ||
+      (parsedBankDetails.ifscCode && parsedBankDetails.ifscCode.trim() !== "") ||
+      (parsedBankDetails.bankName && parsedBankDetails.bankName.trim() !== "") ||
+      (parsedBankDetails.accountHolderName && parsedBankDetails.accountHolderName.trim() !== "")
+    );
+
+    // Determine effective driver type for vendor field handling
+    const effectiveDriverTypeForUpdate = driverType || user.driverType;
+
     const updatedData = {
       name,
       mobile,
@@ -1284,9 +1348,15 @@ export const updateDriverController = async (req, res) => {
       ...(branch && { branch }),
       ...(status !== undefined && { status }),
       ...(driverType && { driverType }),
+      // Handle vendor field: set if driverType is vendor, clear if not
+      ...(effectiveDriverTypeForUpdate === "vendor" && vendor
+        ? { vendor }
+        : effectiveDriverTypeForUpdate !== "vendor"
+        ? { vendor: null }
+        : {}),
       ...(aadharNumber && { aadharNumber }),
       ...(panNumber && { panNumber }),
-      ...(parsedBankDetails && { bankDetails: parsedBankDetails }),
+      ...(hasBankDetails && { bankDetails: parsedBankDetails }),
       ...(photoUrl && {
         photoUrl,
         photoUrlPublicId,

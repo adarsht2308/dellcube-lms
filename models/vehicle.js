@@ -12,7 +12,7 @@ const vehicleSchema = new mongoose.Schema(
     type: {
       type: String,
       required: true,
-      enum: ["7ft","10ft", "14ft", "18ft", "24ft", "32ft"],
+      enum: ["6ft", "7ft", "8ft", "9ft", "10ft", "12ft", "14ft", "16ft", "17ft", "18ft", "19ft", "20ft", "22ft", "24ft", "28ft", "32ft"],
     },
     brand: {
       type: String,
@@ -109,5 +109,11 @@ const vehicleSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+// Add indexes for better query performance
+vehicleSchema.index({ company: 1, branch: 1 }); // Compound index for common query pattern
+vehicleSchema.index({ status: 1 }); // Index for status filtering
+vehicleSchema.index({ createdBy: 1 }); // Index for vendor filtering
+vehicleSchema.index({ createdAt: -1 }); // Index for sorting by creation date
 
 export const Vehicle = mongoose.model("Vehicle", vehicleSchema);

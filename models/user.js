@@ -75,6 +75,14 @@ const user = new mongoose.Schema(
       },
       default: "dellcube",
     },
+    // Vendor reference for drivers with driverType "vendor"
+    vendor: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: function () {
+        return this.role === "driver" && this.driverType === "vendor";
+      },
+    },
 
     // Vendor specific fields
     address: {
@@ -211,6 +219,8 @@ const user = new mongoose.Schema(
         },
         validate: {
           validator: function (v) {
+            // Only validate if value is provided (not empty)
+            if (!v || v.trim() === "") return true;
             return /^\d{9,18}$/.test(v);
           },
           message: "Account number must be between 9-18 digits",
@@ -223,6 +233,8 @@ const user = new mongoose.Schema(
         },
         validate: {
           validator: function (v) {
+            // Only validate if value is provided (not empty)
+            if (!v || v.trim() === "") return true;
             return /^[A-Z]{4}0[A-Z0-9]{6}$/.test(v);
           },
           message: "IFSC code must be in format: ABCD0123456",

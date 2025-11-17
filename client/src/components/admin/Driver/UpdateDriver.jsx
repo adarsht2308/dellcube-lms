@@ -38,6 +38,7 @@ import {
 } from "@/features/api/authApi";
 import { useGetAllCompaniesQuery } from "@/features/api/Company/companyApi";
 import { useGetBranchesByCompanyMutation } from "@/features/api/Branch/branchApi";
+import { useGetAllVendorsQuery } from "@/features/api/Vendor/vendorApi";
 
 const UpdateDriver = () => {
   const location = useLocation();
@@ -63,6 +64,7 @@ const UpdateDriver = () => {
     driverType: "dellcube",
     company: "",
     branch: "",
+    vendor: "",
     status: true,
     aadharNumber: "",
     panNumber: "",
@@ -72,6 +74,14 @@ const UpdateDriver = () => {
       bankName: "",
       accountHolderName: "",
     },
+  });
+  
+  // Fetch vendors based on company and branch (moved after formData declaration)
+  const { data: vendorsData } = useGetAllVendorsQuery({
+    page: 1,
+    limit: 100,
+    companyId: formData.company || "",
+    branchId: formData.branch || "",
   });
 
   const [profileImage, setProfileImage] = useState(null);
@@ -94,6 +104,7 @@ const UpdateDriver = () => {
         driverType: d.driverType || "dellcube",
         company: d.company?._id || "",
         branch: d.branch?._id || "",
+        vendor: d.vendor?._id || "",
         status: d.status || false,
         aadharNumber: d.aadharNumber || "",
         panNumber: d.panNumber || "",
@@ -108,6 +119,13 @@ const UpdateDriver = () => {
       if (d.company?._id) getBranches(d.company._id);
     }
   }, [isDriverFetched, driverData]);
+
+  // Reset vendor when driverType changes
+  useEffect(() => {
+    if (formData.driverType !== "vendor") {
+      setFormData((prev) => ({ ...prev, vendor: "" }));
+    }
+  }, [formData.driverType]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -165,6 +183,12 @@ const UpdateDriver = () => {
       return false;
     }
 
+    // Validate vendor is selected when driverType is vendor
+    if (driverType === "vendor" && !formData.vendor) {
+      toast.error("Vendor is required when driver type is 'vendor'.");
+      return false;
+    }
+
     if (licenseNumber.length < 5) {
       toast.error("License number must be at least 5 characters long.");
       return false;
@@ -206,6 +230,9 @@ const UpdateDriver = () => {
     payload.append("company", formData.company);
     payload.append("branch", formData.branch);
     payload.append("status", formData.status);
+    if (formData.driverType === "vendor" && formData.vendor) {
+      payload.append("vendor", formData.vendor);
+    }
     payload.append("aadharNumber", formData.aadharNumber);
     payload.append("panNumber", formData.panNumber);
     payload.append("bankDetails", JSON.stringify(formData.bankDetails));
@@ -293,10 +320,14 @@ const UpdateDriver = () => {
                   <div>
                     <Label>Mobile *</Label>
                     <Input
+                      type="tel"
                       value={formData.mobile}
                       onChange={(e) =>
                         setFormData({ ...formData, mobile: e.target.value })
                       }
+                      onInput={(e) => {
+                        e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      }}
                       placeholder="Mobile Number"
                       maxLength="10"
                     />
@@ -337,22 +368,6 @@ const UpdateDriver = () => {
                       }
                       placeholder="Years of experience"
                     />
-                  </div>
-                  <div>
-                    <Label>Driver Type *</Label>
-                    <Select
-                      value={formData.driverType}
-                      onValueChange={(val) => setFormData((prev) => ({ ...prev, driverType: val }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Driver Type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="dellcube">Dellcube Driver</SelectItem>
-                        <SelectItem value="vendor">Vendor Driver</SelectItem>
-                        <SelectItem value="temporary">Temporary Driver</SelectItem>
-                      </SelectContent>
-                    </Select>
                   </div>
                   <div>
                     <Label>Company *</Label>
@@ -418,6 +433,53 @@ const UpdateDriver = () => {
                       </Select>
                     )}
                   </div>
+                  <div>
+                    <Label>Driver Type *</Label>
+                    <Select
+                      value={formData.driverType}
+                      onValueChange={(val) => setFormData((prev) => ({ ...prev, driverType: val, vendor: "" }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Driver Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="dellcube">Dellcube Driver</SelectItem>
+                        <SelectItem value="vendor">Vendor Driver</SelectItem>
+                        <SelectItem value="temporary">Temporary Driver</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {formData.driverType === "vendor" && (
+                    <div>
+                      <Label>Vendor *</Label>
+                      <Select
+                        value={formData.vendor}
+                        onValueChange={(val) =>
+                          setFormData((prev) => ({ ...prev, vendor: val }))
+                        }
+                        disabled={!formData.company || !formData.branch}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Vendor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {vendorsData?.vendors?.length > 0 ? (
+                            vendorsData.vendors.map((v) => (
+                              <SelectItem key={v._id} value={v._id}>
+                                {v.name}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="" disabled>
+                              {!formData.company || !formData.branch
+                                ? "Please select company and branch first"
+                                : "No vendors available"}
+                            </SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   <div className="flex items-center gap-3">
                     <Label>Status</Label>
                     <Switch

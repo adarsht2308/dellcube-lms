@@ -213,7 +213,7 @@ const UpdateVehicle = () => {
                     <SelectValue placeholder="Choose type" />
                   </SelectTrigger>
                   <SelectContent>
-                    {["7ft","10ft", "14ft", "18ft", "24ft", "32ft"].map(
+                    {["6ft", "7ft", "8ft", "9ft", "10ft", "12ft", "14ft", "16ft", "17ft", "18ft", "19ft", "20ft", "22ft", "24ft", "28ft", "32ft"].map(
                       (t) => (
                         <SelectItem key={t} value={t}>
                           {t}

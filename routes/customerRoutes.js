@@ -6,6 +6,7 @@ import {
   getAllCustomers,
   getCustomerById,
   updateCustomer,
+  addOrUpdateConsignee,
 } from "../controllers/customerController.js";
 
 const router = express.Router();
@@ -24,5 +25,8 @@ router.put("/update", isAuthenticated, updateCustomer);
 
 // Delete customer
 router.delete("/delete", isAuthenticated, deleteCustomer);
+
+// Add or Update Consignee (KN Integration)
+router.post("/consignee/add-or-update", isAuthenticated, addOrUpdateConsignee);
 
 export default router;

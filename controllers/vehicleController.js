@@ -285,10 +285,8 @@ export const getAllVehicles = async (req, res) => {
 
     const total = await Vehicle.countDocuments(query);
 
-    // Check for expiring documents and prepare notifications
-    const expiringNotifications = await checkDocumentExpiryForNotifications(
-      vehicles
-    );
+    // Note: Expiry notifications are handled by the background scheduler
+    // This endpoint only returns vehicle data for fast response times
 
     return res.status(200).json({
       success: true,
@@ -298,7 +296,6 @@ export const getAllVehicles = async (req, res) => {
       page,
       limit,
       totalPages: Math.ceil(total / limit),
-      expiringNotifications, // Include notifications in response
     });
   } catch (error) {
     console.error("Error fetching vehicles:", error);

@@ -97,13 +97,11 @@ const CreateVendor = () => {
   }, []);
 
   useEffect(() => {
-    if (isSuccess) {
+    if (isSuccess && data) {
       toast.success(data?.message || "Vendor created successfully");
       navigate("/admin/vendors");
-    } else if (isError) {
-      toast.error(error?.data?.message || "Failed to create vendor");
     }
-  }, [isSuccess, isError, data, error, navigate]);
+  }, [isSuccess, data, navigate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -132,33 +130,92 @@ const CreateVendor = () => {
       confirmPassword,
     } = vendorFormData;
 
-    if (!name || !email || !phone || !company || !branch || !assignedClient) {
-      toast.error(
-        "Name, Email, Phone, Company, Branch and Assigned Client are required fields."
-      );
+    // Detailed validation with specific error messages
+    if (!name?.trim()) {
+      toast.error("Vendor Name is required");
       return;
     }
 
-    if (!password || !confirmPassword) {
-      toast.error("Password and Confirm Password are required.");
+    if (!email?.trim()) {
+      toast.error("Email is required");
       return;
     }
+
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    if (!phone?.trim()) {
+      toast.error("Phone number is required");
+      return;
+    }
+
+    // Phone number validation
+    if (phone.length !== 10) {
+      toast.error("Phone number must be exactly 10 digits");
+      return;
+    }
+
+    if (!company) {
+      toast.error("Company is required");
+      return;
+    }
+
+    if (!branch) {
+      toast.error("Branch is required");
+      return;
+    }
+
+    if (!assignedClient) {
+      toast.error("Assigned Client is required");
+      return;
+    }
+
+    if (!password) {
+      toast.error("Password is required");
+      return;
+    }
+
     if (password.length < 6) {
-      toast.error("Password must be at least 6 characters.");
+      toast.error("Password must be at least 6 characters long");
       return;
     }
+
+    if (!confirmPassword) {
+      toast.error("Confirm Password is required");
+      return;
+    }
+
     if (password !== confirmPassword) {
-      toast.error("Passwords do not match.");
+      toast.error("Password and Confirm Password do not match");
       return;
     }
 
-    const payload = {
-      ...vendorFormData,
-      password,
-      createdBy: user?._id,
-    };
+    try {
+      const payload = {
+        ...vendorFormData,
+        password,
+        createdBy: user?._id,
+      };
 
-    await createVendor(payload);
+      const result = await createVendor(payload).unwrap();
+      // Success is handled in useEffect
+    } catch (err) {
+      // Detailed error handling
+      if (err?.data?.message) {
+        toast.error(err.data.message);
+      } else if (err?.data?.error) {
+        toast.error(err.data.error);
+      } else if (err?.message) {
+        toast.error(err.message);
+      } else {
+        toast.error("Failed to create vendor. Please try again.");
+      }
+      console.error("Create vendor error:", err);
+    }
   };
 
   return (
@@ -230,6 +287,10 @@ const CreateVendor = () => {
                     type="tel"
                     value={vendorFormData.phone}
                     onChange={handleChange}
+                    onInput={(e) => {
+                      e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    }}
+                    maxLength="10"
                     placeholder="Phone Number"
                   />
                 </div>

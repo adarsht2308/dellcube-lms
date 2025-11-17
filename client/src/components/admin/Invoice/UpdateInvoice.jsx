@@ -246,6 +246,9 @@ const UpdateInvoice = () => {
   const location = useLocation();
   const user = useSelector((state) => state.auth.user);
   const isSuperAdmin = user?.role === "superAdmin";
+  const isBranchAdmin = user?.role === "branchAdmin";
+  const isOperation = user?.role === "operation";
+  const canUpdateStatus = isSuperAdmin || isBranchAdmin || isOperation;
 
   // Function to check if invoice can be edited (within 24 hours, superadmin bypass)
   const canEditInvoice = (invoice) => {
@@ -354,6 +357,7 @@ const UpdateInvoice = () => {
   const [deliveryProof, setDeliveryProof] = useState({
     receiverName: "",
     receiverMobile: "",
+    floor: "",
     remarks: "",
     signature: "",
   });
@@ -893,6 +897,7 @@ const UpdateInvoice = () => {
         setDeliveryProof({
           receiverName: invoice.deliveryProof.receiverName || "",
           receiverMobile: invoice.deliveryProof.receiverMobile || "",
+          floor: invoice.deliveryProof.floor || "",
           remarks: invoice.deliveryProof.remarks || "",
           signature: invoice.deliveryProof.signature || "", // Already base64 hopefully
         });
@@ -1221,6 +1226,7 @@ const UpdateInvoice = () => {
           ...(deliveryProof.receiverMobile && {
             receiverMobile: deliveryProof.receiverMobile,
           }),
+          ...(deliveryProof.floor && { floor: deliveryProof.floor }),
           ...(deliveryProof.remarks && { remarks: deliveryProof.remarks }),
           ...(deliveryProof.signature && {
             signature: deliveryProof.signature,
@@ -2275,14 +2281,15 @@ const UpdateInvoice = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">Invoice No</Label>
+                  <Label className="text-sm font-medium">
+                    Invoice No
+                    <span className="text-xs text-gray-500 ml-2">(Auto-generated)</span>
+                  </Label>
                   <Input
                     type="text"
-                    value={invoiceNumber}
-                    onChange={(e) => setInvoiceNumber(e.target.value)}
-                    placeholder="Enter invoice no"
-                    className="w-full"
-                    disabled={isFormDisabled}
+                    value={invoiceNumber || "N/A"}
+                    disabled
+                    className="w-full bg-gray-100 cursor-not-allowed"
                   />
                 </div>
                 <div className="space-y-2">
@@ -2344,31 +2351,54 @@ const UpdateInvoice = () => {
                     disabled={isFormDisabled}
                   />
                 </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Receiver's Name</Label>
+                    <Input
+                      value={deliveryProof.receiverName}
+                      onChange={(e) =>
+                        handleDeliveryProofChange("receiverName", e.target.value)
+                      }
+                      placeholder="Receiver Name"
+                      disabled={isFormDisabled}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Receiver's Mobile</Label>
+                    <Input
+                      type="tel"
+                      maxLength="10"
+                      value={deliveryProof.receiverMobile}
+                      onChange={(e) =>
+                        handleDeliveryProofChange(
+                          "receiverMobile",
+                          e.target.value
+                        )
+                      }
+                      onInput={(e) => {
+                        e.target.value = e.target.value.replace(/[^0-9]/g, "");
+                      }}
+                      placeholder="Mobile No."
+                      disabled={isFormDisabled}
+                    />
+                  </div>
+                </div>
+                
+                {/* Floor Field */}
                 <div className="space-y-2">
-                  <Label>Receiver's Name</Label>
+                  <Label htmlFor="floor-input">Floor</Label>
                   <Input
-                    value={deliveryProof.receiverName}
+                    id="floor-input"
+                    type="text"
+                    value={deliveryProof.floor || ""}
                     onChange={(e) =>
-                      handleDeliveryProofChange("receiverName", e.target.value)
+                      handleDeliveryProofChange("floor", e.target.value)
                     }
-                    placeholder="Enter receiver's name"
+                    placeholder="Enter floor number"
                     disabled={isFormDisabled}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Receiver's Mobile</Label>
-                  <Input
-                    value={deliveryProof.receiverMobile}
-                    onChange={(e) =>
-                      handleDeliveryProofChange(
-                        "receiverMobile",
-                        e.target.value
-                      )
-                    }
-                    placeholder="Enter receiver's mobile"
-                    disabled={isFormDisabled}
-                  />
-                </div>
+
                 <div className="space-y-2">
                   <Label>Delivery Remarks</Label>
                   <Textarea
@@ -2376,7 +2406,7 @@ const UpdateInvoice = () => {
                     onChange={(e) =>
                       handleDeliveryProofChange("remarks", e.target.value)
                     }
-                    placeholder="Enter delivery remarks"
+                    placeholder="Remarks"
                     disabled={isFormDisabled}
                   />
                 </div>
@@ -2403,6 +2433,39 @@ const UpdateInvoice = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Status Update Card */}
+            {canUpdateStatus && (
+              <Card className="shadow-sm border border-gray-200">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    Order Status
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <Label className="text-sm font-medium">Update Status</Label>
+                  <Select
+                    value={status}
+                    onValueChange={setStatus}
+                    disabled={isFormDisabled}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Reserved">Reserved</SelectItem>
+                      <SelectItem value="Created">Created</SelectItem>
+                      <SelectItem value="Dispatched">Dispatched</SelectItem>
+                      <SelectItem value="In Transit">In Transit</SelectItem>
+                      <SelectItem value="Arrived at Destination">Arrived at Destination</SelectItem>
+                      <SelectItem value="Delivered">Delivered</SelectItem>
+                      <SelectItem value="Cancelled">Cancelled</SelectItem>
+                      <SelectItem value="Returned">Returned</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Submit Button */}
             <Card className="shadow-sm border border-gray-200">

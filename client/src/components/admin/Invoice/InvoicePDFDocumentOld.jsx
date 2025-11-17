@@ -78,14 +78,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f0f0',
   },
   docketNumber: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: 'bold',
     border: '2px solid #000',
-    padding: '1mm',
+    padding: '1.2mm',
     textAlign: 'center',
     marginTop: '1mm',
     backgroundColor: '#fff',
     letterSpacing: 1,
+    whiteSpace: 'nowrap',
   },
 
   // Company Details Row
@@ -589,6 +590,12 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
             <Text style={styles.receiverLabel}>Mobile No:</Text>
             <Text style={styles.receiverValue}>
               {invoice?.deliveryProof?.receiverMobile || invoice?.receiverMobile || '-'}
+            </Text>
+          </View>
+          <View style={styles.receiverRow}>
+            <Text style={styles.receiverLabel}>Floor:</Text>
+            <Text style={styles.receiverValue}>
+              {invoice?.deliveryProof?.floor || '-'}
             </Text>
           </View>
           <View style={styles.receiverRow}>

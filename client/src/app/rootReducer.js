@@ -16,6 +16,7 @@ import { invoiceApi } from "@/features/api/Invoice/invoiceApi.js";
 import { driverInvoiceApi } from "@/features/api/DriverInvoice/driverInvoiceApi.js";
 import { siteTypeApi } from "@/features/api/SiteType/siteTypeApi.js";
 import { transportModeApi } from "@/features/api/TransportMode/transportModeApi.js";
+import { trackingApi } from "@/features/api/Tracking/trackingApi.js";
 
 const rootReducer = combineReducers({
   [authApi.reducerPath]: authApi.reducer,
@@ -34,6 +35,7 @@ const rootReducer = combineReducers({
   [driverInvoiceApi.reducerPath]: driverInvoiceApi.reducer,
   [siteTypeApi.reducerPath]: siteTypeApi.reducer,
   [transportModeApi.reducerPath]: transportModeApi.reducer,
+  [trackingApi.reducerPath]: trackingApi.reducer,
 
   auth: authReducer,
 });

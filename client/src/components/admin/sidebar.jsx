@@ -268,7 +268,8 @@ const Sidebar = () => {
       <div
         className={`${
           isMobileMenuOpen ? "block" : "hidden"
-        } lg:block fixed top-0 left-0 mt-14 h-screen w-[260px] z-50 bg-gradient-to-br from-yellow-50 to-white shadow-2xl border-r border-[#FFD249]/20 transition-all duration-300 flex flex-col justify-between overflow-y-auto`}
+        } lg:block fixed top-0 left-0 mt-14 h-screen w-[260px] z-50 bg-gradient-to-br from-yellow-50 to-white shadow-2xl border-r border-[#FFD249]/20 transition-all duration-300 flex flex-col justify-between overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']`}
+        style={{ scrollBehavior: 'smooth' }}
       >
         {/* Header Section */}
         <div className="p-6 border-b border-[#FFD249]/10">
@@ -321,7 +322,7 @@ const Sidebar = () => {
         </div>
 
         {/* Navigation */}
-        <div className="flex-1 overflow-y-auto py-4 px-3">
+        <div className="flex-1 overflow-y-auto py-4 px-3 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']" style={{ scrollBehavior: 'smooth' }}>
           <div className="space-y-2">
             {filteredMenuItems.map((item) => {
               const IconComponent = item.icon;

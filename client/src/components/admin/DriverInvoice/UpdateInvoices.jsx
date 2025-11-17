@@ -59,6 +59,7 @@ const UpdateInvoice = () => {
 
   const [receiverName, setReceiverName] = useState("");
   const [receiverMobile, setReceiverMobile] = useState("");
+  const [floor, setFloor] = useState("");
   const [signature, setSignature] = useState("");
   const [remarks, setRemarks] = useState("");
   const [fullDestinationAddress, setFullDestinationAddress] = useState("");
@@ -107,6 +108,7 @@ const UpdateInvoice = () => {
         const proof = invoice.deliveryProof || {};
         setReceiverName(proof.receiverName || "");
         setReceiverMobile(proof.receiverMobile || "");
+        setFloor(proof.floor || "");
         setSignature(proof.signature || "");
         setRemarks(proof.remarks || "");
         
@@ -168,6 +170,7 @@ const UpdateInvoice = () => {
       setDeliveredAt("");
       setReceiverName("");
       setReceiverMobile("");
+      setFloor("");
       setSignature("");
       setRemarks("");
       setOrderPhoto(null);
@@ -248,6 +251,7 @@ const UpdateInvoice = () => {
     const deliveryProof = {
       receiverName,
       receiverMobile,
+      floor,
       signature,
       remarks,
     };
@@ -447,11 +451,24 @@ const UpdateInvoice = () => {
                 <div>
                   <Label>Receiver Mobile</Label>
                   <Input
+                    type="tel"
+                    maxLength="10"
                     value={receiverMobile}
                     onChange={(e) => setReceiverMobile(e.target.value)}
+                    onInput={(e) => {
+                      e.target.value = e.target.value.replace(/[^0-9]/g, "");
+                    }}
                     placeholder="Mobile No."
                   />
                 </div>
+              </div>
+              <div>
+                <Label>Floor</Label>
+                <Input
+                  value={floor}
+                  onChange={(e) => setFloor(e.target.value)}
+                  placeholder="Enter floor number"
+                />
               </div>
               <div>
                 <Label>Delivery Remarks</Label>

@@ -69,6 +69,186 @@ import { useGetAllSiteTypesQuery } from "@/features/api/SiteType/siteTypeApi.js"
 import { useGetAllTransportModesQuery } from "@/features/api/TransportMode/transportModeApi.js";
 import { useDebounce } from "@/hooks/Debounce.jsx";
 
+// AddressFields Component (extracted to prevent re-creation on every render)
+const AddressFields = ({
+  type,
+  pincode,
+  setPincode,
+  addressDetails,
+  isLoading,
+  address,
+  setAddress,
+  fetchAddressFromPincode,
+  selectPostOffice,
+}) => {
+  return (
+    <Card className="border border-gray-200 hover:border-blue-300 transition-colors">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <MapPin className="w-4 h-4 text-blue-600" />
+          {type === "from" ? "Pickup Address" : "Delivery Address"}
+          <Badge
+            variant={type === "from" ? "default" : "secondary"}
+            className="ml-auto text-xs"
+          >
+            {type === "from" ? "FROM" : "TO"}
+          </Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Address</Label>
+            <Textarea
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder={`Enter ${
+                type === "from" ? "pickup" : "delivery"
+              } address`}
+              className="w-full"
+              rows={3}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Pincode</Label>
+            <div className="flex gap-2">
+              <Input
+                type="text"
+                value={pincode}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Only allow digits and limit to 6 characters
+                  if (/^\d*$/.test(value) && value.length <= 6) {
+                    setPincode(value);
+                  }
+                }}
+                onKeyPress={(e) => {
+                  // Only allow digits
+                  if (!/\d/.test(e.key)) {
+                    e.preventDefault();
+                  }
+                }}
+                placeholder="Enter 6-digit pincode"
+                className="w-full"
+                maxLength={6}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                autoComplete="off"
+              />
+              {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+              {pincode.length === 6 && !isLoading && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchAddressFromPincode(pincode, type)}
+                  className="px-3"
+                  title="Refresh address details"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Post Office Selection Dropdown */}
+          {addressDetails?.allPostOffices &&
+            addressDetails.allPostOffices.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">
+                  Select Post Office
+                </Label>
+                <Select
+                  value={
+                    addressDetails.selectedPostOffice
+                      ? String(addressDetails.allPostOffices.findIndex(
+                          po => po.Name === addressDetails.selectedPostOffice.Name &&
+                                po.District === addressDetails.selectedPostOffice.District
+                        ))
+                      : ""
+                  }
+                  onValueChange={(indexStr) => {
+                    const index = parseInt(indexStr, 10);
+                    console.log(`Dropdown changed for ${type}, index:`, index);
+                    const selectedPostOffice = addressDetails.allPostOffices[index];
+                    console.log(`Selected post office:`, selectedPostOffice);
+                    if (selectedPostOffice) {
+                      selectPostOffice(selectedPostOffice, type);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a post office" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {addressDetails.allPostOffices.map(
+                      (postOffice, index) => (
+                        <SelectItem 
+                          key={`${type}-po-${index}`} 
+                          value={String(index)}
+                        >
+                          <div className="flex flex-col">
+                            <span className="font-medium">
+                              {postOffice.Name}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {postOffice.Block || postOffice.Taluk},{" "}
+                              {postOffice.District}, {postOffice.State}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      )
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+          {/* Display selected address details */}
+          {addressDetails?.name && (
+            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border">
+              <Label className="text-sm font-medium mb-2 block text-blue-800 dark:text-blue-200">
+                Selected Address Details
+              </Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                <div>
+                  <span className="font-medium">City:</span>{" "}
+                  {addressDetails.name}
+                </div>
+                <div>
+                  <span className="font-medium">District:</span>{" "}
+                  {addressDetails.district}
+                </div>
+                <div>
+                  <span className="font-medium">State:</span>{" "}
+                  {addressDetails.state}
+                </div>
+                <div>
+                  <span className="font-medium">Country:</span>{" "}
+                  {addressDetails.country}
+                </div>
+                {addressDetails.taluk && (
+                  <div>
+                    <span className="font-medium">Taluk:</span>{" "}
+                    {addressDetails.taluk}
+                  </div>
+                )}
+                {addressDetails.division && (
+                  <div>
+                    <span className="font-medium">Division:</span>{" "}
+                    {addressDetails.division}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
 const CreateInvoice = () => {
   const navigate = useNavigate();
   const user = useSelector((state) => state.auth.user);
@@ -147,6 +327,7 @@ const CreateInvoice = () => {
       type === "from" ? setIsLoadingFromPincode : setIsLoadingToPincode;
     const setAddressDetails =
       type === "from" ? setFromAddressDetails : setToAddressDetails;
+    const setAddress = type === "from" ? setPickupAddress : setDeliveryAddress;
 
     setIsLoading(true);
     try {
@@ -241,6 +422,10 @@ const CreateInvoice = () => {
 
           console.log("Setting address details:", addressData);
           setAddressDetails(addressData);
+          
+          // Auto-update the address field
+          const addressText = `${postOffice.Name}, ${postOffice.Block || postOffice.Taluk}, ${postOffice.District}, ${postOffice.State} - ${postOffice.Country}`;
+          setAddress(addressText);
         } else {
           // Multiple post offices, store all for selection
           setAddressDetails({
@@ -286,22 +471,38 @@ const CreateInvoice = () => {
 
   // Function to select a specific post office from multiple options
   const selectPostOffice = (postOffice, type) => {
+    console.log(`Selecting post office for ${type}:`, postOffice);
+    
     const setAddressDetails =
       type === "from" ? setFromAddressDetails : setToAddressDetails;
+    const setAddress = type === "from" ? setPickupAddress : setDeliveryAddress;
 
-    setAddressDetails((prev) => ({
-      ...prev,
-      name: postOffice.Name,
-      taluk: postOffice.Block || postOffice.Taluk, // Handle both field names
-      district: postOffice.District,
-      division: postOffice.Division,
-      region: postOffice.Region,
-      state: postOffice.State,
-      country: postOffice.Country,
-      branchType: postOffice.BranchType,
-      deliveryStatus: postOffice.DeliveryStatus,
-      selectedPostOffice: postOffice,
-    }));
+    // Auto-update the address field with selected post office details
+    const addressText = `${postOffice.Name}, ${postOffice.Block || postOffice.Taluk}, ${postOffice.District}, ${postOffice.State} - ${postOffice.Country}`;
+    
+    console.log(`Setting address text for ${type}:`, addressText);
+    
+    // Update address details for display
+    setAddressDetails((prev) => {
+      const updated = {
+        allPostOffices: prev?.allPostOffices || [], // Explicitly preserve the post offices list
+        name: postOffice.Name,
+        taluk: postOffice.Block || postOffice.Taluk,
+        district: postOffice.District,
+        division: postOffice.Division,
+        region: postOffice.Region,
+        state: postOffice.State,
+        country: postOffice.Country,
+        branchType: postOffice.BranchType,
+        deliveryStatus: postOffice.DeliveryStatus,
+        selectedPostOffice: postOffice,
+      };
+      console.log(`Updated ${type} addressDetails:`, updated);
+      return updated;
+    });
+
+    // Set the address text
+    setAddress(addressText);
   };
 
   // Remove old region-related API calls since they're no longer needed
@@ -545,6 +746,30 @@ const CreateInvoice = () => {
     setSearchedVehicle(vehicle);
     setVehicleNumber(vehicle.vehicleNumber);
     setVehicleSuggestions([]);
+    setVehicleSearchError("");
+
+    // Auto-fill vehicle-related fields
+    if (vehicle.ownerType === "Dellcube") {
+      setVehicleType("Dellcube");
+      setSelectedVehicle(vehicle._id);
+      setVehicleSize(vehicle.type || "");
+      setVehicleModel(vehicle.model || "");
+      setSelectedDriver(vehicle.currentDriver?._id || "");
+      setDriverContactNumber(vehicle.currentDriver?.mobile || "");
+      setSelectedVendor("");
+      setSelectedVendorVehicle("");
+      setSelectedVendorVehicleNumber("");
+    } else if (vehicle.ownerType === "Vendor") {
+      setVehicleType("Vendor");
+      setSelectedVendor(vehicle.vendor);
+      setSelectedVendorVehicle(vehicle);
+      setSelectedVendorVehicleNumber(vehicle.vehicleNumber);
+      setVehicleSize(vehicle.type || "");
+      setVehicleModel(vehicle.model || "");
+      setSelectedDriver(vehicle.currentDriver?._id || "");
+      setDriverContactNumber(vehicle.currentDriver?.mobile || "");
+      setSelectedVehicle("");
+    }
   };
 
   const handleSubmit = async () => {
@@ -598,7 +823,7 @@ const CreateInvoice = () => {
       ...(consignor && { consignor }),
       ...(consignee && { consignee }),
       ...(address && { address }),
-      ...(invoiceNumber && { invoiceNumber }),
+      // invoiceNumber is auto-generated on backend, don't send it
       ...(invoiceBill && { invoiceBill }),
       ...(ewayBillNo && { ewayBillNo }),
       ...(driverContactNumber && { driverContactNumber }),
@@ -611,10 +836,12 @@ const CreateInvoice = () => {
       ...(selectedTransportMode && { transportMode: selectedTransportMode }),
     };
 
-    if (searchedVehicle) {
-      if (searchedVehicle.ownerType === "Dellcube") {
-        payload.driver = searchedVehicle.currentDriver?._id;
-      }
+    // Assign driver to payload
+    // Priority: 1. Manually selected driver, 2. Driver from searched vehicle
+    if (selectedDriver) {
+      payload.driver = selectedDriver;
+    } else if (searchedVehicle?.currentDriver?._id) {
+      payload.driver = searchedVehicle.currentDriver._id;
     }
 
     Object.keys(payload).forEach(
@@ -822,342 +1049,6 @@ const CreateInvoice = () => {
     }
   };
 
-  // New simplified Address Fields component
-  const AddressFields = ({ type }) => {
-    const pincode = type === "from" ? fromPincode : toPincode;
-    const setPincode = type === "from" ? setFromPincode : setToPincode;
-    const addressDetails =
-      type === "from" ? fromAddressDetails : toAddressDetails;
-    const isLoading =
-      type === "from" ? isLoadingFromPincode : isLoadingToPincode;
-    const address = type === "from" ? pickupAddress : deliveryAddress;
-    const setAddress = type === "from" ? setPickupAddress : setDeliveryAddress;
-
-    // Debug logging
-    console.log(`${type} addressDetails:`, addressDetails);
-    console.log(`${type} pincode:`, pincode);
-
-    return (
-      <Card className="border border-gray-200 hover:border-blue-300 transition-colors">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <MapPin className="w-4 h-4 text-blue-600" />
-            {type === "from" ? "Pickup Address" : "Delivery Address"}
-            <Badge
-              variant={type === "from" ? "default" : "secondary"}
-              className="ml-auto text-xs"
-            >
-              {type === "from" ? "FROM" : "TO"}
-            </Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="space-y-3">
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Address</Label>
-              <Textarea
-                value={address}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setAddress(value);
-                }}
-                placeholder={`Enter ${
-                  type === "from" ? "pickup" : "delivery"
-                } address`}
-                className="w-full"
-                rows={3}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Pincode</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="text"
-                  value={pincode}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    // Only allow digits and limit to 6 characters
-                    if (/^\d*$/.test(value) && value.length <= 6) {
-                      setPincode(value);
-                    }
-                  }}
-                  onKeyPress={(e) => {
-                    // Only allow digits
-                    if (!/\d/.test(e.key)) {
-                      e.preventDefault();
-                    }
-                  }}
-                  placeholder="Enter 6-digit pincode"
-                  className="w-full"
-                  maxLength={6}
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  autoComplete="off"
-                />
-                {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                {pincode.length === 6 && !isLoading && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fetchAddressFromPincode(pincode, type)}
-                    className="px-3"
-                    title="Fetch address details"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                  </Button>
-                )}
-                {/* Retry button when API fails */}
-                {pincode.length === 6 &&
-                  !isLoading &&
-                  addressDetails === null && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => fetchAddressFromPincode(pincode, type)}
-                      className="px-3 text-orange-600 border-orange-300 hover:bg-orange-50"
-                      title="Retry fetching address details"
-                    >
-                      <AlertCircle className="w-4 h-4" />
-                    </Button>
-                  )}
-              </div>
-            </div>
-
-            {/* Manual address input option */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium">
-                  Manual Address Details (Optional)
-                </Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    if (type === "from") {
-                      setFromAddressDetails((prev) => ({
-                        ...prev,
-                        showManual: !prev?.showManual,
-                      }));
-                    } else {
-                      setToAddressDetails((prev) => ({
-                        ...prev,
-                        showManual: !prev?.showManual,
-                      }));
-                    }
-                  }}
-                  className="text-xs"
-                >
-                  {addressDetails?.showManual ? "Hide" : "Show"} Manual Input
-                </Button>
-              </div>
-
-              {addressDetails?.showManual && (
-                <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs font-medium">City</Label>
-                      <Input
-                        type="text"
-                        value={addressDetails.manualCity || ""}
-                        onChange={(e) => {
-                          if (type === "from") {
-                            setFromAddressDetails((prev) => ({
-                              ...prev,
-                              manualCity: e.target.value,
-                            }));
-                          } else {
-                            setToAddressDetails((prev) => ({
-                              ...prev,
-                              manualCity: e.target.value,
-                            }));
-                          }
-                        }}
-                        placeholder="Enter city"
-                        className="text-sm"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs font-medium">State</Label>
-                      <Input
-                        type="text"
-                        value={addressDetails.manualState || ""}
-                        onChange={(e) => {
-                          if (type === "from") {
-                            setFromAddressDetails((prev) => ({
-                              ...prev,
-                              manualState: e.target.value,
-                            }));
-                          } else {
-                            setToAddressDetails((prev) => ({
-                              ...prev,
-                              manualState: e.target.value,
-                            }));
-                          }
-                        }}
-                        placeholder="Enter state"
-                        className="text-sm"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs font-medium">District</Label>
-                      <Input
-                        type="text"
-                        value={addressDetails.manualDistrict || ""}
-                        onChange={(e) => {
-                          if (type === "from") {
-                            setFromAddressDetails((prev) => ({
-                              ...prev,
-                              manualDistrict: e.target.value,
-                            }));
-                          } else {
-                            setToAddressDetails((prev) => ({
-                              ...prev,
-                              manualDistrict: e.target.value,
-                            }));
-                          }
-                        }}
-                        placeholder="Enter district"
-                        className="text-sm"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs font-medium">Country</Label>
-                      <Input
-                        type="text"
-                        value={addressDetails.manualCountry || "India"}
-                        onChange={(e) => {
-                          if (type === "from") {
-                            setFromAddressDetails((prev) => ({
-                              ...prev,
-                              manualCountry: e.target.value,
-                            }));
-                          } else {
-                            setToAddressDetails((prev) => ({
-                              ...prev,
-                              manualCountry: e.target.value,
-                            }));
-                          }
-                        }}
-                        placeholder="Enter country"
-                        className="text-sm"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Status message */}
-              {isLoading && (
-                <div className="text-sm text-blue-600 dark:text-blue-400 flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Fetching address details...
-                </div>
-              )}
-              {!isLoading &&
-                addressDetails === null &&
-                pincode.length === 6 && (
-                  <div className="text-sm text-orange-600 dark:text-orange-400 flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4" />
-                    Address details not found. Try manual input or retry.
-                  </div>
-                )}
-            </div>
-
-            {/* Post Office Selection Dropdown */}
-            {addressDetails?.allPostOffices &&
-              addressDetails.allPostOffices.length > 0 && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">
-                    Select Post Office
-                  </Label>
-                  <Select
-                    value={
-                      addressDetails.selectedPostOffice
-                        ? addressDetails.selectedPostOffice.Name
-                        : ""
-                    }
-                    onValueChange={(postOfficeName) => {
-                      const selectedPostOffice =
-                        addressDetails.allPostOffices.find(
-                          (po) => po.Name === postOfficeName
-                        );
-                      if (selectedPostOffice) {
-                        selectPostOffice(selectedPostOffice, type);
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select a post office" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {addressDetails.allPostOffices.map(
-                        (postOffice, index) => (
-                          <SelectItem key={index} value={postOffice.Name}>
-                            <div className="flex flex-col">
-                              <span className="font-medium">
-                                {postOffice.Name}
-                              </span>
-                              <span className="text-xs text-gray-500">
-                                {postOffice.Block || postOffice.Taluk},{" "}
-                                {postOffice.District}, {postOffice.State}
-                              </span>
-                            </div>
-                          </SelectItem>
-                        )
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-            {/* Display selected address details */}
-            {addressDetails?.name && (
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border">
-                <Label className="text-sm font-medium mb-2 block text-blue-800 dark:text-blue-200">
-                  Selected Address Details
-                </Label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <span className="font-medium">City:</span>{" "}
-                    {addressDetails.name}
-                  </div>
-                  <div>
-                    <span className="font-medium">District:</span>{" "}
-                    {addressDetails.district}
-                  </div>
-                  <div>
-                    <span className="font-medium">State:</span>{" "}
-                    {addressDetails.state}
-                  </div>
-                  <div>
-                    <span className="font-medium">Country:</span>{" "}
-                    {addressDetails.country}
-                  </div>
-                  {addressDetails.taluk && (
-                    <div>
-                      <span className="font-medium">Taluk:</span>{" "}
-                      {addressDetails.taluk}
-                    </div>
-                  )}
-                  {addressDetails.division && (
-                    <div>
-                      <span className="font-medium">Division:</span>{" "}
-                      {addressDetails.division}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
-
   return (
     <div className="min-h-screen">
       <div className="container mx-auto px-4 py-4 md:py-6">
@@ -1319,8 +1210,28 @@ const CreateInvoice = () => {
               <CardContent>
                 {/* Pickup/Delivery Address fields with pincode-based location */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
-                  <AddressFields type="from" />
-                  <AddressFields type="to" />
+                  <AddressFields
+                    type="from"
+                    pincode={fromPincode}
+                    setPincode={setFromPincode}
+                    addressDetails={fromAddressDetails}
+                    isLoading={isLoadingFromPincode}
+                    address={pickupAddress}
+                    setAddress={setPickupAddress}
+                    fetchAddressFromPincode={fetchAddressFromPincode}
+                    selectPostOffice={selectPostOffice}
+                  />
+                  <AddressFields
+                    type="to"
+                    pincode={toPincode}
+                    setPincode={setToPincode}
+                    addressDetails={toAddressDetails}
+                    isLoading={isLoadingToPincode}
+                    address={deliveryAddress}
+                    setAddress={setDeliveryAddress}
+                    fetchAddressFromPincode={fetchAddressFromPincode}
+                    selectPostOffice={selectPostOffice}
+                  />
                 </div>
                 {/* Remaining Delivery Details fields */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 mt-4">
@@ -1824,13 +1735,15 @@ const CreateInvoice = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">Invoice No</Label>
+                  <Label className="text-sm font-medium">
+                    Invoice No
+                    <span className="text-xs text-gray-500 ml-2">(Auto-generated)</span>
+                  </Label>
                   <Input
                     type="text"
-                    value={invoiceNumber}
-                    onChange={(e) => setInvoiceNumber(e.target.value)}
-                    placeholder="Enter invoice no"
-                    className="w-full"
+                    value="Will be auto-generated on creation"
+                    disabled
+                    className="w-full bg-gray-100 cursor-not-allowed"
                   />
                 </div>
                 <div className="space-y-2">

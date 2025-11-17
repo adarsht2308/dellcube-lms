@@ -424,17 +424,28 @@ const Invoices = () => {
 
     if (processedInvoice.deliveryProof?.signature) {
       try {
-        const signatureBase64 = await imageUrlToBase64(
-          processedInvoice.deliveryProof.signature
-        );
-        if (signatureBase64) {
-          processedInvoice.deliveryProof.signature = signatureBase64;
+        // Check if signature is already a valid base64 string
+        if (processedInvoice.deliveryProof.signature.startsWith('data:image/')) {
+          // Already in base64 format, no conversion needed
+          console.log("Signature is already in base64 format");
         } else {
-          toast.error("Could not convert signature for PDF.");
+          // Convert URL to base64
+          const signatureBase64 = await imageUrlToBase64(
+            processedInvoice.deliveryProof.signature
+          );
+          if (signatureBase64) {
+            processedInvoice.deliveryProof.signature = signatureBase64;
+            console.log("Signature converted to base64 successfully");
+          } else {
+            console.warn("Signature conversion returned empty result");
+            toast.error("Could not convert signature for PDF.");
+          }
         }
       } catch (error) {
-        toast.error("Failed to process signature image.");
         console.error("Signature conversion error:", error);
+        toast.error("Failed to process signature image. PDF will be generated without signature.");
+        // Remove signature to prevent PDF generation error
+        delete processedInvoice.deliveryProof.signature;
       }
     }
 
@@ -499,15 +510,31 @@ const Invoices = () => {
       } catch (_) {}
 
       if (processedInvoice.deliveryProof?.signature) {
-        const signatureBase64 = await imageUrlToBase64(
-          processedInvoice.deliveryProof.signature
-        );
-        if (signatureBase64) {
-          processedInvoice.deliveryProof.signature = signatureBase64;
-        } else {
-          toast.error(
-            "Could not convert signature image. PDF will be generated without it."
-          );
+        try {
+          // Check if signature is already a valid base64 string
+          if (processedInvoice.deliveryProof.signature.startsWith('data:image/')) {
+            // Already in base64 format, no conversion needed
+            console.log("Signature is already in base64 format for download");
+          } else {
+            // Convert URL to base64
+            const signatureBase64 = await imageUrlToBase64(
+              processedInvoice.deliveryProof.signature
+            );
+            if (signatureBase64) {
+              processedInvoice.deliveryProof.signature = signatureBase64;
+              console.log("Signature converted to base64 successfully for download");
+            } else {
+              console.warn("Signature conversion returned empty result for download");
+              toast.error(
+                "Could not convert signature image. PDF will be generated without it."
+              );
+              delete processedInvoice.deliveryProof.signature;
+            }
+          }
+        } catch (error) {
+          console.error("Signature conversion error during download:", error);
+          toast.error("Failed to process signature. PDF will be generated without it.");
+          delete processedInvoice.deliveryProof.signature;
         }
       }
 
@@ -1853,6 +1880,11 @@ const Invoices = () => {
                       icon={Phone}
                     />
                     <InfoRow
+                      label="Floor"
+                      value={selectedInvoice?.deliveryProof?.floor}
+                      icon={FileText}
+                    />
+                    <InfoRow
                       label="Remarks"
                       value={selectedInvoice?.deliveryProof?.remarks}
                       icon={FileText}
@@ -1965,17 +1997,31 @@ const Invoices = () => {
                 right: 0,
                 zIndex: 20,
               }}
-              className="bg-white border-t border-gray-200 p-4 flex justify-center shadow-lg"
+              className="bg-white border-t border-gray-200 p-4 flex flex-col gap-3 shadow-lg"
             >
               <Button
                 onClick={() => handleViewPDF(selectedInvoice)}
-                className="w-full max-w-xs bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020] font-semibold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center gap-3 group border border-[#FFD249] dark:bg-[#FFD249] dark:text-[#202020] dark:hover:bg-[#FFD249]/80"
+                className="w-full bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020] font-semibold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center gap-3 group border border-[#FFD249] dark:bg-[#FFD249] dark:text-[#202020] dark:hover:bg-[#FFD249]/80"
                 size="lg"
               >
                 <div className="p-1 bg-white/20 rounded-lg group-hover:bg-white/30 transition-colors">
                   <EyeIcon className="w-5 h-5" />
                 </div>
                 <span className="text-base">View PDF Invoice</span>
+                <div className="ml-auto opacity-70 group-hover:opacity-100 transition-opacity">
+                  →
+                </div>
+              </Button>
+              <Button
+                onClick={() => window.open(`/track?docket=${selectedInvoice.docketNumber}`, '_blank')}
+                variant="outline"
+                className="w-full border-[#FFD249] text-[#202020] hover:bg-[#FFD249]/10 font-semibold py-3 px-6 rounded-xl shadow hover:shadow-lg transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center gap-3 group"
+                size="lg"
+              >
+                <div className="p-1 bg-[#FFD249]/10 rounded-lg group-hover:bg-[#FFD249]/20 transition-colors">
+                  <Package className="w-5 h-5" />
+                </div>
+                <span className="text-base">Track Order</span>
                 <div className="ml-auto opacity-70 group-hover:opacity-100 transition-opacity">
                   →
                 </div>

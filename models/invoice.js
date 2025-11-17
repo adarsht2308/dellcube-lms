@@ -141,6 +141,7 @@ const invoiceSchema = new mongoose.Schema(
       signature: String,
       receiverName: String,
       receiverMobile: String,
+      floor: String,
       remarks: String,
     },
 

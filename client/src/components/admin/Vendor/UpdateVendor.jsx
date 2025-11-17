@@ -129,32 +129,84 @@ const UpdateVendor = () => {
   };
 
   const handleUpdate = async () => {
-    const { name, phone, email, status: isStatusActive } = vendorData;
+    const { name, phone, email, company, branch, assignedClient, status: isStatusActive } = vendorData;
 
-    if (!name || !email || !phone) {
-      toast.error("Name, Email, and Phone are required fields.");
+    // Detailed validation with specific error messages
+    if (!name?.trim()) {
+      toast.error("Vendor Name is required");
       return;
     }
 
-    const statusString = isStatusActive ? "active" : "inactive";
+    if (!email?.trim()) {
+      toast.error("Email is required");
+      return;
+    }
 
-    const payload = {
-      vendorId,
-      ...vendorData,
-      status: statusString,
-    };
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
 
-    await updateVendor(payload);
+    if (!phone?.trim()) {
+      toast.error("Phone number is required");
+      return;
+    }
+
+    // Phone number validation
+    if (phone.length !== 10) {
+      toast.error("Phone number must be exactly 10 digits");
+      return;
+    }
+
+    if (!company) {
+      toast.error("Company is required");
+      return;
+    }
+
+    if (!branch) {
+      toast.error("Branch is required");
+      return;
+    }
+
+    if (!assignedClient) {
+      toast.error("Assigned Client is required");
+      return;
+    }
+
+    try {
+      const statusString = isStatusActive ? "active" : "inactive";
+
+      const payload = {
+        vendorId,
+        ...vendorData,
+        status: statusString,
+      };
+
+      const result = await updateVendor(payload).unwrap();
+      // Success is handled in useEffect
+    } catch (err) {
+      // Detailed error handling
+      if (err?.data?.message) {
+        toast.error(err.data.message);
+      } else if (err?.data?.error) {
+        toast.error(err.data.error);
+      } else if (err?.message) {
+        toast.error(err.message);
+      } else {
+        toast.error("Failed to update vendor. Please try again.");
+      }
+      console.error("Update vendor error:", err);
+    }
   };
 
   useEffect(() => {
     if (isUpdateSuccess) {
       toast.success("Vendor updated successfully");
       setTimeout(() => navigate("/admin/vendors"), 1500);
-    } else if (error) {
-      toast.error(error?.data?.message || "Failed to update vendor");
     }
-  }, [isUpdateSuccess, error, navigate]);
+  }, [isUpdateSuccess, navigate]);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -228,8 +280,12 @@ const UpdateVendor = () => {
                       id="phone"
                       name="phone"
                       type="tel"
-                      placeholder="Eg. +91 9876543210"
+                      placeholder="10-digit phone number"
                       value={vendorData.phone}
+                      onInput={(e) => {
+                        e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      }}
+                      maxLength="10"
                       onChange={handleChange}
                     />
                   </div>

@@ -74,8 +74,14 @@ import VehicleDetail from "./components/admin/Vehicle/VehicleDetail.jsx";
 import VendorDetail from "./components/admin/Vendor/VendorDetail.jsx";
 import VendorVehicles from "./components/admin/Vendor/VendorVehicles.jsx";
 import VendorProfile from "./components/admin/Vendor/VendorProfile.jsx";
+import TrackOrder from "./components/TrackOrder.jsx";
 
 const appRouter = createBrowserRouter([
+  //Public Routes
+  {
+    path: "/track",
+    element: <TrackOrder />,
+  },
   //Homepage Routes
   {
     path: "/",

@@ -310,10 +310,15 @@ const CreateCompany = () => {
                 <div>
                   <Label>Contact Phone *</Label>
                   <Input
+                    type="tel"
                     name="contactPhone"
                     value={formData.contactPhone}
                     onChange={handleInputChange}
+                    onInput={(e) => {
+                      e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    }}
                     placeholder="10-digit mobile number"
+                    maxLength="10"
                   />
                 </div>
                 <div className="md:col-span-2">
@@ -543,10 +548,15 @@ const CreateCompany = () => {
                 <div>
                   <Label>Contact Mobile</Label>
                   <Input
+                    type="tel"
                     name="emergencyContactMobile"
                     value={formData.emergencyContactMobile}
                     onChange={handleInputChange}
+                    onInput={(e) => {
+                      e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    }}
                     placeholder="10-digit mobile number"
+                    maxLength="10"
                   />
                 </div>
               </div>

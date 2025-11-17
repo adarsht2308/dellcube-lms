@@ -286,10 +286,14 @@ const UpdateOperations = () => {
                   <div>
                     <Label>Mobile *</Label>
                     <Input
+                      type="tel"
                       value={formData.mobile}
                       onChange={(e) => {
                         const v = e.target.value.replace(/\D/g, "").slice(0, 10);
                         setFormData({ ...formData, mobile: v });
+                      }}
+                      onInput={(e) => {
+                        e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10);
                       }}
                       placeholder="10-digit mobile number"
                       maxLength="10"

@@ -290,9 +290,13 @@ const UpdateBranchAdmin = () => {
                   <div>
                     <Label>Mobile *</Label>
                     <Input
+                      type="tel"
                       name="mobile"
                       value={formData.mobile}
                       onChange={handleInputChange}
+                      onInput={(e) => {
+                        e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      }}
                       placeholder="10-digit mobile number"
                       maxLength="10"
                     />

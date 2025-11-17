@@ -304,11 +304,16 @@ const UpdateCompany = () => {
                 <div>
                   <Label>Contact Phone *</Label>
                   <Input
+                    type="tel"
                     value={formData.contactPhone}
                     onChange={(e) =>
                       setFormData({ ...formData, contactPhone: e.target.value })
                     }
-                    placeholder="Phone number"
+                    onInput={(e) => {
+                      e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    }}
+                    placeholder="10-digit phone number"
+                    maxLength="10"
                   />
                 </div>
                 <div className="md:col-span-2">
@@ -470,11 +475,16 @@ const UpdateCompany = () => {
                 <div>
                   <Label>Contact Mobile</Label>
                   <Input
+                    type="tel"
                     value={formData.emergencyContactMobile}
                     onChange={(e) =>
                       setFormData({ ...formData, emergencyContactMobile: e.target.value })
                     }
+                    onInput={(e) => {
+                      e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    }}
                     placeholder="10-digit mobile number"
+                    maxLength="10"
                   />
                 </div>
               </div>

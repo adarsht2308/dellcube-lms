@@ -239,3 +239,66 @@ export const deleteCustomer = async (req, res) => {
     });
   }
 };
+
+// Add or Update Consignee (for KN Integration)
+export const addOrUpdateConsignee = async (req, res) => {
+  try {
+    const { customerId, siteId, siteName } = req.body;
+
+    // Validate required fields
+    if (!customerId || !siteId || !siteName) {
+      return res.status(400).json({
+        success: false,
+        message: "customerId, siteId, and siteName are required",
+      });
+    }
+
+    // Find the customer
+    const customer = await Customer.findById(customerId);
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: "Customer not found",
+      });
+    }
+
+    // Check if siteId already exists in consignees array
+    const existingConsigneeIndex = customer.consignees.findIndex(
+      (consignee) => consignee.siteId === siteId
+    );
+
+    if (existingConsigneeIndex !== -1) {
+      // Update existing consignee
+      customer.consignees[existingConsigneeIndex].consignee = siteName;
+      await customer.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Consignee updated successfully",
+        consignee: customer.consignees[existingConsigneeIndex],
+        customer,
+      });
+    } else {
+      // Add new consignee
+      customer.consignees.push({
+        siteId: siteId,
+        consignee: siteName,
+      });
+      await customer.save();
+
+      return res.status(201).json({
+        success: true,
+        message: "Consignee added successfully",
+        consignee: customer.consignees[customer.consignees.length - 1],
+        customer,
+      });
+    }
+  } catch (error) {
+    console.error("Error adding/updating consignee:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong while adding/updating consignee",
+      error: error.message,
+    });
+  }
+};

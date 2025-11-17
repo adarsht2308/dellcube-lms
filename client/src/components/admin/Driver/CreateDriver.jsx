@@ -36,6 +36,7 @@ import { useSelector } from "react-redux";
 import { useGetAllCompaniesQuery } from "@/features/api/Company/companyApi";
 import { useGetBranchesByCompanyMutation } from "@/features/api/Branch/branchApi";
 import { useCreateDriverMutation } from "@/features/api/authApi";
+import { useGetAllVendorsQuery } from "@/features/api/Vendor/vendorApi";
 
 const CreateDriver = () => {
   const navigate = useNavigate();
@@ -51,6 +52,7 @@ const CreateDriver = () => {
     driverType: user?.role === "vendor" ? "vendor" : "dellcube",
     company: isBranchAdmin ? user?.company?._id : "",
     branch: isBranchAdmin ? user?.branch?._id : "",
+    vendor: "",
     status: true,
     aadharNumber: "",
     panNumber: "",
@@ -65,6 +67,14 @@ const CreateDriver = () => {
   const { data: companies } = useGetAllCompaniesQuery({ page: 1, limit: 100 });
   const [getBranchesByCompany, { data: branchData, isLoading: branchLoading }] =
     useGetBranchesByCompanyMutation();
+  
+  // Fetch vendors based on company and branch
+  const { data: vendorsData } = useGetAllVendorsQuery({
+    page: 1,
+    limit: 100,
+    companyId: formData.company || "",
+    branchId: formData.branch || "",
+  });
 
   const [createDriver, { isLoading, isSuccess, isError, data, error }] =
     useCreateDriverMutation();
@@ -74,6 +84,13 @@ const CreateDriver = () => {
       getBranchesByCompany(formData.company);
     }
   }, [formData.company]);
+
+  // Reset vendor when driverType changes
+  useEffect(() => {
+    if (formData.driverType !== "vendor") {
+      setFormData((prev) => ({ ...prev, vendor: "" }));
+    }
+  }, [formData.driverType]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -122,6 +139,12 @@ const CreateDriver = () => {
       !driverType
     ) {
       toast.error("All required fields are required.");
+      return false;
+    }
+
+    // Validate vendor is selected when driverType is vendor
+    if (driverType === "vendor" && !formData.vendor) {
+      toast.error("Vendor is required when driver type is 'vendor'.");
       return false;
     }
 
@@ -214,9 +237,13 @@ const CreateDriver = () => {
                 <div>
                   <Label>Mobile Number *</Label>
                   <Input
+                    type="tel"
                     name="mobile"
                     value={formData.mobile}
                     onChange={handleInputChange}
+                    onInput={(e) => {
+                      e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    }}
                     placeholder="10-digit mobile number"
                     maxLength="10"
                   />
@@ -266,24 +293,6 @@ const CreateDriver = () => {
                     onChange={handleInputChange}
                     placeholder="Years of Experience"
                   />
-                </div>
-                <div>
-                  <Label>Driver Type *</Label>
-                  <Select
-                    value={formData.driverType}
-                    onValueChange={(val) =>
-                      setFormData((prev) => ({ ...prev, driverType: val }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Driver Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="dellcube">Dellcube Driver</SelectItem>
-                      <SelectItem value="vendor">Vendor Driver</SelectItem>
-                      <SelectItem value="temporary">Temporary Driver</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
                 <div>
                   <Label>Company *</Label>
@@ -347,6 +356,55 @@ const CreateDriver = () => {
                     />
                   )}
                 </div>
+                <div>
+                  <Label>Driver Type *</Label>
+                  <Select
+                    value={formData.driverType}
+                    onValueChange={(val) =>
+                      setFormData((prev) => ({ ...prev, driverType: val, vendor: "" }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Driver Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="dellcube">Dellcube Driver</SelectItem>
+                      <SelectItem value="vendor">Vendor Driver</SelectItem>
+                      <SelectItem value="temporary">Temporary Driver</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {formData.driverType === "vendor" && (
+                  <div>
+                    <Label>Vendor *</Label>
+                    <Select
+                      value={formData.vendor}
+                      onValueChange={(val) =>
+                        setFormData((prev) => ({ ...prev, vendor: val }))
+                      }
+                      disabled={!formData.company || !formData.branch}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Vendor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {vendorsData?.vendors?.length > 0 ? (
+                          vendorsData.vendors.map((v) => (
+                            <SelectItem key={v._id} value={v._id}>
+                              {v.name}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="" disabled>
+                            {!formData.company || !formData.branch
+                              ? "Please select company and branch first"
+                              : "No vendors available"}
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div className="flex items-center gap-3">
                   <Label htmlFor="status-toggle">Status</Label>
                   <Switch

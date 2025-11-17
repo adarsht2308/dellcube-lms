@@ -33,15 +33,15 @@ export const createInvoice = async (req, res) => {
       });
     }
 
-    // Fetch company and branch documents
+    // Fetch company and branch documents with their codes
     const companyDoc = await mongoose
       .model("Company")
       .findById(companyId)
-      .select("name");
+      .select("companyCode");
     const branchDoc = await mongoose
       .model("Branch")
       .findById(branchId)
-      .select("name");
+      .select("branchCode");
 
     if (!companyDoc || !branchDoc) {
       return res.status(400).json({
@@ -50,15 +50,9 @@ export const createInvoice = async (req, res) => {
       });
     }
 
-    // Generate companyCode and branchCode
-    const companyCode = companyDoc.name
-      ?.toUpperCase()
-      .slice(0, 3)
-      .replace(/\s/g, "");
-    const branchCode = branchDoc.name
-      ?.toUpperCase()
-      .slice(0, 5)
-      .replace(/\s/g, "");
+    // Use the actual companyCode and branchCode from database
+    const companyCode = companyDoc.companyCode;
+    const branchCode = branchDoc.branchCode;
 
     // Generate date string
     const now = new Date();
@@ -78,7 +72,11 @@ export const createInvoice = async (req, res) => {
     });
 
     const runningCounter = String(dailyCount + 1).padStart(4, "0");
-    const docketNumber = `DLC-${companyCode}-${branchCode}-${dateStr}-${runningCounter}`;
+    // Format: CompanyCode-BranchCode-Date-UniqueNumber (with dashes as separators)
+    const docketNumber = `${companyCode}-${branchCode}-${dateStr}-${runningCounter}`;
+    
+    // Generate invoice number with the same format
+    const invoiceNumber = `${companyCode}-${branchCode}-${dateStr}-${runningCounter}`;
 
     const { vehicleNumber } = req.body;
     let vehicleData = null;
@@ -120,6 +118,7 @@ export const createInvoice = async (req, res) => {
       company: companyId,
       branch: branchId,
       docketNumber,
+      invoiceNumber, // Auto-generated invoice number
       orderNumber: req.body.orderNumber || "",
       transportMode: req.body.transportMode,
     };
@@ -128,7 +127,10 @@ export const createInvoice = async (req, res) => {
       invoicePayload.vehicleType = ownerType;
       if (ownerType === "Dellcube") {
         invoicePayload.vehicle = vehicleData._id;
-        invoicePayload.driver = vehicleData.currentDriver?._id;
+        // Only set driver from vehicle if not already provided in request body
+        if (!req.body.driver) {
+          invoicePayload.driver = vehicleData.currentDriver?._id;
+        }
         invoicePayload.vehicleSize = vehicleData.type;
         delete invoicePayload.vendor;
         delete invoicePayload.vendorVehicle;
@@ -203,15 +205,15 @@ export const createReservedInvoices = async (req, res) => {
       });
     }
 
-    // Fetch company and branch documents
+    // Fetch company and branch documents with their codes
     const companyDoc = await mongoose
       .model("Company")
       .findById(companyId)
-      .select("name");
+      .select("companyCode");
     const branchDoc = await mongoose
       .model("Branch")
       .findById(branchId)
-      .select("name");
+      .select("branchCode");
 
     if (!companyDoc || !branchDoc) {
       return res.status(400).json({
@@ -220,15 +222,9 @@ export const createReservedInvoices = async (req, res) => {
       });
     }
 
-    // Generate companyCode and branchCode
-    const companyCode = companyDoc.name
-      ?.toUpperCase()
-      .slice(0, 3)
-      .replace(/\s/g, "");
-    const branchCode = branchDoc.name
-      ?.toUpperCase()
-      .slice(0, 5)
-      .replace(/\s/g, "");
+    // Use the actual companyCode and branchCode from database
+    const companyCode = companyDoc.companyCode;
+    const branchCode = branchDoc.branchCode;
 
     // Generate date string
     const now = new Date();
@@ -250,7 +246,11 @@ export const createReservedInvoices = async (req, res) => {
     const reservedInvoices = [];
     for (let i = 1; i <= quantity; i++) {
       runningCounter++;
-      const docketNumber = `DLC-${companyCode}-${branchCode}-${dateStr}-${String(
+      // Format: CompanyCode-BranchCode-Date-UniqueNumber (with dashes as separators)
+      const docketNumber = `${companyCode}-${branchCode}-${dateStr}-${String(
+        runningCounter
+      ).padStart(4, "0")}`;
+      const invoiceNumber = `${companyCode}-${branchCode}-${dateStr}-${String(
         runningCounter
       ).padStart(4, "0")}`;
       reservedInvoices.push({
@@ -260,6 +260,7 @@ export const createReservedInvoices = async (req, res) => {
         fromAddress,
         toAddress,
         docketNumber,
+        invoiceNumber, // Auto-generated invoice number
         status: "Reserved",
         ...rest,
       });
