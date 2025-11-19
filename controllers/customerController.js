@@ -243,7 +243,7 @@ export const deleteCustomer = async (req, res) => {
 // Add or Update Consignee (for KN Integration)
 export const addOrUpdateConsignee = async (req, res) => {
   try {
-    const { customerId, siteId, siteName } = req.body;
+    const { customerId, siteId, siteName, address } = req.body;
 
     // Validate required fields
     if (!customerId || !siteId || !siteName) {
@@ -270,6 +270,7 @@ export const addOrUpdateConsignee = async (req, res) => {
     if (existingConsigneeIndex !== -1) {
       // Update existing consignee
       customer.consignees[existingConsigneeIndex].consignee = siteName;
+      if (address) customer.consignees[existingConsigneeIndex].address = address;
       await customer.save();
 
       return res.status(200).json({
@@ -283,6 +284,7 @@ export const addOrUpdateConsignee = async (req, res) => {
       customer.consignees.push({
         siteId: siteId,
         consignee: siteName,
+        address: address || "",
       });
       await customer.save();
 
@@ -298,6 +300,199 @@ export const addOrUpdateConsignee = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Something went wrong while adding/updating consignee",
+      error: error.message,
+    });
+  }
+};
+
+// Bulk Upload Consignees from CSV
+export const bulkUploadConsignees = async (req, res) => {
+  try {
+    const { customerId, consignees } = req.body;
+
+    if (!customerId || !consignees || !Array.isArray(consignees)) {
+      return res.status(400).json({
+        success: false,
+        message: "customerId and consignees array are required",
+      });
+    }
+
+    const customer = await Customer.findById(customerId);
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: "Customer not found",
+      });
+    }
+
+    let added = 0;
+    let updated = 0;
+    let errors = [];
+
+    for (const item of consignees) {
+      const { siteId, consignee, address } = item;
+
+      if (!siteId || !consignee) {
+        errors.push({ siteId, error: "Site ID and Consignee name are required" });
+        continue;
+      }
+
+      const existingIndex = customer.consignees.findIndex(
+        (c) => c.siteId === siteId
+      );
+
+      if (existingIndex !== -1) {
+        customer.consignees[existingIndex].consignee = consignee;
+        customer.consignees[existingIndex].address = address || "";
+        updated++;
+      } else {
+        customer.consignees.push({ siteId, consignee, address: address || "" });
+        added++;
+      }
+    }
+
+    await customer.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Bulk upload completed. Added: ${added}, Updated: ${updated}`,
+      added,
+      updated,
+      errors,
+      customer,
+    });
+  } catch (error) {
+    console.error("Error bulk uploading consignees:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong while bulk uploading consignees",
+      error: error.message,
+    });
+  }
+};
+
+// Bulk Upload Consignors from CSV
+export const bulkUploadConsignors = async (req, res) => {
+  try {
+    const { customerId, consignors } = req.body;
+
+    if (!customerId || !consignors || !Array.isArray(consignors)) {
+      return res.status(400).json({
+        success: false,
+        message: "customerId and consignors array are required",
+      });
+    }
+
+    const customer = await Customer.findById(customerId);
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: "Customer not found",
+      });
+    }
+
+    let added = 0;
+    let updated = 0;
+    let errors = [];
+
+    for (const item of consignors) {
+      const { siteId, consignor, address } = item;
+
+      if (!consignor) {
+        errors.push({ siteId, error: "Consignor name is required" });
+        continue;
+      }
+
+      if (siteId) {
+        const existingIndex = customer.consignors.findIndex(
+          (c) => c.siteId === siteId
+        );
+
+        if (existingIndex !== -1) {
+          customer.consignors[existingIndex].consignor = consignor;
+          customer.consignors[existingIndex].address = address || "";
+          updated++;
+        } else {
+          customer.consignors.push({ siteId, consignor, address: address || "" });
+          added++;
+        }
+      } else {
+        customer.consignors.push({ siteId: "", consignor, address: address || "" });
+        added++;
+      }
+    }
+
+    await customer.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Bulk upload completed. Added: ${added}, Updated: ${updated}`,
+      added,
+      updated,
+      errors,
+      customer,
+    });
+  } catch (error) {
+    console.error("Error bulk uploading consignors:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong while bulk uploading consignors",
+      error: error.message,
+    });
+  }
+};
+
+// Export Consignees as CSV data
+export const exportConsignees = async (req, res) => {
+  try {
+    const { customerId } = req.params;
+
+    const customer = await Customer.findById(customerId);
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: "Customer not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Consignees exported successfully",
+      consignees: customer.consignees,
+    });
+  } catch (error) {
+    console.error("Error exporting consignees:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong while exporting consignees",
+      error: error.message,
+    });
+  }
+};
+
+// Export Consignors as CSV data
+export const exportConsignors = async (req, res) => {
+  try {
+    const { customerId } = req.params;
+
+    const customer = await Customer.findById(customerId);
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: "Customer not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Consignors exported successfully",
+      consignors: customer.consignors,
+    });
+  } catch (error) {
+    console.error("Error exporting consignors:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong while exporting consignors",
       error: error.message,
     });
   }

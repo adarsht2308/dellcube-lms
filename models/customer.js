@@ -75,14 +75,26 @@ const customerSchema = new mongoose.Schema(
           required: true,
           trim: true,
         },
+        address: {
+          type: String,
+          trim: true,
+        },
       },
     ],
 
     consignors: [
       {
+        siteId: {
+          type: String,
+          trim: true,
+        },
         consignor: {
           type: String,
           required: true,
+          trim: true,
+        },
+        address: {
+          type: String,
           trim: true,
         },
       },

@@ -80,6 +80,7 @@ const DELLCUBE_COLORS = {
 
 const Sidebar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [openAccordion, setOpenAccordion] = useState("");
   const [activeAccordion, setActiveAccordion] = useState("");
   const { data, isLoading, refetch } = useLoadUserQuery();
   const user = data && data.user;
@@ -243,7 +244,8 @@ const Sidebar = () => {
   );
 
   return (
-    <div className="flex flex-col lg:flex-row mt-14  bg-gradient-to-br from-gray-50 to-white">
+    <div className="pt-14 min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
+      <div className="flex">
       {/* Mobile Menu Button */}
       <div className="lg:hidden fixed top-16 left-4 z-50">
         <Button
@@ -268,8 +270,7 @@ const Sidebar = () => {
       <div
         className={`${
           isMobileMenuOpen ? "block" : "hidden"
-        } lg:block fixed top-0 left-0 mt-14 h-screen w-[260px] z-50 bg-gradient-to-br from-yellow-50 to-white shadow-2xl border-r border-[#FFD249]/20 transition-all duration-300 flex flex-col justify-between overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']`}
-        style={{ scrollBehavior: 'smooth' }}
+        } lg:block fixed top-14 left-0 h-[calc(100vh-56px)] w-[280px] z-50 bg-gradient-to-br from-yellow-50 via-white to-yellow-100 shadow-xl border-r border-[#FFD249]/30 transition-all duration-300 flex flex-col overflow-hidden`}
       >
         {/* Header Section */}
         <div className="p-6 border-b border-[#FFD249]/10">
@@ -322,7 +323,15 @@ const Sidebar = () => {
         </div>
 
         {/* Navigation */}
-        <div className="flex-1 overflow-y-auto py-4 px-3 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']" style={{ scrollBehavior: 'smooth' }}>
+        <div
+          className="flex-1 overflow-y-auto py-4 px-4 space-y-3"
+          style={{ scrollBehavior: "smooth", scrollbarWidth: "thin" }}
+        >
+          <div className="sticky top-0 bg-gradient-to-b from-yellow-50/80 via-white to-transparent py-2 z-10">
+            <p className="text-xs font-semibold text-[#b58b00] tracking-[0.2em] uppercase">
+              Navigation
+            </p>
+          </div>
           <div className="space-y-2">
             {filteredMenuItems.map((item) => {
               const IconComponent = item.icon;
@@ -355,6 +364,10 @@ const Sidebar = () => {
                     key={item.id}
                     type="single"
                     collapsible
+                    value={openAccordion === item.id ? item.id : ""}
+                    onValueChange={(value) =>
+                      setOpenAccordion(value ? item.id : "")
+                    }
                     className="w-full"
                   >
                     <AccordionItem value={item.id} className="border-none">
@@ -429,10 +442,11 @@ const Sidebar = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 min-h-screen bg-gradient-to-br from-gray-50 to-white lg:ml-[260px] pt-16">
+      <div className="flex-1 min-h-screen bg-gradient-to-br from-gray-50 to-white lg:ml-[280px] pt-16">
         <div className="w-full px-4 lg:px-8 ">
           <Outlet />
         </div>
+      </div>
       </div>
     </div>
   );

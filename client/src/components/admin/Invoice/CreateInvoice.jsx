@@ -45,7 +45,7 @@ import {
 import { useCreateInvoiceMutation } from "@/features/api/Invoice/invoiceApi.js";
 import { useGetAllCompaniesQuery } from "@/features/api/Company/companyApi.js";
 import { useGetBranchesByCompanyMutation } from "@/features/api/Branch/branchApi.js";
-import { useGetAllCustomersQuery } from "@/features/api/Customer/customerApi.js";
+import { useGetAllCustomersQuery, useUpdateCustomerMutation } from "@/features/api/Customer/customerApi.js";
 // Remove unused region API imports since we're no longer using the region system
 // import { useGetAllCountriesQuery } from "@/features/api/Region/countryApi.js";
 // import { useGetStatesByCountryMutation } from "@/features/api/Region/stateApi.js";
@@ -580,12 +580,24 @@ const CreateInvoice = () => {
   const [createInvoice, { isLoading }] = useCreateInvoiceMutation();
   const [searchVehicles, { isLoading: isSearchingVehicle }] =
     useSearchVehiclesMutation();
+  const [updateCustomer, { isLoading: isUpdatingCustomer }] = useUpdateCustomerMutation();
 
   // Add new state for consignor/consignee dropdowns
   const [selectedConsignor, setSelectedConsignor] = useState("");
   const [selectedConsignee, setSelectedConsignee] = useState("");
   const [availableConsignors, setAvailableConsignors] = useState([]);
   const [availableConsignees, setAvailableConsignees] = useState([]);
+  const [consignorAddress, setConsignorAddress] = useState("");
+  const [consigneeAddress, setConsigneeAddress] = useState("");
+  
+  // Add modal states for adding new consignee/consignor
+  const [showAddConsigneeModal, setShowAddConsigneeModal] = useState(false);
+  const [showAddConsignorModal, setShowAddConsignorModal] = useState(false);
+  const [newItemForm, setNewItemForm] = useState({
+    siteId: "",
+    name: "",
+    address: "",
+  });
 
   // Add driver creation state
   const [showAddDriverDialog, setShowAddDriverDialog] = useState(false);
@@ -769,6 +781,81 @@ const CreateInvoice = () => {
       setSelectedDriver(vehicle.currentDriver?._id || "");
       setDriverContactNumber(vehicle.currentDriver?.mobile || "");
       setSelectedVehicle("");
+    }
+  };
+
+  // Handler to add new consignee
+  const handleAddConsignee = async () => {
+    if (!newItemForm.siteId || !newItemForm.name) {
+      toast.error("Site ID and Consignee name are required");
+      return;
+    }
+    if (!customerId) {
+      toast.error("Please select a customer first");
+      return;
+    }
+
+    try {
+      const selectedCustomer = customersData.customers.find(c => c._id === customerId);
+      const updatedConsignees = [
+        ...(selectedCustomer.consignees || []),
+        {
+          siteId: newItemForm.siteId,
+          consignee: newItemForm.name,
+          address: newItemForm.address,
+        },
+      ];
+
+      await updateCustomer({
+        customerId,
+        consignees: updatedConsignees,
+      }).unwrap();
+
+      toast.success("Consignee added successfully");
+      setShowAddConsigneeModal(false);
+      setNewItemForm({ siteId: "", name: "", address: "" });
+      
+      // Refresh customer data
+      // The useEffect will automatically update availableConsignees
+    } catch (error) {
+      toast.error(error?.data?.message || "Failed to add consignee");
+    }
+  };
+
+  // Handler to add new consignor
+  const handleAddConsignor = async () => {
+    if (!newItemForm.name) {
+      toast.error("Consignor name is required");
+      return;
+    }
+    if (!customerId) {
+      toast.error("Please select a customer first");
+      return;
+    }
+
+    try {
+      const selectedCustomer = customersData.customers.find(c => c._id === customerId);
+      const updatedConsignors = [
+        ...(selectedCustomer.consignors || []),
+        {
+          siteId: newItemForm.siteId,
+          consignor: newItemForm.name,
+          address: newItemForm.address,
+        },
+      ];
+
+      await updateCustomer({
+        customerId,
+        consignors: updatedConsignors,
+      }).unwrap();
+
+      toast.success("Consignor added successfully");
+      setShowAddConsignorModal(false);
+      setNewItemForm({ siteId: "", name: "", address: "" });
+      
+      // Refresh customer data
+    } catch (error) {
+      toast.error(error?.data?.message || "Failed to add consignor");
     }
   };
 
@@ -962,6 +1049,10 @@ const CreateInvoice = () => {
       );
       if (consignorObj) {
         setConsignor(consignorObj.consignor);
+        setConsignorAddress(consignorObj.address || "");
+        if (consignorObj.siteId) {
+          setSiteId(consignorObj.siteId);
+        }
       }
     }
   }, [selectedConsignor, availableConsignors]);
@@ -972,7 +1063,9 @@ const CreateInvoice = () => {
         (c) => c._id === selectedConsignee
       );
       if (consigneeObj) {
+        setSiteId(consigneeObj.siteId);
         setConsignee(consigneeObj.consignee);
+        setConsigneeAddress(consigneeObj.address || "");
       }
     }
   }, [selectedConsignee, availableConsignees]);
@@ -1233,52 +1326,153 @@ const CreateInvoice = () => {
                     selectPostOffice={selectPostOffice}
                   />
                 </div>
-                {/* Remaining Delivery Details fields */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 mt-4">
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium flex items-center gap-2">
-                      <User className="w-4 h-4" />
-                      Consignor/Sender
-                    </Label>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <Select
-                        value={selectedConsignor}
-                        onValueChange={setSelectedConsignor}
-                        disabled={!customerId}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue
-                            placeholder={
-                              customerId
-                                ? "Select Consignor"
-                                : "Select Customer First"
-                            }
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableConsignors.map((consignor) => (
-                            <SelectItem
-                              key={consignor._id}
-                              value={consignor._id}
-                            >
-                              {consignor.consignor}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                {/* Consignor/Sender Section */}
+                <div className="mt-4 space-y-4">
+                  <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                        <User className="w-4 h-4" />
+                        Consignor/Sender Details
+                      </h3>
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => navigate("/admin/customers")}
+                        onClick={() => {
+                          if (!customerId) {
+                            toast.error("Please select a customer first");
+                            return;
+                          }
+                          setShowAddConsignorModal(true);
+                        }}
                         className="px-3 whitespace-nowrap"
                         title="Add New Consignor"
                       >
                         <Plus className="w-4 h-4" />
-                        <span className="hidden sm:inline ml-1">Add</span>
+                        <span className="hidden sm:inline ml-1">Add New</span>
                       </Button>
                     </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label className="text-xs font-medium">Select Consignor</Label>
+                        <Select
+                          value={selectedConsignor}
+                          onValueChange={setSelectedConsignor}
+                          disabled={!customerId}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue
+                              placeholder={customerId ? "Select Consignor" : "Select Customer First"}
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableConsignors.map((consignor) => (
+                              <SelectItem key={consignor._id} value={consignor._id}>
+                                {consignor.siteId ? `${consignor.siteId} - ` : ""}{consignor.consignor}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs font-medium">Consignor Name</Label>
+                        <Input
+                          type="text"
+                          value={consignor}
+                          onChange={(e) => setConsignor(e.target.value)}
+                          placeholder="Consignor name"
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="space-y-2 sm:col-span-2">
+                        <Label className="text-xs font-medium">Consignor Address</Label>
+                        <Input
+                          type="text"
+                          value={consignorAddress}
+                          onChange={(e) => setConsignorAddress(e.target.value)}
+                          placeholder="Consignor address"
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
                   </div>
+
+                  {/* Consignee/Receiver Section */}
+                  <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-green-900 dark:text-green-100 flex items-center gap-2">
+                        <User className="w-4 h-4" />
+                        Consignee/Receiver Details
+                      </h3>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (!customerId) {
+                            toast.error("Please select a customer first");
+                            return;
+                          }
+                          setShowAddConsigneeModal(true);
+                        }}
+                        className="px-3 whitespace-nowrap"
+                        title="Add New Consignee"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span className="hidden sm:inline ml-1">Add New</span>
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label className="text-xs font-medium">Site ID</Label>
+                        <Select
+                          value={siteId}
+                          onValueChange={(value) => {
+                            setSiteId(value);
+                            // Auto-fill consignee details if site ID exists in list
+                            const matchingConsignee = availableConsignees.find(c => c.siteId === value);
+                            if (matchingConsignee) {
+                              setSelectedConsignee(matchingConsignee._id);
+                            }
+                          }}
+                          disabled={!customerId}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder={customerId ? "Select Site ID" : "Select Customer First"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableConsignees.map((consignee) => (
+                              <SelectItem key={consignee._id} value={consignee.siteId}>
+                                {consignee.siteId}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs font-medium">Consignee Name</Label>
+                        <Input
+                          type="text"
+                          value={consignee}
+                          onChange={(e) => setConsignee(e.target.value)}
+                          placeholder="Consignee name"
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="space-y-2 sm:col-span-2">
+                        <Label className="text-xs font-medium">Consignee Address</Label>
+                        <Input
+                          type="text"
+                          value={consigneeAddress}
+                          onChange={(e) => setConsigneeAddress(e.target.value)}
+                          placeholder="Consignee address"
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Site Type */}
                   <div className="space-y-2">
                     <Label className="text-sm font-medium flex items-center gap-2">
                       <Building2 className="w-4 h-4" />
@@ -1299,63 +1493,6 @@ const CreateInvoice = () => {
                         ))}
                       </SelectContent>
                     </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium flex items-center gap-2">
-                      <Hash className="w-4 h-4" />
-                      Site ID
-                    </Label>
-                    <Input
-                      type="text"
-                      value={siteId}
-                      onChange={(e) => setSiteId(e.target.value)}
-                      placeholder="Enter site ID"
-                      className="w-full"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium flex items-center gap-2">
-                      <User className="w-4 h-4" />
-                      Consignee/Receiver
-                    </Label>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <Select
-                        value={selectedConsignee}
-                        onValueChange={setSelectedConsignee}
-                        disabled={!customerId}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue
-                            placeholder={
-                              customerId
-                                ? "Select Consignee"
-                                : "Select Customer First"
-                            }
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableConsignees.map((consignee) => (
-                            <SelectItem
-                              key={consignee._id}
-                              value={consignee._id}
-                            >
-                              {consignee.siteId} - {consignee.consignee}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => navigate("/admin/customers")}
-                        className="px-3 whitespace-nowrap"
-                        title="Add New Consignee"
-                      >
-                        <Plus className="w-4 h-4" />
-                        <span className="hidden sm:inline ml-1">Add</span>
-                      </Button>
-                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -1933,6 +2070,146 @@ const CreateInvoice = () => {
                 )}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Consignee Modal */}
+      <Dialog open={showAddConsigneeModal} onOpenChange={setShowAddConsigneeModal}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="w-5 h-5 text-[#FFD249]" />
+              Add New Consignee
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="consignee-siteId">
+                Site ID <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="consignee-siteId"
+                placeholder="e.g., MB5979"
+                value={newItemForm.siteId}
+                onChange={(e) => setNewItemForm({ ...newItemForm, siteId: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="consignee-name">
+                Consignee Name <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="consignee-name"
+                placeholder="e.g., WNS CENTAURUS"
+                value={newItemForm.name}
+                onChange={(e) => setNewItemForm({ ...newItemForm, name: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="consignee-address">Address</Label>
+              <Input
+                id="consignee-address"
+                placeholder="e.g., 123 Main Street, City"
+                value={newItemForm.address}
+                onChange={(e) => setNewItemForm({ ...newItemForm, address: e.target.value })}
+              />
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAddConsigneeModal(false);
+                setNewItemForm({ siteId: "", name: "", address: "" });
+              }}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddConsignee}
+              disabled={isUpdatingCustomer}
+              className="flex-1 bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020]"
+            >
+              {isUpdatingCustomer ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Adding...
+                </>
+              ) : (
+                "Add Consignee"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Consignor Modal */}
+      <Dialog open={showAddConsignorModal} onOpenChange={setShowAddConsignorModal}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="w-5 h-5 text-[#FFD249]" />
+              Add New Consignor
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="consignor-siteId">Site ID</Label>
+              <Input
+                id="consignor-siteId"
+                placeholder="e.g., WH001 (Optional)"
+                value={newItemForm.siteId}
+                onChange={(e) => setNewItemForm({ ...newItemForm, siteId: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="consignor-name">
+                Consignor Name <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="consignor-name"
+                placeholder="e.g., Warehouse A"
+                value={newItemForm.name}
+                onChange={(e) => setNewItemForm({ ...newItemForm, name: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="consignor-address">Address</Label>
+              <Input
+                id="consignor-address"
+                placeholder="e.g., 456 Depot Road, City"
+                value={newItemForm.address}
+                onChange={(e) => setNewItemForm({ ...newItemForm, address: e.target.value })}
+              />
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAddConsignorModal(false);
+                setNewItemForm({ siteId: "", name: "", address: "" });
+              }}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddConsignor}
+              disabled={isUpdatingCustomer}
+              className="flex-1 bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020]"
+            >
+              {isUpdatingCustomer ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Adding...
+                </>
+              ) : (
+                "Add Consignor"
+              )}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

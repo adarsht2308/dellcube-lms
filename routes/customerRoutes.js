@@ -7,6 +7,10 @@ import {
   getCustomerById,
   updateCustomer,
   addOrUpdateConsignee,
+  bulkUploadConsignees,
+  bulkUploadConsignors,
+  exportConsignees,
+  exportConsignors,
 } from "../controllers/customerController.js";
 
 const router = express.Router();
@@ -28,5 +32,17 @@ router.delete("/delete", isAuthenticated, deleteCustomer);
 
 // Add or Update Consignee (KN Integration)
 router.post("/consignee/add-or-update", isAuthenticated, addOrUpdateConsignee);
+
+// Bulk Upload Consignees
+router.post("/consignees/bulk-upload", isAuthenticated, bulkUploadConsignees);
+
+// Bulk Upload Consignors
+router.post("/consignors/bulk-upload", isAuthenticated, bulkUploadConsignors);
+
+// Export Consignees
+router.get("/consignees/export/:customerId", isAuthenticated, exportConsignees);
+
+// Export Consignors
+router.get("/consignors/export/:customerId", isAuthenticated, exportConsignors);
 
 export default router;

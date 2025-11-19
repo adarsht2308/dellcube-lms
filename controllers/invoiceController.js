@@ -12,6 +12,7 @@ import { renderToStream } from "@react-pdf/renderer";
 // import { InvoicePDFDocument } from './InvoicePDFDocument.js';
 import React from "react";
 import { Vehicle } from "../models/vehicle.js";
+import { Customer } from "../models/customer.js";
 
 export const createInvoice = async (req, res) => {
   try {
@@ -110,6 +111,59 @@ export const createInvoice = async (req, res) => {
       return res
         .status(404)
         .json({ success: false, message: "Vehicle not found." });
+    }
+
+    // Auto-create consignee/consignor if siteId provided but not found in customer
+    if (req.body.customer && (req.body.siteId || req.body.consignee || req.body.consignor)) {
+      try {
+        const customer = await Customer.findById(req.body.customer);
+        
+        if (customer) {
+          let customerUpdated = false;
+
+          // Auto-create consignee if siteId and consignee provided
+          if (req.body.siteId && req.body.consignee) {
+            const existingConsignee = customer.consignees.find(
+              (c) => c.siteId === req.body.siteId
+            );
+
+            if (!existingConsignee) {
+              customer.consignees.push({
+                siteId: req.body.siteId,
+                consignee: req.body.consignee,
+                address: req.body.deliveryAddress || "",
+              });
+              customerUpdated = true;
+              console.log(`Auto-created consignee: ${req.body.consignee} (${req.body.siteId})`);
+            }
+          }
+
+          // Auto-create consignor if provided and not exists
+          if (req.body.consignor) {
+            const existingConsignor = customer.consignors.find(
+              (c) => c.consignor === req.body.consignor
+            );
+
+            if (!existingConsignor) {
+              customer.consignors.push({
+                siteId: req.body.siteId || "",
+                consignor: req.body.consignor,
+                address: req.body.pickupAddress || "",
+              });
+              customerUpdated = true;
+              console.log(`Auto-created consignor: ${req.body.consignor}`);
+            }
+          }
+
+          // Save customer if updated
+          if (customerUpdated) {
+            await customer.save();
+          }
+        }
+      } catch (error) {
+        console.error("Error auto-creating consignee/consignor:", error);
+        // Don't fail the invoice creation if consignee/consignor auto-creation fails
+      }
     }
 
     // The following fields are now supported: pickupAddress, deliveryAddress, consignor, consignee, address, invoiceNumber, invoiceBill, ewayBillNo, driverContactNumber, siteId, sealNo, vehicleSize, orderNumber, transportMode

@@ -67,6 +67,42 @@ export const customerApi = createApi({
       }),
       invalidatesTags: ["Customer"],
     }),
+
+    // Bulk Upload Consignees
+    bulkUploadConsignees: builder.mutation({
+      query: ({ customerId, consignees }) => ({
+        url: "/consignees/bulk-upload",
+        method: "POST",
+        body: { customerId, consignees },
+      }),
+      invalidatesTags: ["Customer"],
+    }),
+
+    // Bulk Upload Consignors
+    bulkUploadConsignors: builder.mutation({
+      query: ({ customerId, consignors }) => ({
+        url: "/consignors/bulk-upload",
+        method: "POST",
+        body: { customerId, consignors },
+      }),
+      invalidatesTags: ["Customer"],
+    }),
+
+    // Export Consignees
+    exportConsignees: builder.query({
+      query: (customerId) => ({
+        url: `/consignees/export/${customerId}`,
+        method: "GET",
+      }),
+    }),
+
+    // Export Consignors
+    exportConsignors: builder.query({
+      query: (customerId) => ({
+        url: `/consignors/export/${customerId}`,
+        method: "GET",
+      }),
+    }),
   }),
 });
 
@@ -76,4 +112,8 @@ export const {
   useGetCustomerByIdMutation,
   useUpdateCustomerMutation,
   useDeleteCustomerMutation,
+  useBulkUploadConsigneesMutation,
+  useBulkUploadConsignorsMutation,
+  useLazyExportConsigneesQuery,
+  useLazyExportConsignorsQuery,
 } = customerApi;
