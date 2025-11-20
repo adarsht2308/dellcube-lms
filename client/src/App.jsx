@@ -75,6 +75,7 @@ import VendorDetail from "./components/admin/Vendor/VendorDetail.jsx";
 import VendorVehicles from "./components/admin/Vendor/VendorVehicles.jsx";
 import VendorProfile from "./components/admin/Vendor/VendorProfile.jsx";
 import TrackOrder from "./components/TrackOrder.jsx";
+import ForgotPassword from "./components/ForgotPassword.jsx";
 
 const appRouter = createBrowserRouter([
   //Public Routes
@@ -99,7 +100,10 @@ const appRouter = createBrowserRouter([
         path: "verify-otp",
         element: <VerifyOTP />,
       },
-
+      {
+        path: "forgot-password",
+        element: <ForgotPassword />,
+      },
       {
         path: "/unauthorized",
         element: <UnAuthorized />,

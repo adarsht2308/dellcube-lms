@@ -1,5 +1,5 @@
 import { User } from "../models/user.js";
-import { generateOTP, sendOTPEmail } from "../utils/common/registerOTP.js";
+import { generateOTP, sendOTPEmail, sendPasswordResetOTPEmail } from "../utils/common/registerOTP.js";
 import bcrypt from "bcryptjs";
 import { generateToken } from "../utils/common/generateToken.js";
 import { v2 as cloudinary } from "cloudinary";
@@ -1554,7 +1554,7 @@ export const sendPasswordResetOTPController = async (req, res) => {
 
     // Send OTP email
     try {
-      await sendOTPEmail(user.name, email, otp);
+      await sendPasswordResetOTPEmail(user.name, email, otp);
     } catch (emailError) {
       console.error("Error sending password reset OTP email:", emailError);
       // Don't reveal if user exists or not for security
