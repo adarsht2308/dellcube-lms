@@ -56,6 +56,7 @@ import { useGetAllGoodsQuery } from "@/features/api/Goods/goodsApi.js";
 import {
   useGetAllVehiclesQuery,
   useSearchVehiclesMutation,
+  useCreateVehicleMutation,
 } from "@/features/api/Vehicle/vehicleApi.js";
 import {
   useGetAllVendorsQuery,
@@ -581,6 +582,7 @@ const CreateInvoice = () => {
   const [searchVehicles, { isLoading: isSearchingVehicle }] =
     useSearchVehiclesMutation();
   const [updateCustomer, { isLoading: isUpdatingCustomer }] = useUpdateCustomerMutation();
+  const [createVehicle, { isLoading: isCreatingVehicle }] = useCreateVehicleMutation();
 
   // Add new state for consignor/consignee dropdowns
   const [selectedConsignor, setSelectedConsignor] = useState("");
@@ -610,16 +612,24 @@ const CreateInvoice = () => {
     driverType: user?.role === "vendor" ? "vendor" : "dellcube",
   });
 
+  // Add vehicle creation state
+  const [showAddVehicleDialog, setShowAddVehicleDialog] = useState(false);
+  const [newVehicleData, setNewVehicleData] = useState({
+    vehicleNumber: "",
+    type: "",
+  });
+
   // Add driver creation mutation
   const [createDriver, { isLoading: isCreatingDriver }] =
     useCreateDriverMutation();
 
   // If vendor, auto-select assigned customer and lock the field
   useEffect(() => {
-    if (isVendor && user?.assignedClient?._id) {
-      setCustomerId(user.assignedClient._id);
+    // If vendor has only one assigned client, auto-select it
+    if (isVendor && user?.assignedClients?.length === 1) {
+      setCustomerId(user.assignedClients[0]._id || user.assignedClients[0]);
     }
-  }, [isVendor, user?.assignedClient?._id]);
+  }, [isVendor, user?.assignedClients]);
 
   useEffect(() => {
     if (companyId && branchId) {
@@ -1083,6 +1093,52 @@ const CreateInvoice = () => {
     }
   }, [toPincode]);
 
+  // Handle vehicle creation
+  const handleCreateVehicle = async () => {
+    if (!newVehicleData.vehicleNumber || !newVehicleData.type) {
+      toast.error("Vehicle Number and Type are required");
+      return;
+    }
+
+    if (!companyId || !branchId) {
+      toast.error("Company and Branch are required");
+      return;
+    }
+
+    try {
+      const payload = new FormData();
+      payload.append("vehicleNumber", newVehicleData.vehicleNumber.toUpperCase());
+      payload.append("type", newVehicleData.type);
+      payload.append("company", companyId);
+      payload.append("branch", branchId);
+      payload.append("status", "active");
+      payload.append("createdBy", user?._id || "");
+
+      const result = await createVehicle(payload).unwrap();
+
+      if (result?.success && result?.vehicle) {
+        toast.success("Vehicle created successfully");
+        setShowAddVehicleDialog(false);
+        setNewVehicleData({ vehicleNumber: "", type: "" });
+        
+        // Auto-select the newly created vehicle
+        const newVehicle = result.vehicle;
+        handleVehicleSelect({
+          _id: newVehicle._id,
+          vehicleNumber: newVehicle.vehicleNumber,
+          ownerType: "Dellcube",
+          type: newVehicle.type,
+          currentDriver: newVehicle.currentDriver,
+        });
+        
+        // Refresh vehicles list
+        refetchVehicles();
+      }
+    } catch (error) {
+      toast.error(error?.data?.message || "Failed to create vehicle");
+    }
+  };
+
   // Handle driver creation
   const handleCreateDriver = async () => {
     if (
@@ -1247,8 +1303,11 @@ const CreateInvoice = () => {
                         {customersData?.customers?.length ? (
                           customersData.customers
                             .filter((cust) =>
-                              isVendor && user?.assignedClient?._id
-                                ? cust._id === user.assignedClient._id
+                              isVendor && user?.assignedClients?.length > 0
+                                ? user.assignedClients.some(
+                                    (client) =>
+                                      (client._id || client) === cust._id
+                                  )
                                 : true
                             )
                             .map((cust) => (
@@ -1623,10 +1682,30 @@ const CreateInvoice = () => {
               <CardContent>
                 <div className="space-y-4">
                   <div className="space-y-2 relative" ref={vehicleSearchRef}>
-                    <Label className="text-sm font-medium flex items-center gap-2">
-                      <Truck className="w-4 h-4" />
-                      Vehicle Number
-                    </Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium flex items-center gap-2">
+                        <Truck className="w-4 h-4" />
+                        Vehicle Number
+                      </Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (!companyId || !branchId) {
+                            toast.error("Please select company and branch first");
+                            return;
+                          }
+                          setShowAddVehicleDialog(true);
+                        }}
+                        className="px-3 whitespace-nowrap"
+                        title="Add New Vehicle"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span className="hidden sm:inline ml-1">Add Vehicle</span>
+                        <span className="sm:hidden ml-1">Add</span>
+                      </Button>
+                    </div>
                     <div className="flex items-center gap-2">
                       <Input
                         type="text"
@@ -1761,33 +1840,23 @@ const CreateInvoice = () => {
                           </Select>
                         </div>
                       )}
-                      {/* Only show disabled Driver if exists */}
-                      {searchedVehicle.currentDriver && (
-                        <div className="space-y-2">
-                          <Label className="text-sm font-medium">Driver</Label>
-                          <Input
-                            value={searchedVehicle.currentDriver.name}
-                            disabled
-                          />
-                        </div>
-                      )}
-                      {/* Only show dropdown if driver is missing */}
-                      {!searchedVehicle.currentDriver && (
-                        <div className="space-y-2 sm:col-span-2">
-                          <Label className="text-sm font-medium">
-                            Assign Driver
-                          </Label>
-                          <div className="flex flex-col sm:flex-row gap-2">
-                            <Select
-                              value={selectedDriver}
-                              onValueChange={setSelectedDriver}
-                              className="flex-1"
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a Driver" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {driversData?.drivers?.map((driver) => (
+                      <div className="space-y-2 sm:col-span-2">
+                        <Label className="text-sm font-medium">
+                          Assign / Override Driver
+                        </Label>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <Select
+                            value={selectedDriver}
+                            onValueChange={setSelectedDriver}
+                            className="flex-1"
+                            disabled={!driversData?.drivers?.length}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a Driver" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {driversData?.drivers?.length ? (
+                                driversData.drivers.map((driver) => (
                                   <SelectItem
                                     key={driver._id}
                                     value={driver._id}
@@ -1795,23 +1864,32 @@ const CreateInvoice = () => {
                                     {driver.name} - {driver.mobile} -{" "}
                                     {driver.driverType}
                                   </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setShowAddDriverDialog(true)}
-                              className="px-3 whitespace-nowrap"
-                              title="Add New Driver"
-                            >
-                              <Plus className="w-4 h-4" />
-                              <span className="hidden sm:inline ml-1">Add</span>
-                            </Button>
-                          </div>
+                                ))
+                              ) : (
+                                <SelectItem value="no-drivers" disabled>
+                                  No drivers available
+                                </SelectItem>
+                              )}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowAddDriverDialog(true)}
+                            className="px-3 whitespace-nowrap"
+                            title="Add New Driver"
+                          >
+                            <Plus className="w-4 h-4" />
+                            <span className="hidden sm:inline ml-1">Add</span>
+                          </Button>
                         </div>
-                      )}
+                        {searchedVehicle.currentDriver && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Default driver: {searchedVehicle.currentDriver.name}
+                          </p>
+                        )}
+                      </div>
                       {/* Driver Contact always shown */}
                       <div className="space-y-2 sm:col-span-2">
                         <Label className="text-sm font-medium">
@@ -1872,16 +1950,17 @@ const CreateInvoice = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">
-                    Invoice No
-                    <span className="text-xs text-gray-500 ml-2">(Auto-generated)</span>
-                  </Label>
+                  <Label className="text-sm font-medium">Invoice No</Label>
                   <Input
                     type="text"
-                    value="Will be auto-generated on creation"
-                    disabled
-                    className="w-full bg-gray-100 cursor-not-allowed"
+                    value={invoiceNumber}
+                    onChange={(e) => setInvoiceNumber(e.target.value)}
+                    placeholder="Enter invoice number (optional)"
+                    className="w-full"
                   />
+                  <p className="text-xs text-gray-500">
+                    Leave blank if you don't want to record an invoice number.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Invoice Amount</Label>
@@ -2139,6 +2218,108 @@ const CreateInvoice = () => {
                 </>
               ) : (
                 "Add Consignee"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Vehicle Modal */}
+      <Dialog open={showAddVehicleDialog} onOpenChange={setShowAddVehicleDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="w-5 h-5 text-[#FFD249]" />
+              Add New Vehicle
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="vehicle-number">
+                Vehicle Number <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="vehicle-number"
+                placeholder="e.g., MH 12 AB 1234"
+                value={newVehicleData.vehicleNumber}
+                onChange={(e) =>
+                  setNewVehicleData({
+                    ...newVehicleData,
+                    vehicleNumber: e.target.value.toUpperCase(),
+                  })
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="vehicle-type">
+                Vehicle Type <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={newVehicleData.type}
+                onValueChange={(value) =>
+                  setNewVehicleData({ ...newVehicleData, type: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Vehicle Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {[
+                    "6ft",
+                    "7ft",
+                    "8ft",
+                    "9ft",
+                    "10ft",
+                    "12ft",
+                    "14ft",
+                    "16ft",
+                    "17ft",
+                    "18ft",
+                    "19ft",
+                    "20ft",
+                    "22ft",
+                    "24ft",
+                    "28ft",
+                    "32ft",
+                  ].map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <p className="text-xs text-gray-600 dark:text-gray-400">
+                <strong>Note:</strong> The vehicle will be created for the selected
+                company and branch. You can add more details later from the Vehicles
+                page.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAddVehicleDialog(false);
+                setNewVehicleData({ vehicleNumber: "", type: "" });
+              }}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateVehicle}
+              disabled={isCreatingVehicle || !companyId || !branchId}
+              className="flex-1 bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020]"
+            >
+              {isCreatingVehicle ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Creating...
+                </>
+              ) : (
+                "Create Vehicle"
               )}
             </Button>
           </div>

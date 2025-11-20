@@ -180,6 +180,9 @@ const UpdateVehicle = () => {
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                 Update vehicle details below
               </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Fields marked with <span className="text-red-500">*</span> are required.
+              </p>
             </div>
           </div>
         </div>

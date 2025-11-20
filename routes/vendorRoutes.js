@@ -20,7 +20,7 @@ import {
 
 const router = express.Router();
 
-router.post("/create", isAuthenticated, createVendor);
+router.post("/create", isAuthenticated, upload, createVendor);
 
 // Get all vendors (for the "Select Vendor" dropdown)
 router.get("/all", isAuthenticated, getAllVendors);
@@ -29,7 +29,7 @@ router.get("/all", isAuthenticated, getAllVendors);
 router.post("/view", isAuthenticated, getVendorById); // Using POST for ID in body, consistent with your vehicle/view
 
 // Update vendor by ID
-router.put("/update", isAuthenticated, updateVendor);
+router.put("/update", isAuthenticated, upload, updateVendor);
 
 // Delete vendor by ID
 router.delete("/delete", isAuthenticated, deleteVendor);
@@ -38,7 +38,7 @@ router.delete("/delete", isAuthenticated, deleteVendor);
 router.get("/my-vehicles", isAuthenticated, getVendorVehicles);
 router.get("/my-invoices", isAuthenticated, getVendorInvoices);
 router.get("/my-profile", isAuthenticated, getVendorProfile);
-router.put("/my-profile", isAuthenticated, updateVendorProfile);
+router.put("/my-profile", isAuthenticated, upload, updateVendorProfile);
 router.get("/test-invoices", isAuthenticated, testVendorInvoices);
 
 // router.post("/vehicle-by-vendor", isAuthenticated, getVehiclesByVendor);

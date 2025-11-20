@@ -2,7 +2,6 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { userLoggedIn, userLoggedOut } from "../authSlice";
 import { BASE_URL } from "@/utils/BaseUrl";
 
-// const USER_API = "https://dellcube-lms.onrender.com/api/user";
 const USER_API = `${BASE_URL}/user`;
 
 export const authApi = createApi({
@@ -128,7 +127,6 @@ export const authApi = createApi({
       }),
     }),
 
-    //Operations
     createOperationUser: builder.mutation({
       query: (inputData) => ({
         url: "/create-operations",
@@ -138,7 +136,6 @@ export const authApi = createApi({
       invalidatesTags: ["OperationUser"],
     }),
 
-    // Get All Operation Users
     getAllOperationUsers: builder.query({
       query: ({
         page = 1,
@@ -155,7 +152,6 @@ export const authApi = createApi({
       providesTags: ["OperationUser"],
     }),
 
-    // Get Operation User by ID
     getOperationUserById: builder.mutation({
       query: ({ id }) => ({
         url: "/view-operations",
@@ -165,7 +161,6 @@ export const authApi = createApi({
       providesTags: (result, error, { id }) => [{ type: "OperationUser", id }],
     }),
 
-    // Delete Operation User
     deleteOperationUser: builder.mutation({
       query: (id) => ({
         url: "/delete-operations",
@@ -175,7 +170,6 @@ export const authApi = createApi({
       invalidatesTags: ["OperationUser"],
     }),
 
-    // Update Operation User
     updateOperationUser: builder.mutation({
       query: (formData) => ({
         url: "/update-operations",
@@ -185,7 +179,6 @@ export const authApi = createApi({
       invalidatesTags: ["OperationUser"],
     }),
 
-    //Driver
     createDriver: builder.mutation({
       query: (inputData) => ({
         url: "create-driver",
@@ -238,6 +231,22 @@ export const authApi = createApi({
       }),
       invalidatesTags: ["Driver"],
     }),
+
+    sendPasswordResetOTP: builder.mutation({
+      query: ({ email }) => ({
+        url: "send-password-reset-otp",
+        method: "POST",
+        body: { email },
+      }),
+    }),
+
+    verifyPasswordResetOTP: builder.mutation({
+      query: ({ email, otp, newPassword }) => ({
+        url: "verify-password-reset-otp",
+        method: "POST",
+        body: { email, otp, newPassword },
+      }),
+    }),
   }),
 });
 
@@ -262,5 +271,7 @@ export const {
   useDeleteDriverMutation,
   useGetAllDriversQuery,
   useGetDriverByIdMutation,
-  useUpdateDriverMutation
+  useUpdateDriverMutation,
+  useSendPasswordResetOTPMutation,
+  useVerifyPasswordResetOTPMutation
 } = authApi;

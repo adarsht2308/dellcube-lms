@@ -41,14 +41,12 @@ import {
 import { Drawer } from "antd";
 import { useDebounce } from "@/hooks/Debounce";
 
-// 1. Add Dellcube color theme variables for easy reuse
 const DELLCUBE_COLORS = {
   gold: '#FFD249',
   dark: '#202020',
   gray: '#828083',
 };
 
-// InfoCard and InfoRow components for Drawer, styled like Companies.jsx
 const InfoCard = ({ icon: Icon, title, children, className = "" }) => (
   <div
     className={`group relative bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl p-6 transition-all duration-300 hover:shadow-lg hover:bg-white/80 dark:hover:bg-gray-800/80 hover:border-gray-300/50 dark:hover:border-gray-600/50 ${className}`}
@@ -95,15 +93,13 @@ const Branches = () => {
     company: companyFilter === "all" ? "" : companyFilter,
   });
   
-  // Fetch companies for the filter dropdown
   const { data: companiesData } = useGetAllCompaniesQuery({
     page: 1,
-    limit: 100, // Get all companies for dropdown
+    limit: 100,
     search: "",
     status: "",
   });
   
-  console.log(data);
   const [deleteBranch, { isSuccess, isError }] = useDeleteBranchMutation();
 
   const [open, setOpen] = useState(false);
@@ -111,15 +107,10 @@ const Branches = () => {
   const [getBranchById, { isLoading: getBranchLoading }] =
     useGetBranchByIdMutation();
 
-  // const handleView = (branch) => {
-  //   setSelectedBranch(branch);
-  //   setOpen(true);
-  // };
   const handleView = async (branchId) => {
     setOpen(true);
     try {
       const { data } = await getBranchById(branchId);
-      console.log(data);
       if (data?.success) {
         setSelectedBranch(data.branch);
       }
@@ -195,7 +186,6 @@ const Branches = () => {
                 <ChevronDown className="w-4 h-4" />
               )}
             </Button>
-            {/* Limit dropdown outside filter panel, top right */}
             <Select value={limit.toString()} onValueChange={handleLimitChange}>
               <SelectTrigger className="w-[80px] border-gray-300 dark:border-gray-700 focus:border-[#FFD249] focus:ring-[#FFD249]">
                 <SelectValue placeholder="Limit" />
@@ -211,7 +201,6 @@ const Branches = () => {
           </div>
         </div>
 
-        {/* Filter Section */}
         {showFilters && (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-4 p-4 border border-gray-200 dark:border-gray-700">
             <div className="flex flex-wrap gap-4 items-center">
@@ -261,7 +250,6 @@ const Branches = () => {
 
         <div className="bg-white/80 dark:bg-gray-900/80 rounded-2xl shadow-lg overflow-x-auto border border-gray-100 dark:border-gray-800 backdrop-blur-md">
           <table className="min-w-full text-sm">
-            {/* Top thead */}
             <thead className="bg-[#FFD249]/20 dark:bg-[#FFD249]/10 text-center sticky top-0 z-10">
               <tr>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">No</th>
@@ -370,11 +358,6 @@ const Branches = () => {
                             </InfoCard>
                             <InfoCard icon={MapPin} title="Address & Region">
                               <InfoRow label="Address" value={selectedBranch.address} icon={MapPin} />
-                              {/* <InfoRow label="Country" value={selectedBranch?.region?.country?.name} icon={Globe} />
-                              <InfoRow label="State" value={selectedBranch?.region?.state?.name} icon={MapPin} />
-                              <InfoRow label="City" value={selectedBranch?.region?.city?.name} icon={MapPin} />
-                              <InfoRow label="Locality" value={selectedBranch?.region?.locality?.name} icon={MapPin} />
-                              <InfoRow label="Pincode" value={selectedBranch?.region?.pincode?.code} icon={MapPin} /> */}
                             </InfoCard>
                           </div>
                         )}
@@ -429,7 +412,6 @@ const Branches = () => {
                 </tr>
               )}
             </tbody>
-            {/* Bottom thead for usability */}
             <thead className="bg-[#FFD249]/20 dark:bg-[#FFD249]/10 text-center sticky bottom-0 z-10">
               <tr>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">No</th>
@@ -443,7 +425,6 @@ const Branches = () => {
             </thead>
           </table>
 
-          {/* Pagination and summary */}
           <div className="border-t border-gray-200 px-4 py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between bg-white/70 dark:bg-gray-900/70 rounded-b-2xl">
             <div className="mb-4 lg:mb-0">
               <p className="text-sm text-[#202020] dark:text-[#FFD249]">

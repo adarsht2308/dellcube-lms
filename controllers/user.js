@@ -5,6 +5,39 @@ import { generateToken } from "../utils/common/generateToken.js";
 import { v2 as cloudinary } from "cloudinary";
 
 const pendingUsers = new Map();
+const passwordResetOTPs = new Map(); // Store OTPs for password reset: email -> { otp, expiry, userId }
+
+const parseJSONField = (field, fallback = null) => {
+  if (!field) return fallback;
+  if (typeof field === "string") {
+    try {
+      return JSON.parse(field);
+    } catch (error) {
+      return fallback;
+    }
+  }
+  return field;
+};
+
+const normalizeBoolean = (value, defaultValue = true) => {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    if (value.toLowerCase() === "true") return true;
+    if (value.toLowerCase() === "false") return false;
+  }
+  return defaultValue;
+};
+
+const getSignatureFromRequest = (req) => {
+  const file = req.files?.signature?.[0];
+  if (file) {
+    return {
+      url: file.path,
+      public_id: file.filename,
+    };
+  }
+  return null;
+};
 
 export const registerController = async (req, res) => {
   try {
@@ -37,6 +70,15 @@ export const registerController = async (req, res) => {
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Capture optional signature upload
+    const signatureFile = req.files?.signature?.[0];
+    const signaturePayload = signatureFile
+      ? {
+          url: signatureFile.path,
+          public_id: signatureFile.filename,
+        }
+      : null;
+
     // Generate OTP
     const otp = generateOTP();
 
@@ -45,6 +87,7 @@ export const registerController = async (req, res) => {
       name,
       email,
       hashedPassword,
+      signature: signaturePayload,
       otp,
       otpExpiry: Date.now() + 10 * 60 * 1000,
     });
@@ -90,6 +133,7 @@ export const updateProfileController = async (req, res) => {
     let photoUrlPublicId;
     let bannerUrl;
     let bannerUrlPublicId;
+    let signaturePayload;
 
     if (req.files && req.files.profilePhoto) {
       if (user.photoUrlPublicId) {
@@ -106,6 +150,16 @@ export const updateProfileController = async (req, res) => {
       bannerUrl = req.files.bannerImage[0].path;
       bannerUrlPublicId = req.files.bannerImage[0].filename;
     }
+    if (req.files?.signature) {
+      if (user.signature?.public_id) {
+        await cloudinary.uploader.destroy(user.signature.public_id);
+      }
+      signaturePayload = {
+        url: req.files.signature[0].path,
+        public_id: req.files.signature[0].filename,
+      };
+    }
+
     const updatedData = { name };
     if (photoUrl) {
       updatedData.photoUrl = photoUrl;
@@ -114,6 +168,9 @@ export const updateProfileController = async (req, res) => {
     if (bannerUrl) {
       updatedData.bannerUrl = bannerUrl;
       updatedData.bannerUrlPublicId = bannerUrlPublicId;
+    }
+    if (signaturePayload) {
+      updatedData.signature = signaturePayload;
     }
 
     const updatedUser = await User.findByIdAndUpdate(userId, updatedData, {
@@ -240,6 +297,7 @@ export const verifyOTPController = async (req, res) => {
       email: pendingUser.email,
       password: pendingUser.hashedPassword,
       status: true,
+      ...(pendingUser.signature && { signature: pendingUser.signature }),
     });
 
     // Remove the user from pending list
@@ -284,8 +342,10 @@ export const createBranchAdminController = async (req, res) => {
       aadharNumber,
       panNumber,
       bankDetails,
+      status,
     } = req.body;
 
+    const parsedBankDetails = parseJSONField(bankDetails, bankDetails);
     if (
       !name ||
       !email ||
@@ -294,7 +354,7 @@ export const createBranchAdminController = async (req, res) => {
       !branch ||
       !aadharNumber ||
       !panNumber ||
-      !bankDetails
+      !parsedBankDetails
     ) {
       return res.status(400).json({
         success: false,
@@ -303,12 +363,11 @@ export const createBranchAdminController = async (req, res) => {
       });
     }
 
-    // Validate bank details
     if (
-      !bankDetails.accountNumber ||
-      !bankDetails.ifscCode ||
-      !bankDetails.bankName ||
-      !bankDetails.accountHolderName
+      !parsedBankDetails.accountNumber ||
+      !parsedBankDetails.ifscCode ||
+      !parsedBankDetails.bankName ||
+      !parsedBankDetails.accountHolderName
     ) {
       return res.status(400).json({
         success: false,
@@ -317,7 +376,6 @@ export const createBranchAdminController = async (req, res) => {
       });
     }
 
-    // Check for existing users with same Aadhar or PAN
     const existingAadhar = await User.findOne({ aadharNumber });
     if (existingAadhar) {
       return res.status(400).json({
@@ -344,13 +402,15 @@ export const createBranchAdminController = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Validate optional mobile
     if (mobile && !/^\d{10}$/.test(mobile)) {
       return res.status(400).json({
         success: false,
         message: "Mobile must be 10 digits if provided.",
       });
     }
+
+    const normalizedStatus = normalizeBoolean(status, true);
+    const signatureData = getSignatureFromRequest(req);
 
     const newUser = await User.create({
       name,
@@ -362,8 +422,9 @@ export const createBranchAdminController = async (req, res) => {
       ...(mobile && { mobile }),
       aadharNumber,
       panNumber,
-      bankDetails,
-      status: true,
+      bankDetails: parsedBankDetails,
+      status: normalizedStatus,
+      ...(signatureData && { signature: signatureData }),
     });
 
     return res.status(201).json({
@@ -546,7 +607,7 @@ export const updateBranchAdminController = async (req, res) => {
       }
     }
 
-    let photoUrl, photoUrlPublicId;
+    let photoUrl, photoUrlPublicId, signaturePayload;
 
     if (req.files?.profilePhoto) {
       if (user.photoUrlPublicId) {
@@ -556,17 +617,25 @@ export const updateBranchAdminController = async (req, res) => {
       photoUrlPublicId = req.files.profilePhoto[0].filename;
     }
 
-    // Parse bankDetails if it's a JSON string
-    let parsedBankDetails = bankDetails;
-    if (typeof bankDetails === "string") {
-      try {
-        parsedBankDetails = JSON.parse(bankDetails);
-      } catch (error) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid bank details format",
-        });
+    if (req.files?.signature) {
+      if (user.signature?.public_id) {
+        await cloudinary.uploader.destroy(user.signature.public_id);
       }
+      signaturePayload = {
+        url: req.files.signature[0].path,
+        public_id: req.files.signature[0].filename,
+      };
+    }
+
+    // Parse bankDetails if it's a JSON string
+    let parsedBankDetails = bankDetails
+      ? parseJSONField(bankDetails, null)
+      : null;
+    if (bankDetails && !parsedBankDetails) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid bank details format",
+      });
     }
 
     // Validate optional mobile
@@ -577,12 +646,15 @@ export const updateBranchAdminController = async (req, res) => {
       });
     }
 
+    const normalizedStatus =
+      status !== undefined ? normalizeBoolean(status, user.status) : undefined;
+
     const updatedData = {
       name,
       email,
       ...(company && { company }),
       ...(branch && { branch }),
-      ...(status !== undefined && { status }),
+      ...(normalizedStatus !== undefined && { status: normalizedStatus }),
       ...(mobile && { mobile }),
       ...(aadharNumber && { aadharNumber }),
       ...(panNumber && { panNumber }),
@@ -591,6 +663,7 @@ export const updateBranchAdminController = async (req, res) => {
         photoUrl,
         photoUrlPublicId,
       }),
+      ...(signaturePayload && { signature: signaturePayload }),
     };
 
     const updatedUser = await User.findByIdAndUpdate(userId, updatedData, {
@@ -625,7 +698,10 @@ export const createOperationUserController = async (req, res) => {
       aadharNumber,
       panNumber,
       bankDetails,
+      status,
     } = req.body;
+
+    const parsedBankDetails = parseJSONField(bankDetails, bankDetails);
 
     if (
       !name ||
@@ -635,7 +711,7 @@ export const createOperationUserController = async (req, res) => {
       !branch ||
       !aadharNumber ||
       !panNumber ||
-      !bankDetails
+      !parsedBankDetails
     ) {
       return res.status(400).json({
         success: false,
@@ -646,10 +722,10 @@ export const createOperationUserController = async (req, res) => {
 
     // Validate bank details
     if (
-      !bankDetails.accountNumber ||
-      !bankDetails.ifscCode ||
-      !bankDetails.bankName ||
-      !bankDetails.accountHolderName
+      !parsedBankDetails.accountNumber ||
+      !parsedBankDetails.ifscCode ||
+      !parsedBankDetails.bankName ||
+      !parsedBankDetails.accountHolderName
     ) {
       return res.status(400).json({
         success: false,
@@ -693,6 +769,9 @@ export const createOperationUserController = async (req, res) => {
       });
     }
 
+    const normalizedStatus = normalizeBoolean(status, true);
+    const signatureData = getSignatureFromRequest(req);
+
     const newUser = await User.create({
       name,
       email,
@@ -703,8 +782,9 @@ export const createOperationUserController = async (req, res) => {
       ...(mobile && { mobile }),
       aadharNumber,
       panNumber,
-      bankDetails,
-      status: true,
+      bankDetails: parsedBankDetails,
+      status: normalizedStatus,
+      ...(signatureData && { signature: signatureData }),
     });
     return res.status(201).json({
       success: true,
@@ -866,7 +946,7 @@ export const updateOperationUserController = async (req, res) => {
       }
     }
 
-    let photoUrl, photoUrlPublicId;
+    let photoUrl, photoUrlPublicId, signaturePayload;
     if (req.files?.profilePhoto) {
       if (user.photoUrlPublicId) {
         await cloudinary.uploader.destroy(user.photoUrlPublicId);
@@ -874,18 +954,25 @@ export const updateOperationUserController = async (req, res) => {
       photoUrl = req.files.profilePhoto[0].path;
       photoUrlPublicId = req.files.profilePhoto[0].filename;
     }
+    if (req.files?.signature) {
+      if (user.signature?.public_id) {
+        await cloudinary.uploader.destroy(user.signature.public_id);
+      }
+      signaturePayload = {
+        url: req.files.signature[0].path,
+        public_id: req.files.signature[0].filename,
+      };
+    }
 
     // Parse bankDetails if it's a JSON string
-    let parsedBankDetails = bankDetails;
-    if (typeof bankDetails === "string") {
-      try {
-        parsedBankDetails = JSON.parse(bankDetails);
-      } catch (error) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid bank details format",
-        });
-      }
+    let parsedBankDetails = bankDetails
+      ? parseJSONField(bankDetails, null)
+      : null;
+    if (bankDetails && !parsedBankDetails) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid bank details format",
+      });
     }
 
     // Validate optional mobile
@@ -896,17 +983,21 @@ export const updateOperationUserController = async (req, res) => {
       });
     }
 
+    const normalizedStatus =
+      status !== undefined ? normalizeBoolean(status, user.status) : undefined;
+
     const updatedData = {
       name,
       ...(email && { email }),
       ...(company && { company }),
       ...(branch && { branch }),
-      ...(status !== undefined && { status }),
+      ...(normalizedStatus !== undefined && { status: normalizedStatus }),
       ...(mobile && { mobile }),
       ...(aadharNumber && { aadharNumber }),
       ...(panNumber && { panNumber }),
       ...(parsedBankDetails && { bankDetails: parsedBankDetails }),
       ...(photoUrl && { photoUrl, photoUrlPublicId }),
+      ...(signaturePayload && { signature: signaturePayload }),
     };
 
     const updatedUser = await User.findByIdAndUpdate(userId, updatedData, {
@@ -1411,6 +1502,159 @@ export const deleteDriverController = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error while deleting driver",
+    });
+  }
+};
+
+// Send Password Reset OTP
+export const sendPasswordResetOTPController = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required",
+      });
+    }
+
+    // Find user by email
+    const user = await User.findOne({ email });
+    if (!user) {
+      // Don't reveal if user exists or not for security
+      return res.status(200).json({
+        success: true,
+        message: "If an account exists with this email, a password reset OTP has been sent.",
+      });
+    }
+
+    // Check if OTP was already sent recently (within 1 minute)
+    if (passwordResetOTPs.has(email)) {
+      const existingOTP = passwordResetOTPs.get(email);
+      const timeSinceLastOTP = Date.now() - existingOTP.sentAt;
+      if (timeSinceLastOTP < 60000) {
+        // 1 minute cooldown
+        return res.status(429).json({
+          success: false,
+          message: "Please wait before requesting another OTP",
+        });
+      }
+    }
+
+    // Generate OTP
+    const otp = generateOTP();
+
+    // Store OTP with expiry (10 minutes)
+    passwordResetOTPs.set(email, {
+      otp,
+      expiry: Date.now() + 10 * 60 * 1000, // 10 minutes
+      userId: user._id.toString(),
+      sentAt: Date.now(),
+    });
+
+    // Send OTP email
+    try {
+      await sendOTPEmail(user.name, email, otp);
+    } catch (emailError) {
+      console.error("Error sending password reset OTP email:", emailError);
+      // Don't reveal if user exists or not for security
+      // Return success message even if email fails (to prevent email enumeration)
+      return res.status(200).json({
+        success: true,
+        message: "If an account exists with this email, a password reset OTP has been sent.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Password reset OTP has been sent to your email.",
+    });
+  } catch (error) {
+    console.error("Error in sendPasswordResetOTPController:", error);
+    // Don't reveal if user exists or not for security
+    return res.status(200).json({
+      success: true,
+      message: "If an account exists with this email, a password reset OTP has been sent.",
+    });
+  }
+};
+
+// Verify Password Reset OTP and Reset Password
+export const verifyPasswordResetOTPController = async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Email, OTP, and new password are required",
+      });
+    }
+
+    // Validate password length
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters long",
+      });
+    }
+
+    // Check if OTP exists
+    if (!passwordResetOTPs.has(email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired OTP. Please request a new one.",
+      });
+    }
+
+    const otpData = passwordResetOTPs.get(email);
+
+    // Verify OTP
+    if (otpData.otp !== otp) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid OTP",
+      });
+    }
+
+    // Check if OTP expired
+    if (Date.now() > otpData.expiry) {
+      passwordResetOTPs.delete(email);
+      return res.status(400).json({
+        success: false,
+        message: "OTP has expired. Please request a new one.",
+      });
+    }
+
+    // Find user
+    const user = await User.findById(otpData.userId);
+    if (!user) {
+      passwordResetOTPs.delete(email);
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update user password
+    user.password = hashedPassword;
+    await user.save();
+
+    // Remove OTP from memory
+    passwordResetOTPs.delete(email);
+
+    return res.status(200).json({
+      success: true,
+      message: "Password reset successfully. Please login with your new password.",
+    });
+  } catch (error) {
+    console.error("Error verifying password reset OTP:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to reset password",
     });
   }
 };

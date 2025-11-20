@@ -24,6 +24,7 @@ import {
   useUpdateCustomerMutation,
 } from "@/features/api/Customer/customerApi.js";
 import ConsigneeConsignorManager from "./ConsigneeConsignorManager";
+import MisFieldsManager from "./MisFieldsManager";
 
 const UpdateCustomer = () => {
   const location = useLocation();
@@ -60,6 +61,7 @@ const UpdateCustomer = () => {
     taxValue: "",
     consignees: [],
     consignors: [],
+    misFields: [],
     status: true,
   });
 
@@ -86,6 +88,7 @@ const UpdateCustomer = () => {
         taxValue: c.taxValue || "",
         consignees: c.consignees || [],
         consignors: c.consignors || [],
+        misFields: c.misFields || [],
         status: c.status === true || c.status === "active",
       });
 
@@ -165,6 +168,9 @@ const UpdateCustomer = () => {
               </h1>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                 Edit customer details and information
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Fields marked with <span className="text-red-500">*</span> are required.
               </p>
             </div>
           </div>
@@ -438,6 +444,18 @@ const UpdateCustomer = () => {
                 } else {
                   // Update form data for local changes
                   setFormData({ ...formData, ...updates });
+                }
+              }}
+            />
+
+            {/* MIS Fields Manager */}
+            <MisFieldsManager
+              customerId={customerId}
+              misFields={formData.misFields}
+              onUpdate={(updates) => {
+                if (updates.misFields) {
+                  setFormData({ ...formData, misFields: updates.misFields });
+                  getCustomerById(customerId);
                 }
               }}
             />

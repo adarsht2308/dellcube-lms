@@ -26,7 +26,6 @@ const styles = StyleSheet.create({
     fontSize: 8,
   },
   
-  // Header Section
   headerSection: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -89,7 +88,6 @@ const styles = StyleSheet.create({
     whiteSpace: 'nowrap',
   },
 
-  // Company Details Row
   companyDetailsRow: {
     flexDirection: 'row',
     marginBottom: '1mm',
@@ -102,7 +100,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 
-  // Main Content Area
   contentArea: {
     flex: 1,
     flexDirection: 'row',
@@ -119,7 +116,6 @@ const styles = StyleSheet.create({
     gap: '1mm',
   },
 
-  // Party Details Section
   partySection: {
     border: '1px solid #000',
     fontSize: 7,
@@ -151,7 +147,6 @@ const styles = StyleSheet.create({
     minHeight: '3mm',
   },
 
-  // Goods Details Section
   goodsSection: {
     border: '1px solid #000',
     fontSize: 7,
@@ -188,7 +183,6 @@ const styles = StyleSheet.create({
     minHeight: '4mm',
   },
 
-  // Vehicle Details Section (Right Column)
   vehicleSection: {
     border: '1px solid #000',
     fontSize: 7,
@@ -217,9 +211,7 @@ const styles = StyleSheet.create({
     width: '55%',
     padding: '0.8mm',
     fontSize: 6,
-  },
-
-  // Freight Charges Section
+  },      
   freightSection: {
     border: '1px solid #000',
     fontSize: 7,
@@ -271,7 +263,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 
-  // Footer Section
   footerSection: {
     flexDirection: 'row',
     marginTop: '1mm',
@@ -339,8 +330,7 @@ const styles = StyleSheet.create({
     marginTop: 'auto',
     paddingTop: '4mm',
   },
-
-  // Risk Notice
+  
   riskNotice: {
     backgroundColor: '#ffe6e6',
     border: '1px solid #ff0000',
@@ -402,7 +392,6 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
 
   return (
     <View style={styles.docketCopy}>
-      {/* Header Section */}
       <View style={styles.headerSection}>
         <View style={styles.logoSection}>
           {logoBase64 ? (
@@ -432,7 +421,6 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
         </View>
       </View>
 
-      {/* Company Details Row */}
       <View style={styles.companyDetailsRow}>
         <Text style={styles.companyDetailBox}>
           GSTIN: {invoice?.company?.gstNumber || '-'}
@@ -442,16 +430,12 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
         </Text>
       </View>
 
-      {/* Risk Notice */}
       <View style={styles.riskNotice}>
         <Text>⚠️ GOODS CARRIED AT OWNER'S RISK - NO LIABILITY FOR LOSS OR DAMAGE ⚠️</Text>
       </View>
 
-      {/* Main Content Area */}
       <View style={styles.contentArea}>
-        {/* Left Column */}
         <View style={styles.leftColumn}>
-          {/* Party Details */}
           <View style={styles.partySection}>
             <Text style={styles.partySectionHeader}>CONSIGNMENT DETAILS</Text>
             <View style={styles.partyRow}>
@@ -480,7 +464,6 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
             </View>
           </View>
 
-          {/* Goods Details */}
           <View style={styles.goodsSection}>
             <Text style={styles.goodsHeader}>GOODS DESCRIPTION</Text>
             <View style={styles.goodsTableHeader}>
@@ -510,9 +493,7 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
           </View>
         </View>
 
-        {/* Right Column */}
         <View style={styles.rightColumn}>
-          {/* Vehicle Details */}
           <View style={styles.vehicleSection}>
             <Text style={styles.vehicleSectionHeader}>VEHICLE & DRIVER DETAILS</Text>
             <View style={styles.vehicleRow}>
@@ -551,7 +532,6 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
             </View>
           </View>
 
-          {/* Freight Charges */}
           <View style={styles.freightSection}>
             <Text style={styles.freightHeader}>FREIGHT CHARGES</Text>
             <View style={styles.freightTable}>
@@ -576,7 +556,6 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
         </View>
       </View>
 
-      {/* Footer Section */}
       <View style={styles.footerSection}>
         <View style={styles.receiverSection}>
           <Text style={styles.receiverHeader}>DELIVERY CONFIRMATION</Text>

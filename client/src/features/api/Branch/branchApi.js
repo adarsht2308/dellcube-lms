@@ -1,7 +1,6 @@
 import { BASE_URL } from "@/utils/BaseUrl";
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
-// const BRANCH_API =  "https://dellcube-lms.onrender.com/api/branches";
 const BRANCH_API = `${BASE_URL}/branches`;
 
 export const branchApi = createApi({
@@ -12,7 +11,6 @@ export const branchApi = createApi({
   }),
   tagTypes: ["Branch"],
   endpoints: (builder) => ({
-    // Create a new branch
     createBranch: builder.mutation({
       query: (data) => ({
         url: "/create",
@@ -22,7 +20,6 @@ export const branchApi = createApi({
       invalidatesTags: ["Branch"],
     }),
 
-    // Fetch all branches with pagination, search, status and company filters
     getAllBranches: builder.query({
       query: ({ page = 1, limit = "", search = "", status = "", company = "" }) => ({
         url: "/all",
@@ -32,7 +29,6 @@ export const branchApi = createApi({
       providesTags: ["Branch"],
     }),
 
-    // Get branch by ID
     getBranchById: builder.mutation({
       query: (id) => ({
         url: "/view",
@@ -42,7 +38,6 @@ export const branchApi = createApi({
       providesTags: ["Branch"],
     }),
 
-    // Update branch
     updateBranch: builder.mutation({
       query: (data) => ({
         url: "/update",
@@ -52,7 +47,6 @@ export const branchApi = createApi({
       invalidatesTags: ["Branch"],
     }),
 
-    // Delete branch
     deleteBranch: builder.mutation({
       query: (id) => ({
         url: "/delete",

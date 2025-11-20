@@ -68,7 +68,6 @@ const CreateDriver = () => {
   const [getBranchesByCompany, { data: branchData, isLoading: branchLoading }] =
     useGetBranchesByCompanyMutation();
   
-  // Fetch vendors based on company and branch
   const { data: vendorsData } = useGetAllVendorsQuery({
     page: 1,
     limit: 100,
@@ -85,7 +84,6 @@ const CreateDriver = () => {
     }
   }, [formData.company]);
 
-  // Reset vendor when driverType changes
   useEffect(() => {
     if (formData.driverType !== "vendor") {
       setFormData((prev) => ({ ...prev, vendor: "" }));
@@ -141,8 +139,7 @@ const CreateDriver = () => {
       toast.error("All required fields are required.");
       return false;
     }
-
-    // Validate vendor is selected when driverType is vendor
+      
     if (driverType === "vendor" && !formData.vendor) {
       toast.error("Vendor is required when driver type is 'vendor'.");
       return false;
@@ -188,7 +185,6 @@ const CreateDriver = () => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="px-4 py-6 max-w-5xl">
-        {/* Header */}
         <div className="mb-6">
           <Button
             variant="ghost"
@@ -213,9 +209,7 @@ const CreateDriver = () => {
           </div>
         </div>
 
-        {/* Form */}
         <div className="space-y-6">
-          {/* Basic Information */}
           <Card className="shadow-sm">
             <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -422,7 +416,6 @@ const CreateDriver = () => {
             </CardContent>
           </Card>
 
-          {/* Identity Information */}
           <Card className="shadow-sm">
             <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -457,7 +450,6 @@ const CreateDriver = () => {
             </CardContent>
           </Card>
 
-          {/* Bank Details */}
           <Card className="shadow-sm">
             <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -509,7 +501,6 @@ const CreateDriver = () => {
             </CardContent>
           </Card>
 
-          {/* Action Buttons */}
           <div className="flex gap-3 justify-end sticky bottom-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg border">
             <Button
               variant="outline"

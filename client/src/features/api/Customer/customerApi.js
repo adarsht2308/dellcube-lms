@@ -11,7 +11,6 @@ export const customerApi = createApi({
   }),
   tagTypes: ["Customer"],
   endpoints: (builder) => ({
-    // Create a new customer
     createCustomer: builder.mutation({
       query: (payload) => ({
         url: "/create",
@@ -21,7 +20,6 @@ export const customerApi = createApi({
       invalidatesTags: ["Customer"],
     }),
 
-    // Get all customers with pagination, search, filters
     getAllCustomers: builder.query({
       query: ({
         page = 1,
@@ -38,7 +36,6 @@ export const customerApi = createApi({
       providesTags: ["Customer"],
     }),
 
-    // Get customer by ID
     getCustomerById: builder.mutation({
       query: (customerId) => ({
         url: "/view",
@@ -48,7 +45,6 @@ export const customerApi = createApi({
       providesTags: ["Customer"],
     }),
 
-    // Update customer
     updateCustomer: builder.mutation({
       query: ({ customerId, ...rest }) => ({
         url: "/update",
@@ -58,7 +54,6 @@ export const customerApi = createApi({
       invalidatesTags: ["Customer"],
     }),
 
-    // Delete customer
     deleteCustomer: builder.mutation({
       query: (customerId) => ({
         url: "/delete",
@@ -68,7 +63,6 @@ export const customerApi = createApi({
       invalidatesTags: ["Customer"],
     }),
 
-    // Bulk Upload Consignees
     bulkUploadConsignees: builder.mutation({
       query: ({ customerId, consignees }) => ({
         url: "/consignees/bulk-upload",
@@ -78,7 +72,6 @@ export const customerApi = createApi({
       invalidatesTags: ["Customer"],
     }),
 
-    // Bulk Upload Consignors
     bulkUploadConsignors: builder.mutation({
       query: ({ customerId, consignors }) => ({
         url: "/consignors/bulk-upload",
@@ -88,7 +81,6 @@ export const customerApi = createApi({
       invalidatesTags: ["Customer"],
     }),
 
-    // Export Consignees
     exportConsignees: builder.query({
       query: (customerId) => ({
         url: `/consignees/export/${customerId}`,
@@ -96,12 +88,20 @@ export const customerApi = createApi({
       }),
     }),
 
-    // Export Consignors
     exportConsignors: builder.query({
       query: (customerId) => ({
         url: `/consignors/export/${customerId}`,
         method: "GET",
       }),
+    }),
+
+    manageMisFields: builder.mutation({
+      query: (payload) => ({
+        url: "/mis-fields/manage",
+        method: "POST",
+        body: payload,
+      }),
+      invalidatesTags: ["Customer"],
     }),
   }),
 });
@@ -116,4 +116,5 @@ export const {
   useBulkUploadConsignorsMutation,
   useLazyExportConsigneesQuery,
   useLazyExportConsignorsQuery,
+  useManageMisFieldsMutation,
 } = customerApi;

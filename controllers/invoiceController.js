@@ -14,17 +14,91 @@ import React from "react";
 import { Vehicle } from "../models/vehicle.js";
 import { Customer } from "../models/customer.js";
 
+const fetchImageAsBase64 = async (url) => {
+  if (!url) {
+    console.warn("fetchImageAsBase64: No URL provided");
+    return "";
+  }
+  try {
+    console.log("fetchImageAsBase64: Fetching image from:", url);
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.error(
+        `fetchImageAsBase64: Response not OK. Status: ${response.status}`
+      );
+      return "";
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const contentType = response.headers.get("content-type") || "image/png";
+    const base64 = `data:${contentType};base64,${buffer.toString("base64")}`;
+    console.log(
+      `fetchImageAsBase64: Successfully converted to base64 (length: ${base64.length})`
+    );
+    return base64;
+  } catch (error) {
+    console.error("Error converting signature to base64:", error.message);
+    return "";
+  }
+};
+
+const getUserSignatureBase64 = async (userId) => {
+  if (!userId) {
+    console.warn("getUserSignatureBase64: No userId provided");
+    return "";
+  }
+  try {
+    console.log("getUserSignatureBase64: Fetching user signature for:", userId);
+    const creator = await User.findById(userId).select("signature");
+    if (!creator) {
+      console.warn("getUserSignatureBase64: User not found");
+      return "";
+    }
+    if (!creator?.signature?.url) {
+      console.warn("getUserSignatureBase64: User has no signature URL");
+      return "";
+    }
+    console.log(
+      "getUserSignatureBase64: Found signature URL:",
+      creator.signature.url
+    );
+    const base64 = await fetchImageAsBase64(creator.signature.url);
+    if (base64) {
+      console.log("getUserSignatureBase64: Successfully converted signature");
+    } else {
+      console.warn("getUserSignatureBase64: Failed to convert signature");
+    }
+    return base64;
+  } catch (error) {
+    console.error("Failed to fetch user signature:", error.message);
+    return "";
+  }
+};
+
 export const createInvoice = async (req, res) => {
   try {
-    const user = req.user;
+    const userToken = req.user;
+    const actingUser = await User.findById(userToken?.userId).select(
+      "role company branch"
+    );
+
+    if (!actingUser) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized user",
+      });
+    }
 
     let companyId = req.body.company;
     let branchId = req.body.branch;
 
     // Role-based control
-    if (user.role === "branchAdmin" || user.role === "operation") {
-      companyId = user.company;
-      branchId = user.branch;
+    if (
+      actingUser.role === "branchAdmin" ||
+      actingUser.role === "operation"
+    ) {
+      companyId = actingUser.company?.toString();
+      branchId = actingUser.branch?.toString();
     }
 
     if (!companyId || !branchId) {
@@ -55,29 +129,38 @@ export const createInvoice = async (req, res) => {
     const companyCode = companyDoc.companyCode;
     const branchCode = branchDoc.branchCode;
 
-    // Generate date string
+    // Generate date string (DDMMYYYY)
     const now = new Date();
-    const yy = now.getFullYear().toString().slice(2);
+    const yyyy = now.getFullYear().toString();
     const mm = String(now.getMonth() + 1).padStart(2, "0");
     const dd = String(now.getDate()).padStart(2, "0");
-    const dateStr = `${yy}${mm}${dd}`;
+    const dateStr = `${dd}${mm}${yyyy}`;
 
-    // Calculate daily counter
-    const dayStart = new Date(now.setHours(0, 0, 0, 0));
-    const dayEnd = new Date(now.setHours(23, 59, 59, 999));
-
-    const dailyCount = await Invoice.countDocuments({
+    // Fetch latest docket for this company + branch to keep counters continuous
+    const latestInvoice = await Invoice.findOne({
       company: companyId,
       branch: branchId,
-      createdAt: { $gte: dayStart, $lte: dayEnd },
-    });
+    })
+      .sort({ createdAt: -1 })
+      .select("docketNumber")
+      .lean();
 
-    const runningCounter = String(dailyCount + 1).padStart(4, "0");
-    // Format: CompanyCode-BranchCode-Date-UniqueNumber (with dashes as separators)
+    let lastCounter = 0;
+    if (latestInvoice?.docketNumber) {
+      const counterStr = latestInvoice.docketNumber.split("-").pop();
+      const parsedCounter = parseInt(counterStr, 10);
+      if (!isNaN(parsedCounter)) {
+        lastCounter = parsedCounter;
+      }
+    }
+
+    const runningCounter = String(lastCounter + 1).padStart(4, "0");
     const docketNumber = `${companyCode}-${branchCode}-${dateStr}-${runningCounter}`;
-    
-    // Generate invoice number with the same format
-    const invoiceNumber = `${companyCode}-${branchCode}-${dateStr}-${runningCounter}`;
+
+    const invoiceNumberInput =
+      typeof req.body.invoiceNumber === "string"
+        ? req.body.invoiceNumber.trim()
+        : "";
 
     const { vehicleNumber } = req.body;
     const consignorSiteId =
@@ -230,15 +313,22 @@ export const createInvoice = async (req, res) => {
       }
     }
 
+    const creatorSignatureBase64 = await getUserSignatureBase64(
+      req.user?.userId
+    );
+
     // The following fields are now supported: pickupAddress, deliveryAddress, consignor, consignee, address, invoiceNumber, invoiceBill, ewayBillNo, driverContactNumber, siteId, sealNo, vehicleSize, orderNumber, transportMode
     const invoicePayload = {
       ...req.body,
       company: companyId,
       branch: branchId,
       docketNumber,
-      invoiceNumber, // Auto-generated invoice number
+      invoiceNumber: invoiceNumberInput || "",
       orderNumber: req.body.orderNumber || "",
       transportMode: req.body.transportMode,
+      ...(creatorSignatureBase64 && {
+        dellcubeSignature: creatorSignatureBase64,
+      }),
     };
 
     if (vehicleData) {
@@ -257,17 +347,39 @@ export const createInvoice = async (req, res) => {
         invoicePayload.vendorVehicle = vehicleData;
         delete invoicePayload.vehicle;
 
-        // If using a vendor vehicle, automatically set customer to vendor's assigned client
+        // If using a vendor vehicle, validate customer is in vendor's assigned clients
         if (vehicleData.vendor) {
           const vendor = await User.findById(vehicleData.vendor).populate(
-            "assignedClient"
+            "assignedClients"
           );
-          if (vendor && vendor.assignedClient) {
-            invoicePayload.customer = vendor.assignedClient._id;
-            console.log(
-              "Auto-setting customer to vendor's assigned client:",
-              vendor.assignedClient.name
+          if (vendor && vendor.assignedClients && vendor.assignedClients.length > 0) {
+            const assignedCustomerIds = vendor.assignedClients.map(
+              (client) => client._id?.toString() || client.toString()
             );
+            
+            // If customer is not provided and vendor has only one assigned client, auto-set it
+            if (!invoicePayload.customer && vendor.assignedClients.length === 1) {
+              invoicePayload.customer = vendor.assignedClients[0]._id || vendor.assignedClients[0];
+              console.log(
+                "Auto-setting customer to vendor's only assigned client:",
+                vendor.assignedClients[0].name
+              );
+            } else if (invoicePayload.customer) {
+              // Validate that the selected customer is in vendor's assigned clients
+              const customerIdStr = invoicePayload.customer.toString();
+              if (!assignedCustomerIds.includes(customerIdStr)) {
+                return res.status(403).json({
+                  success: false,
+                  message: "You can only create dockets for your assigned customers.",
+                });
+              }
+            } else {
+              // Multiple assigned clients but no customer selected
+              return res.status(400).json({
+                success: false,
+                message: "Please select a customer from your assigned customers.",
+              });
+            }
           }
         }
       }
@@ -345,14 +457,28 @@ export const createInvoice = async (req, res) => {
 
 export const createReservedInvoices = async (req, res) => {
   try {
-    const user = req.user;
+    const userToken = req.user;
+    const actingUser = await User.findById(userToken?.userId).select(
+      "role company branch"
+    );
+
+    if (!actingUser) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized user",
+      });
+    }
+
     let companyId = req.body.company;
     let branchId = req.body.branch;
 
     // Role-based control
-    if (user.role === "branchAdmin" || user.role === "operation") {
-      companyId = user.company;
-      branchId = user.branch;
+    if (
+      actingUser.role === "branchAdmin" ||
+      actingUser.role === "operation"
+    ) {
+      companyId = actingUser.company?.toString();
+      branchId = actingUser.branch?.toString();
     }
 
     if (!companyId || !branchId) {
@@ -367,6 +493,7 @@ export const createReservedInvoices = async (req, res) => {
       fromAddress,
       toAddress,
       quantity = 1,
+      invoiceNumber: requestedInvoiceNumber,
       ...rest
     } = req.body;
     if (!customer || !quantity) {
@@ -397,33 +524,43 @@ export const createReservedInvoices = async (req, res) => {
     const companyCode = companyDoc.companyCode;
     const branchCode = branchDoc.branchCode;
 
-    // Generate date string
+    // Generate date string (DDMMYYYY)
     const now = new Date();
-    const yy = now.getFullYear().toString().slice(2);
+    const yyyy = now.getFullYear().toString();
     const mm = String(now.getMonth() + 1).padStart(2, "0");
     const dd = String(now.getDate()).padStart(2, "0");
-    const dateStr = `${yy}${mm}${dd}`;
+    const dateStr = `${dd}${mm}${yyyy}`;
 
-    // Calculate daily counter
-    const dayStart = new Date(now.setHours(0, 0, 0, 0));
-    const dayEnd = new Date(now.setHours(23, 59, 59, 999));
-    const dailyCount = await Invoice.countDocuments({
+    // Get latest docket number for branch/company
+    const latestInvoice = await Invoice.findOne({
       company: companyId,
       branch: branchId,
-      createdAt: { $gte: dayStart, $lte: dayEnd },
-    });
+    })
+      .sort({ createdAt: -1 })
+      .select("docketNumber")
+      .lean();
 
-    let runningCounter = dailyCount;
+    let runningCounter = 0;
+    if (latestInvoice?.docketNumber) {
+      const counterStr = latestInvoice.docketNumber.split("-").pop();
+      const parsedCounter = parseInt(counterStr, 10);
+      if (!isNaN(parsedCounter)) {
+        runningCounter = parsedCounter;
+      }
+    }
+    const creatorSignatureBase64 = await getUserSignatureBase64(
+      req.user?.userId
+    );
+
     const reservedInvoices = [];
     for (let i = 1; i <= quantity; i++) {
       runningCounter++;
-      // Format: CompanyCode-BranchCode-Date-UniqueNumber (with dashes as separators)
-      const docketNumber = `${companyCode}-${branchCode}-${dateStr}-${String(
-        runningCounter
-      ).padStart(4, "0")}`;
-      const invoiceNumber = `${companyCode}-${branchCode}-${dateStr}-${String(
-        runningCounter
-      ).padStart(4, "0")}`;
+      const counterStr = String(runningCounter).padStart(4, "0");
+      const docketNumber = `${companyCode}-${branchCode}-${dateStr}-${counterStr}`;
+      const invoiceNumberValue =
+        typeof requestedInvoiceNumber === "string"
+          ? requestedInvoiceNumber.trim()
+          : "";
       reservedInvoices.push({
         company: companyId,
         branch: branchId,
@@ -431,9 +568,12 @@ export const createReservedInvoices = async (req, res) => {
         fromAddress,
         toAddress,
         docketNumber,
-        invoiceNumber, // Auto-generated invoice number
+        invoiceNumber: invoiceNumberValue,
         status: "Reserved",
         ...rest,
+        ...(creatorSignatureBase64 && {
+          dellcubeSignature: creatorSignatureBase64,
+        }),
       });
     }
 
@@ -509,10 +649,13 @@ export const getAllInvoices = async (req, res) => {
       if (!customerId) {
         // If no explicit customer filter, default to invoices for the vendor's assigned client if available
         const vendorDoc = await User.findById(req.user.userId).select(
-          "assignedClient"
-        );
-        if (vendorDoc?.assignedClient) {
-          query.customer = vendorDoc.assignedClient;
+          "assignedClients"
+        ).populate("assignedClients");
+        if (vendorDoc?.assignedClients && vendorDoc.assignedClients.length > 0) {
+          const customerIds = vendorDoc.assignedClients.map(
+            (client) => client._id || client
+          );
+          query.customer = { $in: customerIds };
         } else {
           // Fallback: restrict to invoices explicitly tagged with this vendor
           query.vendor = req.user.userId;
@@ -674,17 +817,33 @@ export const updateInvoice = async (req, res) => {
         invoice.vendorVehicle = vehicleData;
         invoice.vehicle = undefined;
 
-        // If using a vendor vehicle, automatically set customer to vendor's assigned client
+        // If using a vendor vehicle, validate customer is in vendor's assigned clients
         if (vehicleData.vendor) {
           const vendor = await User.findById(vehicleData.vendor).populate(
-            "assignedClient"
+            "assignedClients"
           );
-          if (vendor && vendor.assignedClient) {
-            invoice.customer = vendor.assignedClient._id;
-            console.log(
-              "Auto-setting customer to vendor's assigned client:",
-              vendor.assignedClient.name
+          if (vendor && vendor.assignedClients && vendor.assignedClients.length > 0) {
+            const assignedCustomerIds = vendor.assignedClients.map(
+              (client) => client._id?.toString() || client.toString()
             );
+            
+            // If customer is not provided and vendor has only one assigned client, auto-set it
+            if (!invoice.customer && vendor.assignedClients.length === 1) {
+              invoice.customer = vendor.assignedClients[0]._id || vendor.assignedClients[0];
+              console.log(
+                "Auto-setting customer to vendor's only assigned client:",
+                vendor.assignedClients[0].name
+              );
+            } else if (invoice.customer) {
+              // Validate that the selected customer is in vendor's assigned clients
+              const customerIdStr = invoice.customer.toString();
+              if (!assignedCustomerIds.includes(customerIdStr)) {
+                return res.status(403).json({
+                  success: false,
+                  message: "You can only update dockets for your assigned customers.",
+                });
+              }
+            }
           }
         }
       }
@@ -701,6 +860,8 @@ export const updateInvoice = async (req, res) => {
           typeof updates[key] === "object"
         ) {
           invoice[key] = { ...(invoice[key] || {}), ...updates[key] };
+        } else if (key === "misData" && typeof updates[key] === "object") {
+          invoice.misData = { ...(invoice.misData || {}), ...updates[key] };
         } else {
           invoice[key] = updates[key];
         }
@@ -842,7 +1003,7 @@ export const exportInvoicesCSV = async (req, res) => {
     const invoices = await Invoice.find(query)
       .populate("company", "name address contactPhone gstNumber pan")
       .populate("branch", "name")
-      .populate("customer", "name phone email")
+      .populate("customer", "name phone email misFields")
       .populate("goodsType", "name items")
       .populate("vehicle", "vehicleNumber")
       .populate("vendor", "name availableVehicles")
@@ -854,62 +1015,101 @@ export const exportInvoicesCSV = async (req, res) => {
         "toAddress.country toAddress.state toAddress.city toAddress.locality"
       );
 
+    // Collect all unique MIS field names across all invoices
+    const allMisFieldNames = new Set();
+    invoices.forEach((inv) => {
+      if (inv.customer?.misFields && Array.isArray(inv.customer.misFields)) {
+        inv.customer.misFields.forEach((field) => {
+          if (field.fieldName) {
+            allMisFieldNames.add(field.fieldName);
+          }
+        });
+      }
+    });
+
     // Flatten and map fields for CSV
-    const data = invoices.map((inv) => ({
-      DocketNumber: inv.docketNumber,
-      Company: inv.company?.name || "",
-      CompanyAddress: inv.company?.address || "",
-      CompanyGST: inv.company?.gstNumber || "",
-      CompanyPAN: inv.company?.pan || "",
-      Branch: inv.branch?.name || "",
-      Customer: inv.customer?.name || "",
-      CustomerPhone: inv.customer?.phone || "",
-      CustomerEmail: inv.customer?.email || "",
-      GoodsType: inv.goodsType?.name || "",
-      GoodsItems: inv.goodsType?.items?.join("; ") || "",
-      VehicleType: inv.vehicleType,
-      VehicleNumber:
-        inv.vehicle?.vehicleNumber || inv.vendorVehicle?.vehicleNumber || "",
-      Vendor: inv.vendor?.name || "",
-      Driver: inv.driver?.name || "",
-      DriverPhone: inv.driver?.mobile || "",
-      Status: inv.status,
-      InvoiceDate: inv.invoiceDate
-        ? new Date(inv.invoiceDate).toLocaleString()
-        : "",
-      DispatchDateTime: inv.dispatchDateTime
-        ? new Date(inv.dispatchDateTime).toLocaleString()
-        : "",
-      FromCountry: inv.fromAddress?.country?.name || inv.fromAddress?.countryName || "",
-      FromState: inv.fromAddress?.state?.name || inv.fromAddress?.stateName || "",
-      FromCity: inv.fromAddress?.city?.name || "",
-      FromLocality: inv.fromAddress?.locality?.name || "",
-      FromPincode: inv.fromAddress?.pincode || "",
-      FromPostOffice: inv.fromAddress?.postOfficeName || "",
-      FromDistrict: inv.fromAddress?.district || "",
-      FromTaluk: inv.fromAddress?.taluk || "",
-      ToCountry: inv.toAddress?.country?.name || inv.toAddress?.countryName || "",
-      ToState: inv.toAddress?.state?.name || inv.toAddress?.stateName || "",
-      ToCity: inv.toAddress?.city?.name || "",
-      ToLocality: inv.toAddress?.locality?.name || "",
-      ToPincode: inv?.toAddress?.pincode || "",
-      ToPostOffice: inv.toAddress?.postOfficeName || "",
-      ToDistrict: inv.toAddress?.district || "",
-      ToTaluk: inv.toAddress?.taluk || "",
-      TotalWeight: inv?.totalWeight,
-      NumberOfPackages: inv?.numberOfPackages,
-      FreightCharges: inv?.freightCharges,
-      PaymentType: inv?.paymentType,
-      Remarks: inv?.remarks,
-      DeliveredAt: inv.deliveredAt
-        ? new Date(inv.deliveredAt).toLocaleString()
-        : "",
-      DeliveryProofReceiverName: inv.deliveryProof?.receiverName || "",
-      DeliveryProofReceiverMobile: inv.deliveryProof?.receiverMobile || "",
-      DeliveryProofRemarks: inv.deliveryProof?.remarks || "",
-      CreatedAt: inv.createdAt ? new Date(inv.createdAt).toLocaleString() : "",
-      UpdatedAt: inv.updatedAt ? new Date(inv.updatedAt).toLocaleString() : "",
-    }));
+    const data = invoices.map((inv) => {
+      const baseRow = {
+        DocketNumber: inv.docketNumber,
+        Company: inv.company?.name || "",
+        CompanyAddress: inv.company?.address || "",
+        CompanyGST: inv.company?.gstNumber || "",
+        CompanyPAN: inv.company?.pan || "",
+        Branch: inv.branch?.name || "",
+        Customer: inv.customer?.name || "",
+        CustomerPhone: inv.customer?.phone || "",
+        CustomerEmail: inv.customer?.email || "",
+        GoodsType: inv.goodsType?.name || "",
+        GoodsItems: inv.goodsType?.items?.join("; ") || "",
+        VehicleType: inv.vehicleType,
+        VehicleNumber:
+          inv.vehicle?.vehicleNumber || inv.vendorVehicle?.vehicleNumber || "",
+        Vendor: inv.vendor?.name || "",
+        Driver: inv.driver?.name || "",
+        DriverPhone: inv.driver?.mobile || "",
+        Status: inv.status,
+        InvoiceDate: inv.invoiceDate
+          ? new Date(inv.invoiceDate).toLocaleString()
+          : "",
+        DispatchDateTime: inv.dispatchDateTime
+          ? new Date(inv.dispatchDateTime).toLocaleString()
+          : "",
+        FromCountry: inv.fromAddress?.country?.name || inv.fromAddress?.countryName || "",
+        FromState: inv.fromAddress?.state?.name || inv.fromAddress?.stateName || "",
+        FromCity: inv.fromAddress?.city?.name || "",
+        FromLocality: inv.fromAddress?.locality?.name || "",
+        FromPincode: inv.fromAddress?.pincode || "",
+        FromPostOffice: inv.fromAddress?.postOfficeName || "",
+        FromDistrict: inv.fromAddress?.district || "",
+        FromTaluk: inv.fromAddress?.taluk || "",
+        ToCountry: inv.toAddress?.country?.name || inv.toAddress?.countryName || "",
+        ToState: inv.toAddress?.state?.name || inv.toAddress?.stateName || "",
+        ToCity: inv.toAddress?.city?.name || "",
+        ToLocality: inv.toAddress?.locality?.name || "",
+        ToPincode: inv?.toAddress?.pincode || "",
+        ToPostOffice: inv.toAddress?.postOfficeName || "",
+        ToDistrict: inv.toAddress?.district || "",
+        ToTaluk: inv.toAddress?.taluk || "",
+        TotalWeight: inv?.totalWeight,
+        NumberOfPackages: inv?.numberOfPackages,
+        FreightCharges: inv?.freightCharges,
+        PaymentType: inv?.paymentType,
+        Remarks: inv?.remarks,
+        DeliveredAt: inv.deliveredAt
+          ? new Date(inv.deliveredAt).toLocaleString()
+          : "",
+        DeliveryProofReceiverName: inv.deliveryProof?.receiverName || "",
+        DeliveryProofReceiverMobile: inv.deliveryProof?.receiverMobile || "",
+        DeliveryProofRemarks: inv.deliveryProof?.remarks || "",
+        CreatedAt: inv.createdAt ? new Date(inv.createdAt).toLocaleString() : "",
+        UpdatedAt: inv.updatedAt ? new Date(inv.updatedAt).toLocaleString() : "",
+      };
+
+      // Add MIS data fields
+      const misDataRow = {};
+      if (inv.customer?.misFields && Array.isArray(inv.customer.misFields)) {
+        inv.customer.misFields.forEach((field) => {
+          const fieldLabel = field.fieldLabel || field.fieldName;
+          const fieldValue = inv.misData?.[field.fieldName] || "";
+          misDataRow[`MIS_${fieldLabel}`] = fieldValue;
+        });
+      }
+
+      // Add empty values for MIS fields that exist in other invoices but not this one
+      allMisFieldNames.forEach((fieldName) => {
+        if (!misDataRow[`MIS_${fieldName}`]) {
+          const field = inv.customer?.misFields?.find((f) => f.fieldName === fieldName);
+          if (field) {
+            misDataRow[`MIS_${field.fieldLabel || fieldName}`] = inv.misData?.[fieldName] || "";
+          } else {
+            // Field doesn't exist for this customer, add empty value
+            misDataRow[`MIS_${fieldName}`] = "";
+          }
+        }
+      });
+
+      return { ...baseRow, ...misDataRow };
+    });
 
     const fields = Object.keys(data[0] || {});
     const json2csv = new Json2CsvParser({ fields });

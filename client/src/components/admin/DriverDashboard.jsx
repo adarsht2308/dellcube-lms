@@ -1,14 +1,22 @@
 import React, { useEffect, useState } from "react";
-import {
-  FaClipboardList,
-  FaTruckMoving,
-  FaCheckCircle,
-  FaHourglassHalf,
-  FaWeightHanging,
-} from "react-icons/fa";
 import { useSelector } from "react-redux";
-import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import {
+  ClipboardList,
+  CheckCircle,
+  Clock,
+  Weight,
+  Edit,
+  ArrowRight,
+  Truck,
+  MapPin,
+  Calendar,
+  User,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 // Import the correct driver invoice API hook
 import { useGetDriverInvoicesQuery } from "@/features/api/DriverInvoice/driverInvoiceApi";
 
@@ -25,183 +33,279 @@ const DriverDashboard = () => {
     {
       title: "Assigned Orders",
       value: invoices.length,
-      icon: <FaClipboardList className="text-2xl" />,
-      color: "bg-blue-500",
+      icon: ClipboardList,
+      color: "border-[#FFD249]",
+      bgColor: "bg-[#FFD249]/10",
+      iconColor: "text-[#FFD249]",
     },
     {
       title: "Completed",
       value: invoices.filter((i) => i.status === "Delivered").length,
-      icon: <FaCheckCircle className="text-2xl" />,
-      color: "bg-green-500",
+      icon: CheckCircle,
+      color: "border-green-500",
+      bgColor: "bg-green-50",
+      iconColor: "text-green-600",
     },
     {
       title: "Pending",
       value: invoices.filter((i) => i.status !== "Delivered").length,
-      icon: <FaHourglassHalf className="text-2xl" />,
-      color: "bg-orange-500",
+      icon: Clock,
+      color: "border-orange-500",
+      bgColor: "bg-orange-50",
+      iconColor: "text-orange-600",
     },
     {
-      title: "Total Weight (Tons)",
-      value: invoices.reduce((sum, i) => sum + (i.totalWeight || 0), 0),
-      icon: <FaWeightHanging className="text-2xl" />,
-      color: "bg-purple-500",
+      title: "Total Weight (kg)",
+      value: invoices.reduce((sum, i) => sum + (parseFloat(i.totalWeight) || 0), 0).toFixed(2),
+      icon: Weight,
+      color: "border-purple-500",
+      bgColor: "bg-purple-50",
+      iconColor: "text-purple-600",
     },
   ];
 
     return (
-      <div className="min-h-screen">
-      <main className="container mx-auto md:px-4">
-        <div className="mb-8">
-          <div className="bg-gradient-to-r from-yellow-100 via-yellow-50 to-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
-            <div className="p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
-                  Welcome back, {user?.name || "Driver"}!
-                </h2>
-                <p className="text-gray-600 mt-1 text-sm md:text-base">
-                  Check and manage your assigned deliveries
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        {/* Welcome Header */}
+        <Card className="mb-8 border-2 border-[#FFD249]/30 shadow-xl bg-gradient-to-r from-[#FFD249]/10 via-white to-[#FFD249]/5 dark:from-gray-800 dark:to-gray-750">
+          <CardContent className="p-6 sm:p-8">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+              <div className="flex-1">
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-2">
+                  Welcome back, {user?.name || "Driver"}! 👋
+                </h1>
+                <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base mb-4">
+                  Manage and track your assigned deliveries
                 </p>
-                <div className="mt-4 text-sm text-gray-500">
-                  Today: {new Date().toLocaleDateString("en-IN", {
-                    weekday: "long",
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
+                <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                  <Calendar className="w-4 h-4" />
+                  <span>
+                    {new Date().toLocaleDateString("en-IN", {
+                      weekday: "long",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </span>
                 </div>
               </div>
-              <div className="text-right">
-                <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center text-3xl font-bold mb-2 border border-gray-200">
-                  <img
-                    src={user?.photoUrl}
-                    alt={user?.name}
-                    className="w-20 h-20 object-cover rounded-full"
-                  />
-                </div>
-                <p className="text-sm text-gray-500">{user?.role}</p>
+              <div className="flex flex-col items-center md:items-end gap-2">
+                <Avatar className="h-24 w-24 sm:h-28 sm:w-28 border-4 border-[#FFD249] shadow-lg">
+                  <AvatarImage src={user?.photoUrl} alt={user?.name} />
+                  <AvatarFallback className="text-3xl bg-[#FFD249] text-[#202020] font-bold">
+                    {user?.name?.charAt(0)?.toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <Badge className="bg-[#FFD249] text-[#202020] border-[#FFD249]">
+                  {user?.role?.toUpperCase()}
+                </Badge>
               </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
           {isLoading ? (
             Array(4).fill(0).map((_, idx) => (
-              <div key={idx} className="bg-white rounded-xl shadow-lg border-l-4 border-gray-200 p-6 animate-pulse h-32" />
+              <Card key={idx} className="animate-pulse h-32" />
             ))
           ) : (
-            stats.map((s, idx) => (
-            <div
-              key={idx}
-                className={`bg-white rounded-xl shadow-lg border-l-4 ${
-                  idx === 0 ? 'border-yellow-400' : // Assigned Orders (gold accent)
-                  idx === 1 ? 'border-blue-500' :   // Completed (blue)
-                  idx === 2 ? 'border-gray-400' :   // Pending (gray)
-                  'border-gray-300'                 // Weight (neutral)
-                } p-6 hover:shadow-xl transition-all`}
-            >
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-gray-500 text-sm font-medium uppercase">
-                    {s.title}
-                  </p>
-                    <h4 className="font-bold text-3xl mt-1 text-gray-900">
-                    {s.value}
-                  </h4>
-                </div>
-                <div
-                    className={`w-14 h-14 rounded-xl flex items-center justify-center shadow-lg ${
-                      idx === 0 ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' : // Assigned Orders
-                      idx === 1 ? 'bg-blue-50 text-blue-700 border border-blue-200' :      // Completed
-                      idx === 2 ? 'bg-gray-50 text-gray-700 border border-gray-200' :      // Pending
-                      'bg-gray-50 text-gray-400 border border-gray-200'                    // Weight
-                    }`}
+            stats.map((stat, idx) => {
+              const IconComponent = stat.icon;
+              return (
+                <Card
+                  key={idx}
+                  className={`border-l-4 ${stat.color} hover:shadow-xl transition-all duration-300 hover:scale-105`}
                 >
-                  {s.icon}
-                </div>
-              </div>
-            </div>
-            ))
+                  <CardContent className="p-6">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                          {stat.title}
+                        </p>
+                        <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+                          {stat.value}
+                        </h3>
+                      </div>
+                      <div
+                        className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl flex items-center justify-center shadow-md ${stat.bgColor} border-2 ${stat.color.replace('border-', 'border-')}`}
+                      >
+                        <IconComponent className={`w-6 h-6 sm:w-7 sm:h-7 ${stat.iconColor}`} />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })
           )}
         </div>
  
-        {/* Top 5 Recent Invoices Table */}
-        <div className="bg-white rounded-2xl shadow-2xl p-8 mb-12 border border-gray-200 relative z-10">
-          <h3 className="text-xl font-bold mb-6 text-gray-900 tracking-wide px-6 py-3 rounded-xl shadow bg-gradient-to-r from-blue-50 to-gray-50 border border-gray-100 inline-block" style={{boxShadow: '0 6px 24px 0 rgba(30,41,59,0.10)'}}>Recent Invoices</h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 rounded-xl overflow-hidden border border-gray-100 shadow-md">
-              <thead className="bg-gradient-to-r from-blue-50 to-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-extrabold text-gray-600 uppercase tracking-wider">Docket No</th>
-                  <th className="px-4 py-3 text-left text-xs font-extrabold text-gray-600 uppercase tracking-wider">Customer</th>
-                  <th className="px-4 py-3 text-left text-xs font-extrabold text-gray-600 uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-extrabold text-gray-600 uppercase tracking-wider">Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-extrabold text-gray-600 uppercase tracking-wider">From Address</th>
-                  <th className="px-4 py-3 text-left text-xs font-extrabold text-gray-600 uppercase tracking-wider">To Address</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {isLoading ? (
+        {/* Recent Invoices Table */}
+        <Card className="mb-8 shadow-xl border-2 border-[#FFD249]/20">
+          <CardContent className="p-4 sm:p-6 lg:p-8">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-[#FFD249]/20 rounded-lg">
+                  <ClipboardList className="w-6 h-6 text-[#FFD249]" />
+                </div>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                  Recent Invoices
+                </h2>
+              </div>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-[#FFD249]/90 dark:bg-[#202020]">
                   <tr>
-                    <td colSpan={6} className="text-center py-8 text-gray-400 text-base font-semibold">Loading...</td>
+                    <th className="px-3 sm:px-4 py-3 text-left text-xs font-bold text-[#202020] dark:text-[#FFD249] uppercase tracking-wider">
+                      Docket No
+                    </th>
+                    <th className="px-3 sm:px-4 py-3 text-left text-xs font-bold text-[#202020] dark:text-[#FFD249] uppercase tracking-wider">
+                      Customer
+                    </th>
+                    <th className="px-3 sm:px-4 py-3 text-left text-xs font-bold text-[#202020] dark:text-[#FFD249] uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-3 sm:px-4 py-3 text-left text-xs font-bold text-[#202020] dark:text-[#FFD249] uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="px-3 sm:px-4 py-3 text-left text-xs font-bold text-[#202020] dark:text-[#FFD249] uppercase tracking-wider hidden lg:table-cell">
+                      From Address
+                    </th>
+                    <th className="px-3 sm:px-4 py-3 text-left text-xs font-bold text-[#202020] dark:text-[#FFD249] uppercase tracking-wider hidden lg:table-cell">
+                      To Address
+                    </th>
+                    <th className="px-3 sm:px-4 py-3 text-center text-xs font-bold text-[#202020] dark:text-[#FFD249] uppercase tracking-wider">
+                      Action
+                    </th>
                   </tr>
-                ) : (
-                  invoices
-                    .slice()
-                    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-                    .slice(0, 5)
-                    .map((inv, idx) => (
-                      <tr
-                        key={inv._id}
-                        className={`transition-all duration-150 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50/60`}
-                      >
-                        <td className="px-4 py-3 text-sm font-semibold text-gray-900 whitespace-nowrap">{inv.docketNumber}</td>
-                        <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{inv.customer?.name}</td>
-                        <td className="px-4 py-3 text-sm whitespace-nowrap">
-                          <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold shadow-sm border ${{
-                            Delivered: 'bg-blue-100 text-blue-700 border-blue-200',
-                            'In Transit': 'bg-gray-100 text-gray-700 border-gray-200',
-                            Pending: 'bg-yellow-50 text-yellow-700 border-yellow-200',
-                          }[inv.status] || 'bg-gray-50 text-gray-500 border-gray-100'}`}>{inv.status}</span>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{inv.createdAt ? new Date(inv.createdAt).toLocaleDateString() : ''}</td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          {inv.fromAddress?.locality?.name ? inv.fromAddress.locality.name + ', ' : ''}
-                          {inv.fromAddress?.city?.name ? inv.fromAddress.city.name + ', ' : ''}
-                          {inv.fromAddress?.state?.name ? inv.fromAddress.state.name + ', ' : ''}
-                          {inv.fromAddress?.country?.name ? inv.fromAddress.country.name + ', ' : ''}
-                          {inv.fromAddress?.pincode?.code || ''}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          {inv.toAddress?.locality?.name ? inv.toAddress.locality.name + ', ' : ''}
-                          {inv.toAddress?.city?.name ? inv.toAddress.city.name + ', ' : ''}
-                          {inv.toAddress?.state?.name ? inv.toAddress.state.name + ', ' : ''}
-                          {inv.toAddress?.country?.name ? inv.toAddress.country.name + ', ' : ''}
-                          {inv.toAddress?.pincode?.code || ''}
-                        </td>
-                      </tr>
-                    ))
-                )}
-                {!isLoading && invoices.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="text-center py-8 text-gray-400 text-base font-semibold">No invoices found.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-          
-          {/* View All Button */}
-          <div className="mt-6 flex justify-end ">
-            <button
-              onClick={() => navigate('/admin/driver-invoices')}
-              className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold rounded-lg shadow-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-            >
-              View All
-            </button>
-          </div>
-        </div>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={7} className="text-center py-12">
+                        <div className="flex flex-col items-center gap-2">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FFD249]"></div>
+                          <p className="text-gray-500 dark:text-gray-400">Loading invoices...</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : invoices.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="text-center py-12">
+                        <div className="flex flex-col items-center gap-3">
+                          <ClipboardList className="w-12 h-12 text-gray-400" />
+                          <p className="text-gray-500 dark:text-gray-400 text-base font-medium">
+                            No invoices found
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    invoices
+                      .slice()
+                      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                      .slice(0, 5)
+                      .map((inv, idx) => {
+                        const statusColors = {
+                          Delivered: 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400',
+                          'In Transit': 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400',
+                          Pending: 'bg-[#FFD249]/20 text-[#202020] border-[#FFD249] dark:bg-[#FFD249]/20 dark:text-[#202020]',
+                          Created: 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-700 dark:text-gray-300',
+                        };
+                        
+                        return (
+                          <tr
+                            key={inv._id}
+                            className={`transition-all duration-150 hover:bg-[#FFD249]/5 dark:hover:bg-[#FFD249]/10 ${
+                              idx % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-750'
+                            }`}
+                          >
+                            <td className="px-3 sm:px-4 py-3 text-sm font-semibold text-gray-900 dark:text-white whitespace-nowrap">
+                              {inv.docketNumber}
+                            </td>
+                            <td className="px-3 sm:px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                <User className="w-4 h-4 text-gray-400" />
+                                <span>{inv.customer?.name || 'N/A'}</span>
+                              </div>
+                            </td>
+                            <td className="px-3 sm:px-4 py-3 text-sm whitespace-nowrap">
+                              <Badge
+                                className={`${statusColors[inv.status] || statusColors.Created} border font-semibold`}
+                              >
+                                {inv.status}
+                              </Badge>
+                            </td>
+                            <td className="px-3 sm:px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                <Calendar className="w-4 h-4 text-gray-400" />
+                                <span>
+                                  {inv.createdAt
+                                    ? new Date(inv.createdAt).toLocaleDateString("en-IN")
+                                    : 'N/A'}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-3 sm:px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hidden lg:table-cell">
+                              <div className="flex items-start gap-2 max-w-xs">
+                                <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                                <span className="truncate">
+                                  {inv.pickupAddress ||
+                                    (inv.fromAddress?.locality?.name
+                                      ? `${inv.fromAddress.locality.name}, ${inv.fromAddress.city?.name || ''}, ${inv.fromAddress.state?.name || ''}`
+                                      : 'N/A')}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-3 sm:px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hidden lg:table-cell">
+                              <div className="flex items-start gap-2 max-w-xs">
+                                <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                                <span className="truncate">
+                                  {inv.deliveryAddress ||
+                                    (inv.toAddress?.locality?.name
+                                      ? `${inv.toAddress.locality.name}, ${inv.toAddress.city?.name || ''}, ${inv.toAddress.state?.name || ''}`
+                                      : 'N/A')}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-3 sm:px-4 py-3 text-sm whitespace-nowrap">
+                              <Button
+                                size="sm"
+                                onClick={() =>
+                                  navigate("/admin/update-invoices", {
+                                    state: { invoiceId: inv._id },
+                                  })
+                                }
+                                className="bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020] font-medium border border-[#FFD249] dark:bg-[#FFD249] dark:text-[#202020] dark:hover:bg-[#FFD249]/80"
+                              >
+                                <Edit className="w-4 h-4 mr-1" />
+                                <span className="hidden sm:inline">Edit</span>
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                  )}
+                </tbody>
+              </table>
+            </div>
+            
+            {/* View All Button */}
+            <div className="mt-6 flex justify-end">
+              <Button
+                onClick={() => navigate("/admin/driver-invoices")}
+                className="bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020] font-medium border border-[#FFD249] shadow-lg hover:shadow-xl transition-all duration-200 dark:bg-[#FFD249] dark:text-[#202020] dark:hover:bg-[#FFD249]/80"
+              >
+                View All Invoices
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </main>
     </div>
   );

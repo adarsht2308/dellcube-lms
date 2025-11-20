@@ -68,9 +68,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
-import { useLoadUserQuery } from "@/features/api/authApi";
-import { FaQuestionCircle } from "react-icons/fa";
-import { CiCircleList, CiMapPin } from "react-icons/ci";
+import { useLoadUserQuery } from "@/features/api/authApi";  
 
 const DELLCUBE_COLORS = {
   gold: "#FFD249",
@@ -174,7 +172,7 @@ const Sidebar = () => {
       subItems: [
         ...(user?.role === "vendor"
           ? [
-              // Vendors should not see the Vendors section in sidebar
+            
               {
                 title: "Vehicles",
                 icon: Truck,
@@ -246,7 +244,6 @@ const Sidebar = () => {
   return (
     <div className="pt-14 min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
       <div className="flex w-full">
-      {/* Mobile Menu Button */}
       <div className="lg:hidden fixed top-16 left-4 z-50">
         <Button
           variant="outline"
@@ -266,15 +263,12 @@ const Sidebar = () => {
         />
       )}
 
-      {/* Sidebar */}
       <div
         className={`${
           isMobileMenuOpen ? "block" : "hidden"
         } lg:block fixed top-14 left-0 h-[calc(100vh-56px)] w-[280px] z-50 bg-gradient-to-br from-yellow-50 via-white to-yellow-100 shadow-xl border-r border-[#FFD249]/30 transition-all duration-300 flex flex-col overflow-hidden`}
       >
-        {/* Header Section */}
         <div className="p-6 border-b border-[#FFD249]/10">
-          {/* Logo/Brand */}
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 lex items-center justify-center  ">
               <img
@@ -293,7 +287,6 @@ const Sidebar = () => {
             </div>
           </div>
 
-          {/* User Profile Card */}
           <div className="bg-gradient-to-r from-[#FFD249]/10 to-[#FFD249]/5 rounded-2xl p-4 border border-[#FFD249]/20">
             <div className="flex items-center gap-3">
               <Avatar className="w-12 h-12 ring-2 ring-[#FFD249]/30">
@@ -322,7 +315,6 @@ const Sidebar = () => {
           </div>
         </div>
 
-        {/* Navigation */}
         <div
           className="flex-1 overflow-y-auto py-4 px-4 space-y-3"
           style={{ scrollBehavior: "smooth", scrollbarWidth: "thin" }}
@@ -441,7 +433,6 @@ const Sidebar = () => {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="flex-1 min-h-screen w-full min-w-0 bg-gradient-to-br from-gray-50 to-white lg:ml-[280px] pt-16">
         <div className="w-full px-4 lg:px-8">
           <Outlet />

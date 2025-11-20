@@ -107,10 +107,10 @@ const RecentInvoices = () => {
               placeholder="Search by docket no..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="px-3 h-9 border border-gray-200 rounded-md text-sm w-44 bg-gray-50 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              className="px-3 h-9 border border-gray-200 rounded-md text-sm w-44 bg-gray-50 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#FFD249]"
             />
             <Select value={limit.toString()} onValueChange={handleLimitChange}>
-              <SelectTrigger className="w-[80px] h-9 text-xs border border-gray-200 bg-gray-50 rounded-md">
+              <SelectTrigger className="w-[80px] h-9 text-xs border border-gray-200 bg-gray-50 rounded-md focus:ring-2 focus:ring-[#FFD249]">
                 <SelectValue placeholder="Limit" />
               </SelectTrigger>
               <SelectContent>
@@ -122,7 +122,7 @@ const RecentInvoices = () => {
               </SelectContent>
             </Select>
             <Button
-              className="h-9 px-3 text-xs font-semibold bg-gradient-to-r from-blue-400 to-blue-600 text-white rounded-md shadow hover:from-blue-500 hover:to-blue-700 border-0"
+              className="h-9 px-3 text-xs font-semibold bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020] rounded-md shadow border-0"
               onClick={() =>
                 fetchRecentInvoices({
                   driverId,
@@ -140,27 +140,27 @@ const RecentInvoices = () => {
         <div className="bg-white rounded-2xl shadow-2xl p-8 mb-12 border border-gray-200 relative z-10">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 rounded-xl overflow-hidden border border-gray-100 shadow-md">
-              <thead className="bg-gradient-to-r from-blue-50 to-gray-50">
+              <thead className="bg-gradient-to-r from-[#FFD249]/20 to-[#FFD249]/10">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-extrabold text-gray-600 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-extrabold text-[#202020] uppercase tracking-wider">
                     No
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-extrabold text-gray-600 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-extrabold text-[#202020] uppercase tracking-wider">
                     Docket
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-extrabold text-gray-600 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-extrabold text-[#202020] uppercase tracking-wider">
                     Company
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-extrabold text-gray-600 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-extrabold text-[#202020] uppercase tracking-wider">
                     Branch
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-extrabold text-gray-600 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-extrabold text-[#202020] uppercase tracking-wider">
                     Customer
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-extrabold text-gray-600 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-extrabold text-[#202020] uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-extrabold text-gray-600 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-extrabold text-[#202020] uppercase tracking-wider">
                     Action
                   </th>
                 </tr>
@@ -181,7 +181,7 @@ const RecentInvoices = () => {
                       key={invoice._id}
                       className={`transition-all duration-150 ${
                         i % 2 === 0 ? "bg-white" : "bg-gray-50"
-                      } hover:bg-blue-50/60`}
+                      } hover:bg-[#FFD249]/5`}
                     >
                       <td className="px-4 py-3 text-sm font-semibold text-gray-900 whitespace-nowrap">
                         {limit * (currentPage - 1) + i + 1}
@@ -239,7 +239,7 @@ const RecentInvoices = () => {
 
                       <td className="px-4 py-3 flex gap-2 items-center justify-center">
                         <Button
-                          className="p-2 bg-orange-100 text-orange-600 hover:bg-orange-200 rounded-md"
+                          className="p-2 bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020] rounded-md shadow-sm transition-all"
                           onClick={() =>
                             navigate("/admin/update-invoices", {
                               state: { 
@@ -248,12 +248,14 @@ const RecentInvoices = () => {
                               },
                             })
                           }
+                          title="Edit Invoice"
                         >
                           <MdOutlineEdit className="w-4 h-4" />
                         </Button>
                         <Button
-                          className="p-2 bg-blue-100 text-blue-600 hover:bg-blue-200 rounded-md"
+                          className="p-2 bg-[#FFD249]/20 hover:bg-[#FFD249]/30 text-[#202020] rounded-md shadow-sm transition-all"
                           onClick={() => handleView(invoice)}
+                          title="View Details"
                         >
                           <EyeIcon className="w-4 h-4" />
                         </Button>
@@ -339,8 +341,8 @@ const RecentInvoices = () => {
           title={
             <div className="flex items-center flex-wrap min-w-0 max-w-full py-2">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="p-2 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/50 dark:to-purple-900/50 rounded-lg">
-                  <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <div className="p-2 bg-gradient-to-br from-[#FFD249]/20 to-[#FFD249]/10 dark:from-[#FFD249]/30 dark:to-[#FFD249]/20 rounded-lg">
+                  <FileText className="w-5 h-5 text-[#202020] dark:text-[#FFD249]" />
                 </div>
                 <div className="min-w-0 max-w-[140px]">
                   <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 truncate">
@@ -353,10 +355,10 @@ const RecentInvoices = () => {
               </div>
               <div className="ml-auto min-w-0 flex-shrink flex items-center">
                 <span
-                  className={`inline-flex items-center px-2 py-1 rounded-full font-medium text-xs max-w-[110px] truncate shadow-sm border border-blue-100 dark:border-blue-900/30 ${
+                  className={`inline-flex items-center px-2 py-1 rounded-full font-medium text-xs max-w-[110px] truncate shadow-sm border ${
                     selectedInvoice?.status === 'Delivered'
-                      ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400'
-                      : 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
+                      ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 border-green-200'
+                      : 'bg-[#FFD249]/20 text-[#202020] dark:bg-[#FFD249]/30 dark:text-[#FFD249] border-[#FFD249]/40'
                   }`}
                   title={selectedInvoice?.status}
                 >
@@ -402,7 +404,7 @@ const RecentInvoices = () => {
             <div className="p-6 space-y-6 overflow-x-hidden">
               <div className="mb-4">
                 <div className="text-xs text-gray-500 mb-1">Docket No:</div>
-                <div className="text-lg font-bold text-blue-700 dark:text-blue-400">{selectedInvoice.docketNumber}</div>
+                <div className="text-lg font-bold text-[#202020] dark:text-[#FFD249]">{selectedInvoice.docketNumber}</div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-white/80 dark:bg-gray-800/80 rounded-xl p-4 border border-gray-200/50 dark:border-gray-700/50 shadow">

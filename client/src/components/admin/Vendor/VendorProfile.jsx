@@ -40,7 +40,7 @@ const VendorProfile = () => {
     bankName: "",
     accountNumber: "",
     ifsc: "",
-    assignedClient: "",
+    assignedClients: [],
     vendorStatus: "",
   });
 
@@ -65,7 +65,7 @@ const VendorProfile = () => {
         bankName: vendor.bankName || "",
         accountNumber: vendor.accountNumber || "",
         ifsc: vendor.ifsc || "",
-        assignedClient: vendor.assignedClient?.name || "Not assigned",
+        assignedClients: vendor.assignedClients?.map((c) => c.name || c) || [],
         vendorStatus: vendor.vendorStatus || "active",
       });
     }
@@ -150,7 +150,7 @@ const VendorProfile = () => {
         bankName: user.bankName || "",
         accountNumber: user.accountNumber || "",
         ifsc: user.ifsc || "",
-        assignedClient: user.assignedClient || "Not assigned",
+        assignedClients: user.assignedClients?.map((c) => c.name || c) || [],
         vendorStatus: user.vendorStatus || "active",
       });
     }
@@ -257,10 +257,12 @@ const VendorProfile = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="assignedClient">Assigned Client</Label>
+              <Label htmlFor="assignedClients">Assigned Clients</Label>
               <Input
-                id="assignedClient"
-                value={profileData.assignedClient}
+                id="assignedClients"
+                value={Array.isArray(profileData.assignedClients) && profileData.assignedClients.length > 0
+                  ? profileData.assignedClients.join(", ")
+                  : "Not assigned"}
                 disabled={true}
                 className="bg-gray-100"
               />

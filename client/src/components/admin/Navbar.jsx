@@ -198,7 +198,7 @@ const Navbar = () => {
                     <DropdownMenuItem asChild>
                       <Link to="profile" className="cursor-pointer">
                         <User size={16} className="mr-2" />
-                        Edit Profile
+                       Profile
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>

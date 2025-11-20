@@ -1,7 +1,6 @@
 import { BASE_URL } from "@/utils/BaseUrl";
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
-// const GOODS_API = "https://dellcube-lms.onrender.com/api/goods";
 const GOODS_API =  `${BASE_URL}/goods`;
 
 export const goodsApi = createApi({
@@ -12,7 +11,6 @@ export const goodsApi = createApi({
   }),
   tagTypes: ["Goods"],
   endpoints: (builder) => ({
-    // Create a new good
     createGood: builder.mutation({
       query: (payload) => ({
         url: "/create",
@@ -22,7 +20,6 @@ export const goodsApi = createApi({
       invalidatesTags: ["Goods"],
     }),
 
-    // Get all goods with pagination
     getAllGoods: builder.query({
       query: ({ page = 1, limit = "", search = "" }) => ({
         url: "/all",
@@ -32,7 +29,6 @@ export const goodsApi = createApi({
       providesTags: ["Goods"],
     }),
 
-    // Get a good by ID
     getGoodById: builder.mutation({
       query: (goodId) => ({
         url: "/view",
@@ -42,7 +38,6 @@ export const goodsApi = createApi({
       providesTags: ["Goods"],
     }),
 
-    // Update a good
     updateGood: builder.mutation({
       query: ({ id, name, description, items }) => ({
         url: "/update",
@@ -52,7 +47,6 @@ export const goodsApi = createApi({
       invalidatesTags: ["Goods"],
     }),
 
-    // Delete a good
     deleteGood: builder.mutation({
       query: (goodId) => ({
         url: "/delete",

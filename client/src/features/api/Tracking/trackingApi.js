@@ -7,11 +7,9 @@ export const trackingApi = createApi({
   reducerPath: "trackingApi",
   baseQuery: fetchBaseQuery({
     baseUrl: TRACKING_API,
-    credentials: "include",
   }),
   tagTypes: ["Tracking"],
   endpoints: (builder) => ({
-    // Track invoice by docket number (public endpoint)
     trackByDocketNumber: builder.query({
       query: (docketNumber) => ({
         url: `/docket/${docketNumber}`,
@@ -20,7 +18,6 @@ export const trackingApi = createApi({
       providesTags: ["Tracking"],
     }),
 
-    // Track invoice by ID (authenticated)
     trackById: builder.query({
       query: (invoiceId) => ({
         url: `/invoice/${invoiceId}`,

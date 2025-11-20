@@ -160,11 +160,14 @@ const Customers = () => {
   // If vendor is logged in, show only the assigned client's record
   const customers = React.useMemo(() => {
     const list = data?.customers || [];
-    if (isVendor && user?.assignedClient?._id) {
-      return list.filter((c) => c._id === user.assignedClient._id);
+    if (isVendor && user?.assignedClients?.length > 0) {
+      const assignedIds = user.assignedClients.map(
+        (client) => client._id || client
+      );
+      return list.filter((c) => assignedIds.includes(c._id));
     }
     return list;
-  }, [data?.customers, isVendor, user?.assignedClient?._id]);
+  }, [data?.customers, isVendor, user?.assignedClients]);
 
   const [deleteCustomer, { isSuccess, isError }] = useDeleteCustomerMutation();
   const [open, setOpen] = useState(false);

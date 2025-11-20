@@ -31,6 +31,7 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useGetAllCompaniesQuery } from "@/features/api/Company/companyApi.js";
 import { useGetAllBranchesQuery } from "@/features/api/Branch/branchApi.js";
 import { useGetAllCustomersQuery } from "@/features/api/Customer/customerApi.js";
@@ -53,8 +54,10 @@ const UpdateVendor = () => {
     status: true,
     company: "",
     branch: "",
-    assignedClient: "",
+    assignedClients: [],
   });
+  const [signatureFile, setSignatureFile] = useState(null);
+  const [signaturePreview, setSignaturePreview] = useState("");
 
   const [getVendorById, { data: viewData, isSuccess: isGetSuccess, isLoading: isVendorLoading }] =
     useGetVendorByIdMutation();
@@ -96,8 +99,9 @@ const UpdateVendor = () => {
         status: v.status === "active",
         company: v.company?._id || "",
         branch: v.branch?._id || "",
-        assignedClient: v.assignedClient?._id || "",
+        assignedClients: v.assignedClients?.map((client) => client._id || client) || [],
       });
+      setSignaturePreview(v.signature?.url || "");
     }
   }, [isGetSuccess, viewData]);
 
@@ -117,9 +121,6 @@ const UpdateVendor = () => {
     setVendorData((prev) => ({ ...prev, branch: value }));
   };
 
-  const handleAssignedClientChange = (value) => {
-    setVendorData((prev) => ({ ...prev, assignedClient: value }));
-  };
 
   const handleStatusToggle = (checked) => {
     setVendorData((prev) => ({
@@ -129,7 +130,16 @@ const UpdateVendor = () => {
   };
 
   const handleUpdate = async () => {
-    const { name, phone, email, company, branch, assignedClient, status: isStatusActive } = vendorData;
+    const {
+      name,
+      phone,
+      email,
+      company,
+      branch,
+      assignedClients,
+      status: isStatusActive,
+      panNumber,
+    } = vendorData;
 
     // Detailed validation with specific error messages
     if (!name?.trim()) {
@@ -170,19 +180,45 @@ const UpdateVendor = () => {
       return;
     }
 
-    if (!assignedClient) {
-      toast.error("Assigned Client is required");
+    if (!panNumber?.trim()) {
+      toast.error("PAN Number is required");
+      return;
+    }
+
+    if (!assignedClients || assignedClients.length === 0) {
+      toast.error("At least one customer must be assigned");
+      return;
+    }
+
+    if (!vendorId) {
+      toast.error("Vendor ID is missing. Please try again.");
       return;
     }
 
     try {
       const statusString = isStatusActive ? "active" : "inactive";
-
-      const payload = {
-        vendorId,
-        ...vendorData,
-        status: statusString,
-      };
+      const payload = new FormData();
+      payload.append("vendorId", vendorId);
+      console.log("Updating vendor with ID:", vendorId);
+      payload.append("name", vendorData.name);
+      payload.append("email", vendorData.email);
+      payload.append("phone", vendorData.phone);
+      payload.append("address", vendorData.address);
+      payload.append("gstNumber", vendorData.gstNumber || "");
+      payload.append("panNumber", vendorData.panNumber);
+      payload.append("bankName", vendorData.bankName || "");
+      payload.append("accountNumber", vendorData.accountNumber || "");
+      payload.append("ifsc", vendorData.ifsc || "");
+      payload.append("status", statusString);
+      payload.append("company", vendorData.company);
+      payload.append("branch", vendorData.branch);
+      // Append each assigned client
+      vendorData.assignedClients.forEach((clientId) => {
+        payload.append("assignedClients", clientId);
+      });
+      if (signatureFile) {
+        payload.append("signature", signatureFile);
+      }
 
       const result = await updateVendor(payload).unwrap();
       // Success is handled in useEffect
@@ -231,6 +267,9 @@ const UpdateVendor = () => {
               </h1>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                 Update vendor details and information
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Fields marked with <span className="text-red-500">*</span> are required.
               </p>
             </div>
           </div>
@@ -333,22 +372,64 @@ const UpdateVendor = () => {
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor="assignedClient">Assigned Client *</Label>
-                    <Select
-                      value={vendorData.assignedClient}
-                      onValueChange={handleAssignedClientChange}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a customer to assign" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {customersData?.customers?.map((customer) => (
-                          <SelectItem key={customer._id} value={customer._id}>
-                            {customer.name} - {customer.email}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="assignedClients">Assigned Customers *</Label>
+                    <div className="mt-2 border rounded-md p-4 max-h-60 overflow-y-auto bg-gray-50 dark:bg-gray-800/50">
+                      {customersData?.customers && customersData.customers.length > 0 ? (
+                        <div className="space-y-3">
+                          {customersData.customers.map((customer) => (
+                            <div
+                              key={customer._id}
+                              className="flex items-center space-x-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+                            >
+                              <Checkbox
+                                id={`customer-${customer._id}`}
+                                checked={vendorData.assignedClients.includes(
+                                  customer._id
+                                )}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setVendorData({
+                                      ...vendorData,
+                                      assignedClients: [
+                                        ...vendorData.assignedClients,
+                                        customer._id,
+                                      ],
+                                    });
+                                  } else {
+                                    setVendorData({
+                                      ...vendorData,
+                                      assignedClients: vendorData.assignedClients.filter(
+                                        (id) => id !== customer._id
+                                      ),
+                                    });
+                                  }
+                                }}
+                              />
+                              <label
+                                htmlFor={`customer-${customer._id}`}
+                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
+                              >
+                                {customer.name} - {customer?.branch?.name}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          No customers available
+                        </p>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                      Select one or more customers to assign to this vendor. The
+                      vendor will be able to create dockets for these customers
+                      only.
+                    </p>
+                    {vendorData.assignedClients.length > 0 && (
+                      <p className="text-xs text-[#FFD249] mt-1 font-medium">
+                        {vendorData.assignedClients.length} customer(s) selected
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-3">
                     <Switch
@@ -364,12 +445,58 @@ const UpdateVendor = () => {
               </CardContent>
             </Card>
 
+          {/* Signature Upload */}
+          <Card className="shadow-sm">
+            <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <FileText className="w-5 h-5 text-[#202020]" />
+                Authorized Signature
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="space-y-3">
+                <div>
+                  <Label>Upload Signature</Label>
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      setSignatureFile(file || null);
+                      setSignaturePreview(
+                        file ? URL.createObjectURL(file) : signaturePreview
+                      );
+                    }}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Supported formats: PNG, JPG. Recommended transparent
+                    background.
+                  </p>
+                <p className="text-xs text-blue-600 mt-1">
+                  This signature will print automatically on dockets handled by
+                  this vendor.
+                </p>
+                </div>
+                {signaturePreview && (
+                  <div className="border rounded-lg p-3 bg-gray-50">
+                    <Label className="text-xs text-gray-600">Current Preview</Label>
+                    <img
+                      src={signaturePreview}
+                      alt="Signature preview"
+                      className="mt-2 max-h-32 object-contain"
+                    />
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
             {/* Business Information */}
             <Card className="shadow-sm">
               <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <FileText className="w-5 h-5 text-[#202020]" />
-                  Business Information (Optional)
+                  Business Information
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-6">
@@ -385,7 +512,7 @@ const UpdateVendor = () => {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="panNumber">PAN Number</Label>
+                    <Label htmlFor="panNumber">PAN Number *</Label>
                     <Input
                       id="panNumber"
                       name="panNumber"

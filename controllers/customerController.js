@@ -79,13 +79,16 @@ export const getAllCustomers = async (req, res) => {
     if (companyId) query.company = companyId;
     if (branchId) query.branch = branchId;
 
-    // If vendor is logged in, restrict to their assigned client only
+    // If vendor is logged in, restrict to their assigned clients only
     if (req.user?.role === "vendor") {
       const vendor = await User.findById(req.user.userId).select(
-        "assignedClient"
-      );
-      if (vendor?.assignedClient) {
-        query._id = vendor.assignedClient;
+        "assignedClients"
+      ).populate("assignedClients");
+      if (vendor?.assignedClients && vendor.assignedClients.length > 0) {
+        const customerIds = vendor.assignedClients.map(
+          (client) => client._id || client
+        );
+        query._id = { $in: customerIds };
       } else {
         // No assigned client -> return empty result set
         query._id = null;
@@ -167,6 +170,7 @@ export const updateCustomer = async (req, res) => {
       taxValue,
       consignees,
       consignors,
+      misFields,
     } = req.body;
 
     const customer = await Customer.findById(customerId);
@@ -195,6 +199,7 @@ export const updateCustomer = async (req, res) => {
       customer.taxValue = taxValue ? parseFloat(taxValue) : undefined;
     if (consignees !== undefined) customer.consignees = consignees;
     if (consignors !== undefined) customer.consignors = consignors;
+    if (misFields !== undefined) customer.misFields = misFields;
 
     await customer.save();
 
@@ -493,6 +498,122 @@ export const exportConsignors = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Something went wrong while exporting consignors",
+      error: error.message,
+    });
+  }
+};
+
+// Manage MIS Fields for Customer
+export const manageMisFields = async (req, res) => {
+  try {
+    const { customerId, action, field } = req.body;
+
+    if (!customerId || !action) {
+      return res.status(400).json({
+        success: false,
+        message: "customerId and action are required",
+      });
+    }
+
+    const customer = await Customer.findById(customerId);
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: "Customer not found",
+      });
+    }
+
+    if (action === "add") {
+      if (!field || !field.fieldName || !field.fieldLabel) {
+        return res.status(400).json({
+          success: false,
+          message: "field with fieldName and fieldLabel is required",
+        });
+      }
+
+      const maxOrder = customer.misFields.length > 0
+        ? Math.max(...customer.misFields.map(f => f.order || 0))
+        : -1;
+
+      customer.misFields.push({
+        fieldName: field.fieldName,
+        fieldType: field.fieldType || "text",
+        fieldLabel: field.fieldLabel,
+        isRequired: field.isRequired || false,
+        options: field.options || [],
+        order: maxOrder + 1,
+      });
+
+      await customer.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "MIS field added successfully",
+        misFields: customer.misFields,
+      });
+    } else if (action === "update") {
+      if (!field || !field._id) {
+        return res.status(400).json({
+          success: false,
+          message: "field with _id is required",
+        });
+      }
+
+      const fieldIndex = customer.misFields.findIndex(
+        (f) => f._id.toString() === field._id
+      );
+
+      if (fieldIndex === -1) {
+        return res.status(404).json({
+          success: false,
+          message: "MIS field not found",
+        });
+      }
+
+      if (field.fieldName) customer.misFields[fieldIndex].fieldName = field.fieldName;
+      if (field.fieldType) customer.misFields[fieldIndex].fieldType = field.fieldType;
+      if (field.fieldLabel) customer.misFields[fieldIndex].fieldLabel = field.fieldLabel;
+      if (field.isRequired !== undefined) customer.misFields[fieldIndex].isRequired = field.isRequired;
+      if (field.options !== undefined) customer.misFields[fieldIndex].options = field.options;
+      if (field.order !== undefined) customer.misFields[fieldIndex].order = field.order;
+
+      await customer.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "MIS field updated successfully",
+        misFields: customer.misFields,
+      });
+    } else if (action === "delete") {
+      if (!field || !field._id) {
+        return res.status(400).json({
+          success: false,
+          message: "field with _id is required",
+        });
+      }
+
+      customer.misFields = customer.misFields.filter(
+        (f) => f._id.toString() !== field._id
+      );
+
+      await customer.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "MIS field deleted successfully",
+        misFields: customer.misFields,
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid action. Use 'add', 'update', or 'delete'",
+      });
+    }
+  } catch (error) {
+    console.error("Error managing MIS fields:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong while managing MIS fields",
       error: error.message,
     });
   }

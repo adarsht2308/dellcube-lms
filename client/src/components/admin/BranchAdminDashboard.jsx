@@ -10,14 +10,13 @@ import { useSelector } from "react-redux";
 import { useGetAllDriversQuery } from "@/features/api/authApi";
 import { useGetAllVehiclesQuery } from "@/features/api/Vehicle/vehicleApi";
 import { useGetAllInvoicesQuery } from "@/features/api/Invoice/invoiceApi";
-import { useGetAllCustomersQuery } from "@/features/api/Customer/customerApi";
+import { useGetAllCustomersQuery } from "@/features/api/Customer/customerApi.js";
 
 const BranchAdminDashboard = () => {
   const { user } = useSelector((store) => store.auth);
   const branchId = user?.branch?._id || "";
   const companyId = user?.company?._id || "";
 
-  // Fetch data filtered by branch/company
   const { data: driversData, isLoading: loadingDrivers } = useGetAllDriversQuery({ page: 1, limit: 100, search: "", branch: branchId, company: companyId });
   const { data: vehiclesData, isLoading: loadingVehicles } = useGetAllVehiclesQuery({ page: 1, limit: 100, search: "", branch: branchId, company: companyId });
   const { data: invoicesData, isLoading: loadingInvoices } = useGetAllInvoicesQuery({ page: 1, limit: 100, search: "", branch: branchId, company: companyId });
@@ -86,7 +85,6 @@ const BranchAdminDashboard = () => {
             </div>
           </div>
         </div>
-        {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {stats.map((s, idx) => (
             <div
@@ -112,7 +110,6 @@ const BranchAdminDashboard = () => {
           ))}
         </div>
 
-        {/* Shortcuts */}
         <div className="flex flex-wrap gap-4 mb-8">
           <a
             href="/admin/create-customer"
@@ -140,10 +137,8 @@ const BranchAdminDashboard = () => {
           </a>
         </div>
        
-      {/* Latest Tables Section */}
       <main className="container mx-auto md:px-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-          {/* Latest Dockets */}
           <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-8">
             <div className="px-6 py-4 border-b border-gray-200 bg-blue-50">
               <div className="flex items-center justify-between">
@@ -191,7 +186,6 @@ const BranchAdminDashboard = () => {
             </div>
           </div>
 
-          {/* Latest Vehicles */}
           <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-8">
             <div className="px-6 py-4 border-b border-gray-200 bg-green-50">
               <div className="flex items-center justify-between">
@@ -237,7 +231,6 @@ const BranchAdminDashboard = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-          {/* Latest Drivers */}
           <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-8">
             <div className="px-6 py-4 border-b border-gray-200 bg-orange-50">
               <div className="flex items-center justify-between">
@@ -281,7 +274,6 @@ const BranchAdminDashboard = () => {
             </div>
           </div>
 
-          {/* Latest Customers */}
           <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-8">
             <div className="px-6 py-4 border-b border-gray-200 bg-blue-50">
               <div className="flex items-center justify-between">

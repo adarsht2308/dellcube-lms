@@ -36,25 +36,25 @@ const styles = StyleSheet.create({
   page: {
     backgroundColor: "#fff",
     fontFamily: "Helvetica",
-    paddingTop: 0,
-    paddingBottom: 0,
-    paddingLeft: 12,
-    paddingRight: 12,
+    paddingTop: 24,
+    paddingBottom: 24,
+    paddingLeft: 24,
+    paddingRight: 24,
   },
   pageContainer: {
     width: "100%",
     minHeight: "100%",
     flexDirection: "column",
     alignItems: "center",
-    padding: "0.3mm",
-    gap: "0.3mm",
+    padding: "1mm",
+    gap: "1mm",
   },
   docketCopy: {
     backgroundColor: "#fff",
     border: "2px solid #000",
     width: "100%",
     margin: "auto",
-    padding: "1.5mm",
+    padding: "3mm",
     boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
@@ -66,8 +66,8 @@ const styles = StyleSheet.create({
   // Header Section
   headerSection: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: "0.5mm",
+    alignItems: "stretch",
+    marginBottom: "1mm",
     paddingBottom: "0.5mm",
   },
   logoSection: {
@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
     height: 40,
   },
   companySection: {
-    width: "70%",
+    width: "60%",
     alignItems: "center",
     paddingHorizontal: "1mm",
   },
@@ -101,9 +101,13 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 1.0,
   },
+ 
   copyTypeSection: {
-    width: "15%",
-    alignItems: "center",
+    width: "25%",
+    flexDirection: "column",
+    alignItems: "stretch",
+    justifyContent: "flex-start",
+    paddingLeft: "1mm",
   },
   copyType: {
     fontSize: 7,
@@ -117,12 +121,17 @@ const styles = StyleSheet.create({
     fontSize: 8,
     fontWeight: "bold",
     border: "2px solid #000",
-    padding: "0.8mm",
+    paddingVertical: "1.5mm",
+    paddingHorizontal: "2mm",
     textAlign: "center",
-    marginTop: "0.5mm",
+    marginTop: "0.7mm",
     backgroundColor: "#fff",
-    letterSpacing: 0.5,
-    whiteSpace: "nowrap",
+    letterSpacing: 0,
+    width: "100%",
+    flexShrink: 0,
+    flexGrow: 1,
+    lineHeight: 1.3,
+    flexWrap: "wrap",
   },
 
   // Company Details Row - Updated layout
@@ -353,6 +362,21 @@ const styles = StyleSheet.create({
     maxHeight: "35",
     height: "auto",
   },
+   companySignatureBox: {
+    border: "1px dashed #000",
+    borderRadius: 4,
+    minHeight: "18mm",
+    padding: "2mm",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: "1mm",
+  },
+  companySignatureImg: {
+    width: "auto",
+    maxWidth: "90",
+    maxHeight: "40",
+    height: "auto",
+  },
   authSection: {
     width: "25%",
     border: "1px solid #000",
@@ -374,6 +398,12 @@ const styles = StyleSheet.create({
 });
 
 function InvoiceCopy({ invoice, logoBase64, copyType }) {
+  // Debug: Log invoice object at the start
+  console.log("=== InvoiceCopy Component - Invoice Received ===");
+  console.log("Invoice object:", invoice);
+  console.log("Invoice keys:", invoice ? Object.keys(invoice) : "No invoice");
+  console.log("=== End InvoiceCopy Component - Invoice Received ===");
+
   const safeFormatDate = (dateString, options = { time: false }) => {
     if (!dateString) return "-";
     const date = new Date(dateString);
@@ -435,6 +465,39 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
     signature &&
     (signature.startsWith("data:image/png;base64,") ||
       signature.startsWith("data:image/jpeg;base64,"));
+
+  // Debug logging for signature
+  console.log("=== PDF Signature Debug ===");
+  console.log("Invoice object keys:", Object.keys(invoice || {}));
+  console.log("invoice?.profileSignature:", invoice?.profileSignature);
+  console.log("invoice?.profileSignature type:", typeof invoice?.profileSignature);
+  console.log("invoice?.profileSignature length:", invoice?.profileSignature?.length);
+  console.log("invoice?.dellcubeSignature:", invoice?.dellcubeSignature ? `${invoice.dellcubeSignature.substring(0, 50)}...` : invoice?.dellcubeSignature);
+  console.log("invoice?.dellcubeSignature type:", typeof invoice?.dellcubeSignature);
+  console.log("invoice?.dellcubeSignature length:", invoice?.dellcubeSignature?.length);
+
+  // profileSignature and dellcubeSignature are base64 strings, not objects
+  const companySignatureSource =
+    invoice?.profileSignature ||
+    invoice?.dellcubeSignature ||
+    "";
+
+  console.log("companySignatureSource:", companySignatureSource ? `${companySignatureSource.substring(0, 50)}...` : companySignatureSource);
+  console.log("companySignatureSource type:", typeof companySignatureSource);
+  console.log("companySignatureSource length:", companySignatureSource?.length);
+
+  // Check if signature is valid (base64 data URI or valid URL)
+  const hasCompanySignature =
+    typeof companySignatureSource === "string" &&
+    companySignatureSource.length > 0 &&
+    (companySignatureSource.startsWith("data:image/") ||
+      (companySignatureSource.startsWith("http://") ||
+        companySignatureSource.startsWith("https://")));
+
+  console.log("hasCompanySignature:", hasCompanySignature);
+  console.log("Starts with data:image/:", companySignatureSource?.startsWith("data:image/"));
+  console.log("Starts with http:", companySignatureSource?.startsWith("http://") || companySignatureSource?.startsWith("https://"));
+  console.log("=== End PDF Signature Debug ===");
 
   const renderCurrency = (value) =>
     value ? `₹${parseFloat(value).toFixed(2)}` : "-";
@@ -688,10 +751,7 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
                 <Text style={styles.fieldLabel}>TRANSPORT MODE:</Text>
                 <FieldInputView value={invoice?.transportMode?.name || "-"} />
               </View>
-              <View style={[styles.tableCell, { width: "15%" }]}>
-                <Text style={styles.fieldLabel}>STATUS:</Text>
-                <FieldInputView value={invoice?.status || "-"} />
-              </View>
+              
               <View
                 style={[
                   styles.tableCell,
@@ -811,6 +871,18 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
             {invoice?.company?.name?.toUpperCase() ||
               "DELLCUBE INTEGRATED SOLUTIONS PVT. LTD."}
           </Text>
+          <View style={styles.companySignatureBox}>
+            {hasCompanySignature ? (
+              <Image
+                src={companySignatureSource}
+                style={styles.companySignatureImg}
+              />
+            ) : (
+              <Text style={{ fontSize: 6, color: "#555" }}>
+                Signature Not Available
+              </Text>
+            )}
+          </View>
           <Text style={styles.authSignatory}>Authorized Signatory</Text>
         </View>
       </View>

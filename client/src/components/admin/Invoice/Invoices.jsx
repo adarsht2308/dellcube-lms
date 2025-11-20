@@ -17,6 +17,8 @@ import {
   Download,
   MoreVertical,
   X,
+  Plus,
+  Eye,
 } from "lucide-react";
 import {
   Package,
@@ -41,10 +43,11 @@ import {
   useGetInvoicePdfMutation,
   useExportInvoicesCSVMutation,
   useCreateReservedDocketsMutation,
+  useUpdateInvoiceMutation,
 } from "@/features/api/Invoice/invoiceApi.js";
 import { useGetAllCompaniesQuery } from "@/features/api/Company/companyApi.js";
 import { useGetBranchesByCompanyMutation } from "@/features/api/Branch/branchApi.js";
-import { useGetAllCustomersQuery } from "@/features/api/Customer/customerApi.js";
+import { useGetAllCustomersQuery, useGetCustomerByIdMutation } from "@/features/api/Customer/customerApi.js";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -85,6 +88,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -93,6 +97,7 @@ import InvoicePDFDocument from "./InvoicePDFDocument";
 import logoUrl from "/images/dellcube_logo-og.png";
 import { imageUrlToBase64 } from "@/utils/imageUrlToBase64.js";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 // Adjust path as needed
 
@@ -257,6 +262,16 @@ const Invoices = () => {
   const { data: companiesData } = useGetAllCompaniesQuery({ status: "active" });
   const [branchOptions, setBranchOptions] = useState([]);
 
+  const [misModalOpen, setMisModalOpen] = useState(false);
+  const [misViewModalOpen, setMisViewModalOpen] = useState(false);
+  const [selectedInvoiceForMis, setSelectedInvoiceForMis] = useState(null);
+  const [selectedInvoiceForView, setSelectedInvoiceForView] = useState(null);
+  const [misFields, setMisFields] = useState([]);
+  const [viewMisFields, setViewMisFields] = useState([]);
+  const [misData, setMisData] = useState({});
+  const [getCustomerById] = useGetCustomerByIdMutation();
+  const [updateInvoice, { isLoading: isUpdatingMis }] = useUpdateInvoiceMutation();
+
   // Function to check if invoice can be edited (within 24 hours, superadmin bypass)
   const canEditInvoice = (invoice) => {
     if (!invoice?.createdAt) return false;
@@ -267,6 +282,78 @@ const Invoices = () => {
     const now = new Date();
     const hoursDiff = (now - createdAt) / (1000 * 60 * 60);
     return hoursDiff <= 24;
+  };
+
+  const handleOpenMisModal = async (invoice) => {
+    setSelectedInvoiceForMis(invoice);
+    setMisModalOpen(true);
+    setMisData(invoice.misData || {});
+
+    if (invoice.customer?._id) {
+      try {
+        const result = await getCustomerById(invoice.customer._id).unwrap();
+        if (result?.success && result?.customer?.misFields) {
+          const sortedFields = [...result.customer.misFields].sort(
+            (a, b) => (a.order || 0) - (b.order || 0)
+          );
+          setMisFields(sortedFields);
+        } else {
+          setMisFields([]);
+        }
+      } catch (error) {
+        console.error("Error fetching MIS fields:", error);
+        toast.error("Failed to load MIS fields");
+        setMisFields([]);
+      }
+    } else {
+      setMisFields([]);
+    }
+  };
+
+  const handleSaveMisData = async () => {
+    if (!selectedInvoiceForMis) return;
+
+    try {
+      const result = await updateInvoice({
+        invoiceId: selectedInvoiceForMis._id,
+        misData: misData,
+      }).unwrap();
+
+      if (result.success) {
+        toast.success("MIS data saved successfully");
+        setMisModalOpen(false);
+        setSelectedInvoiceForMis(null);
+        setMisData({});
+        refetch();
+      }
+    } catch (error) {
+      toast.error(error?.data?.message || "Failed to save MIS data");
+    }
+  };
+
+  const handleViewMisData = async (invoice) => {
+    setSelectedInvoiceForView(invoice);
+    setMisViewModalOpen(true);
+
+    if (invoice.customer?._id) {
+      try {
+        const result = await getCustomerById(invoice.customer._id).unwrap();
+        if (result?.success && result?.customer?.misFields) {
+          const sortedFields = [...result.customer.misFields].sort(
+            (a, b) => (a.order || 0) - (b.order || 0)
+          );
+          setViewMisFields(sortedFields);
+        } else {
+          setViewMisFields([]);
+        }
+      } catch (error) {
+        console.error("Error fetching MIS fields:", error);
+        toast.error("Failed to load MIS fields");
+        setViewMisFields([]);
+      }
+    } else {
+      setViewMisFields([]);
+    }
   };
 
   // Watch for company change in reservedForm (for superAdmin/operation)
@@ -307,8 +394,13 @@ const Invoices = () => {
   if (isBranchAdmin || branchId)
     filters.branchId = isBranchAdmin ? user?.branch?._id : branchId;
   // If vendor, force assigned customer's invoices
-  if (isVendor && user?.assignedClient?._id) {
-    filters.customerId = user.assignedClient._id;
+  // If vendor has assigned clients, filter by them
+  if (isVendor && user?.assignedClients?.length > 0) {
+    // For now, if multiple clients, we'll show all of them
+    // The backend will handle the filtering
+    if (user.assignedClients.length === 1) {
+      filters.customerId = user.assignedClients[0]._id || user.assignedClients[0];
+    }
   } else if (customerId) {
     filters.customerId = customerId;
   }
@@ -359,6 +451,112 @@ const Invoices = () => {
   const handleView = (invoice) => {
     setSelectedInvoice(invoice);
     setOpenDrawer(true);
+  };
+
+  // Convert AVIF or other unsupported formats to PNG for PDF compatibility
+  const convertImageToPNG = (base64String) => {
+    return new Promise((resolve) => {
+      try {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0);
+          const pngBase64 = canvas.toDataURL("image/png");
+          resolve(pngBase64);
+        };
+        img.onerror = () => {
+          console.warn("Failed to convert image to PNG, returning original");
+          resolve(base64String); // Return original if conversion fails
+        };
+        img.src = base64String;
+      } catch (error) {
+        console.error("Error converting image to PNG:", error);
+        resolve(base64String); // Return original if conversion fails
+      }
+    });
+  };
+
+  const ensureCompanySignature = async (invoiceObj) => {
+    if (!invoiceObj) return;
+
+    const isBase64Signature = (value) =>
+      typeof value === "string" && value.startsWith("data:image/");
+
+    const isAVIF = (value) =>
+      typeof value === "string" && value.startsWith("data:image/avif");
+
+    const applySignatureValue = async (value) => {
+      // Convert AVIF to PNG if needed (PDF library doesn't support AVIF)
+      if (isAVIF(value)) {
+        console.log("Converting AVIF signature to PNG for PDF compatibility");
+        const pngValue = await convertImageToPNG(value);
+        if (pngValue && pngValue.startsWith("data:image/png")) {
+          invoiceObj.dellcubeSignature = pngValue;
+          invoiceObj.profileSignature = pngValue;
+          console.log("Successfully converted AVIF to PNG");
+        } else {
+          console.warn("AVIF to PNG conversion failed, using original");
+          invoiceObj.dellcubeSignature = value;
+          invoiceObj.profileSignature = value;
+        }
+      } else {
+        invoiceObj.dellcubeSignature = value;
+        invoiceObj.profileSignature = value;
+      }
+    };
+
+    try {
+      // First, check if invoice already has a signature
+      if (invoiceObj.dellcubeSignature && invoiceObj.dellcubeSignature.trim() !== "") {
+        if (isBase64Signature(invoiceObj.dellcubeSignature)) {
+          // Already base64, convert AVIF to PNG if needed
+          await applySignatureValue(invoiceObj.dellcubeSignature);
+          console.log("Using existing base64 signature from invoice");
+          return;
+        } else {
+          // It's a URL, convert to base64
+          console.log("Converting existing signature URL to base64:", invoiceObj.dellcubeSignature);
+          const converted = await imageUrlToBase64(invoiceObj.dellcubeSignature);
+          if (converted && converted !== null) {
+            await applySignatureValue(converted);
+            console.log("Successfully converted existing signature URL to base64");
+            return;
+          } else {
+            console.warn("Failed to convert existing signature URL to base64, will try user profile");
+            // Fall through to try user profile
+          }
+        }
+      }
+
+      // If no signature in invoice, try to get from current user's profile
+      const profileSignatureUrl = user?.signature?.url;
+      if (profileSignatureUrl) {
+        console.log("Fetching signature from user profile:", profileSignatureUrl);
+        try {
+          const converted = await imageUrlToBase64(profileSignatureUrl);
+          if (converted && converted !== null) {
+            await applySignatureValue(converted);
+            console.log("Successfully converted user profile signature to base64");
+          } else {
+            console.warn("Failed to convert user profile signature to base64 - got null or empty");
+          }
+        } catch (error) {
+          console.error("Error converting user profile signature:", error);
+        }
+      } else {
+        console.warn("No signature found in user profile:", {
+          hasUser: !!user,
+          hasSignature: !!user?.signature,
+          signatureUrl: user?.signature?.url,
+          fullUser: user,
+        });
+      }
+    } catch (error) {
+      console.error("Unable to prepare company signature for PDF:", error);
+    }
   };
 
   const currentPage = page;
@@ -449,6 +647,14 @@ const Invoices = () => {
       }
     }
 
+    await ensureCompanySignature(processedInvoice);
+
+    // Debug: Check if signature was set
+    console.log("=== After ensureCompanySignature (View PDF) ===");
+    console.log("processedInvoice.dellcubeSignature:", processedInvoice.dellcubeSignature ? `${processedInvoice.dellcubeSignature.substring(0, 50)}...` : processedInvoice.dellcubeSignature);
+    console.log("processedInvoice.profileSignature:", processedInvoice.profileSignature ? `${processedInvoice.profileSignature.substring(0, 50)}...` : processedInvoice.profileSignature);
+    console.log("=== End After ensureCompanySignature ===");
+
     setInvoiceForPdf(processedInvoice);
     setPdfDialogOpen(true);
     // Add a small delay to ensure the PDF viewer has the data before the drawer closes.
@@ -512,7 +718,9 @@ const Invoices = () => {
       if (processedInvoice.deliveryProof?.signature) {
         try {
           // Check if signature is already a valid base64 string
-          if (processedInvoice.deliveryProof.signature.startsWith('data:image/')) {
+          if (
+            processedInvoice.deliveryProof.signature.startsWith("data:image/")
+          ) {
             // Already in base64 format, no conversion needed
             console.log("Signature is already in base64 format for download");
           } else {
@@ -537,6 +745,14 @@ const Invoices = () => {
           delete processedInvoice.deliveryProof.signature;
         }
       }
+
+      await ensureCompanySignature(processedInvoice);
+
+      // Debug: Check if signature was set
+      console.log("=== After ensureCompanySignature (Download PDF) ===");
+      console.log("processedInvoice.dellcubeSignature:", processedInvoice.dellcubeSignature ? `${processedInvoice.dellcubeSignature.substring(0, 50)}...` : processedInvoice.dellcubeSignature);
+      console.log("processedInvoice.profileSignature:", processedInvoice.profileSignature ? `${processedInvoice.profileSignature.substring(0, 50)}...` : processedInvoice.profileSignature);
+      console.log("=== End After ensureCompanySignature ===");
 
       const doc = (
         <InvoicePDFDocument
@@ -808,7 +1024,7 @@ const Invoices = () => {
         <div className="mb-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white/80 dark:bg-gray-800/80 rounded-2xl shadow-sm px-6 py-5 border border-gray-100 dark:border-gray-800">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight mb-2 md:mb-0">
-              Invoices
+             All Dockets
             </h1>
             <div className="flex flex-wrap gap-2 md:gap-3 items-center justify-end">
               <Button
@@ -828,7 +1044,7 @@ const Invoices = () => {
                 onClick={() => navigate("/admin/create-invoice")}
                 className="rounded-full px-5 py-2 flex items-center gap-2 text-base bg-[#FFD249] text-[#202020] hover:bg-[#FFD249]/80 hover:text-[#202020] shadow-sm border border-[#FFD249] dark:bg-[#FFD249] dark:text-[#202020] dark:hover:bg-[#FFD249]/80"
               >
-                + Add Invoice
+                + Add Docket
               </Button>
               <Button
                 className="rounded-full p-2 bg-[#FFD249]/20 text-[#202020] hover:bg-[#FFD249]/40 hover:text-[#202020] border border-[#FFD249] shadow-sm dark:bg-[#202020] dark:text-[#FFD249] dark:hover:bg-[#FFD249]/10 dark:border-[#FFD249]"
@@ -956,7 +1172,7 @@ const Invoices = () => {
             <div className="mb-6 flex items-center gap-2 border-b pb-4 border-gray-200 dark:border-gray-700">
               <SlidersHorizontal className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               <h2 className="text-xl font-bold text-gray-800 dark:text-white tracking-tight">
-                Filter Invoices
+                Filter Dockets
               </h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -1365,6 +1581,32 @@ const Invoices = () => {
                           <Download className="h-4 w-4" />
                         </Button>
                       )}
+
+                      {inv.status === "Delivered" && (
+                        <>
+                          {inv.misData && Object.keys(inv.misData).length > 0 ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewMisData(inv)}
+                              className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 rounded-full p-2 border border-blue-200/40 hover:bg-blue-100/20"
+                              title="View MIS Data"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleOpenMisModal(inv)}
+                              className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 rounded-full p-2 border border-green-200/40 hover:bg-green-100/20"
+                              title="Enter MIS Data"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -1374,7 +1616,7 @@ const Invoices = () => {
                     <div className="flex flex-col items-center gap-2">
                       <FileText className="w-10 h-10 text-[#FFD249] mb-2" />
                       <span className="text-lg text-[#828083]">
-                        No invoices found.
+                        No Docket found.
                       </span>
                     </div>
                   </td>
@@ -1984,7 +2226,7 @@ const Invoices = () => {
             <div className="flex justify-center items-center h-64">
               <div className="text-center">
                 <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-2" />
-                <p className="text-gray-500">Loading invoice details...</p>
+                <p className="text-gray-500">Loading Docket details...</p>
               </div>
             </div>
           )}
@@ -2007,7 +2249,7 @@ const Invoices = () => {
                 <div className="p-1 bg-white/20 rounded-lg group-hover:bg-white/30 transition-colors">
                   <EyeIcon className="w-5 h-5" />
                 </div>
-                <span className="text-base">View PDF Invoice</span>
+                <span className="text-base">View PDF Docket</span>
                 <div className="ml-auto opacity-70 group-hover:opacity-100 transition-opacity">
                   →
                 </div>
@@ -2314,6 +2556,220 @@ const Invoices = () => {
                 {isCreatingReserved ? "Creating..." : "Create Reserved Dockets"}
               </Button>
             </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* MIS Data Entry Modal */}
+        <Dialog open={misModalOpen} onOpenChange={setMisModalOpen}>
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader className="pb-3">
+              <DialogTitle className="text-lg font-semibold text-[#202020] dark:text-[#FFD249]">
+                Enter MIS Data
+              </DialogTitle>
+              {selectedInvoiceForMis?.customer?.name && (
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  Customer: <span className="font-medium">{selectedInvoiceForMis.customer.name}</span>
+                </p>
+              )}
+            </DialogHeader>
+
+            <div className="space-y-3 py-2">
+              {misFields.length === 0 ? (
+                <div className="text-center py-6 text-gray-500 dark:text-gray-400">
+                  <p className="text-sm">No MIS fields configured for this customer.</p>
+                  <p className="text-xs mt-1">
+                    Please add MIS fields in the customer update page first.
+                  </p>
+                </div>
+              ) : (
+                misFields.map((field) => (
+                  <div key={field._id} className="space-y-1.5">
+                    <Label className="text-xs font-medium">
+                      {field.fieldLabel}
+                      {field.isRequired && <span className="text-red-500 ml-1">*</span>}
+                    </Label>
+                    {field.fieldType === "text" && (
+                      <Input
+                        value={misData[field.fieldName] || ""}
+                        onChange={(e) =>
+                          setMisData({ ...misData, [field.fieldName]: e.target.value })
+                        }
+                        placeholder={`Enter ${field.fieldLabel.toLowerCase()}`}
+                        required={field.isRequired}
+                        className="h-9 text-sm"
+                      />
+                    )}
+                    {field.fieldType === "number" && (
+                      <Input
+                        type="number"
+                        value={misData[field.fieldName] || ""}
+                        onChange={(e) =>
+                          setMisData({ ...misData, [field.fieldName]: e.target.value })
+                        }
+                        placeholder={`Enter ${field.fieldLabel.toLowerCase()}`}
+                        required={field.isRequired}
+                        className="h-9 text-sm"
+                      />
+                    )}
+                    {field.fieldType === "date" && (
+                      <Input
+                        type="date"
+                        value={misData[field.fieldName] || ""}
+                        onChange={(e) =>
+                          setMisData({ ...misData, [field.fieldName]: e.target.value })
+                        }
+                        required={field.isRequired}
+                        className="h-9 text-sm"
+                      />
+                    )}
+                    {field.fieldType === "textarea" && (
+                      <Textarea
+                        value={misData[field.fieldName] || ""}
+                        onChange={(e) =>
+                          setMisData({ ...misData, [field.fieldName]: e.target.value })
+                        }
+                        placeholder={`Enter ${field.fieldLabel.toLowerCase()}`}
+                        required={field.isRequired}
+                        rows={2}
+                        className="text-sm"
+                      />
+                    )}
+                    {field.fieldType === "dropdown" && (
+                      <Select
+                        value={misData[field.fieldName] || ""}
+                        onValueChange={(value) =>
+                          setMisData({ ...misData, [field.fieldName]: value })
+                        }
+                        required={field.isRequired}
+                      >
+                        <SelectTrigger className="h-9 text-sm">
+                          <SelectValue placeholder={`Select ${field.fieldLabel.toLowerCase()}`} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {field.options?.map((option, idx) => (
+                            <SelectItem key={idx} value={option}>
+                              {option}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+            <DialogFooter className="pt-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setMisModalOpen(false);
+                  setSelectedInvoiceForMis(null);
+                  setMisData({});
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveMisData}
+                disabled={isUpdatingMis || misFields.length === 0}
+                size="sm"
+                className="bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020]"
+              >
+                {isUpdatingMis ? (
+                  <>
+                    <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* MIS Data View Modal */}
+        <Dialog open={misViewModalOpen} onOpenChange={setMisViewModalOpen}>
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader className="pb-3">
+              <DialogTitle className="text-lg font-semibold text-[#202020] dark:text-[#FFD249]">
+                MIS Data
+              </DialogTitle>
+              {selectedInvoiceForView?.customer?.name && (
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  Customer: <span className="font-medium">{selectedInvoiceForView.customer.name}</span>
+                  {" • "}
+                  Docket: <span className="font-medium">{selectedInvoiceForView.docketNumber}</span>
+                </p>
+              )}
+            </DialogHeader>
+
+            <div className="space-y-3 py-2">
+              {viewMisFields.length === 0 ? (
+                <div className="text-center py-6 text-gray-500 dark:text-gray-400">
+                  <p className="text-sm">No MIS fields configured for this customer.</p>
+                </div>
+              ) : !selectedInvoiceForView?.misData || Object.keys(selectedInvoiceForView.misData).length === 0 ? (
+                <div className="text-center py-6 text-gray-500 dark:text-gray-400">
+                  <p className="text-sm">No MIS data entered yet.</p>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setMisViewModalOpen(false);
+                      handleOpenMisModal(selectedInvoiceForView);
+                    }}
+                    className="mt-3 bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020]"
+                  >
+                    <Plus className="w-3 h-3 mr-2" />
+                    Add MIS Data
+                  </Button>
+                </div>
+              ) : (
+                viewMisFields.map((field) => {
+                  const value = selectedInvoiceForView?.misData?.[field.fieldName];
+                  return (
+                    <div key={field._id} className="space-y-1.5">
+                      <Label className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                        {field.fieldLabel}
+                      </Label>
+                      <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
+                        <p className="text-sm text-gray-900 dark:text-gray-100">
+                          {value || <span className="text-gray-400 italic">Not provided</span>}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <DialogFooter className="pt-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setMisViewModalOpen(false);
+                  setSelectedInvoiceForView(null);
+                }}
+              >
+                Close
+              </Button>
+              {selectedInvoiceForView?.misData && Object.keys(selectedInvoiceForView.misData).length > 0 && (
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setMisViewModalOpen(false);
+                    handleOpenMisModal(selectedInvoiceForView);
+                  }}
+                  className="bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020]"
+                >
+                  <MdOutlineEdit className="w-3 h-3 mr-2" />
+                  Edit
+                </Button>
+              )}
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>

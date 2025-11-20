@@ -9,7 +9,6 @@ export const vehicleApi = createApi({
     baseUrl: VEHICLE_API,
     credentials: "include",
     prepareHeaders: (headers, { getState, endpoint }) => {
-      // Log headers for debugging
       console.log("=== RTK Query Headers ===");
       console.log("endpoint:", endpoint);
       console.log("headers:", headers);
@@ -18,7 +17,6 @@ export const vehicleApi = createApi({
   }),
   tagTypes: ["Vehicle"],
   endpoints: (builder) => ({
-    // Create a new vehicle
     createVehicle: builder.mutation({
       query: (payload) => ({
         url: "create",
@@ -28,7 +26,6 @@ export const vehicleApi = createApi({
       invalidatesTags: ["Vehicle"],
     }),
 
-    // Get all vehicles with pagination, search, filters
     getAllVehicles: builder.query({
       query: ({
         page = 1,
@@ -45,7 +42,6 @@ export const vehicleApi = createApi({
       providesTags: ["Vehicle"],
     }),
 
-    // Get single vehicle by ID
     getVehicleById: builder.mutation({
       query: (vehicleId) => ({
         url: "view",
@@ -55,18 +51,15 @@ export const vehicleApi = createApi({
       providesTags: ["Vehicle"],
     }),
 
-    // Update vehicle
     updateVehicle: builder.mutation({
       query: (payload) => ({
         url: "update",
         method: "PUT",
         body: payload,
-        // Let fetchBaseQuery set the Content-Type automatically for FormData
       }),
       invalidatesTags: ["Vehicle"],
     }),
 
-    // Delete vehicle
     deleteVehicle: builder.mutation({
       query: (vehicleId) => ({
         url: "delete",
@@ -78,14 +71,12 @@ export const vehicleApi = createApi({
 
     addMaintenance: builder.mutation({
       query: (payload) => {
-        // Check if payload is FormData (for file uploads)
         const isFormData = payload instanceof FormData;
         
         return {
           url: "vehicle/maintenance",
           method: "PUT",
           body: payload,
-          // Don't set Content-Type for FormData, let the browser set it with boundary
           ...(isFormData ? {} : { headers: { 'Content-Type': 'application/json' } }),
         };
       },

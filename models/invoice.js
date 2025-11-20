@@ -190,6 +190,10 @@ const invoiceSchema = new mongoose.Schema(
     invoiceNumber: { type: String, trim: true },
     invoiceBill: { type: String, trim: true },
     ewayBillNo: { type: String, trim: true },
+    misData: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
   },
   { timestamps: true }
 );

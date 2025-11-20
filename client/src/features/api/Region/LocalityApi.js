@@ -1,7 +1,6 @@
 import { BASE_URL } from "@/utils/BaseUrl";
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
-// const LOCALITY_API = "https://dellcube-lms.onrender.com/api/region/localities";
 const LOCALITY_API =  `${BASE_URL}/region/localities`;
 
 export const localityApi = createApi({
@@ -21,7 +20,6 @@ export const localityApi = createApi({
       invalidatesTags: ["Locality"],
     }),
 
-    // Get all localities (paginated + search)
     getAllLocalities: builder.query({
       query: ({ page = 1, limit = "", search = "" }) => ({
         url: "/all",
@@ -31,7 +29,6 @@ export const localityApi = createApi({
       providesTags: ["Locality"],
     }),
 
-    // Get locality by ID
     getLocalityById: builder.mutation({
       query: (localityId) => ({
         url: "/view",
@@ -41,7 +38,6 @@ export const localityApi = createApi({
       providesTags: ["Locality"],
     }),
 
-    // Update locality
     updateLocality: builder.mutation({
       query: (inputData) => ({
         url: "/update",
@@ -51,7 +47,6 @@ export const localityApi = createApi({
       invalidatesTags: ["Locality"],
     }),
 
-    // Delete locality
     deleteLocality: builder.mutation({
       query: (id) => ({
         url: "/delete",

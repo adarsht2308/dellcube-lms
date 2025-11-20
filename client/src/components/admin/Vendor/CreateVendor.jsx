@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 
 import { useCreateVendorMutation } from "@/features/api/Vendor/vendorApi";
 import { useGetAllCompaniesQuery } from "@/features/api/Company/companyApi";
@@ -51,10 +52,12 @@ const CreateVendor = () => {
     status: "active",
     company: "",
     branch: "",
-    assignedClient: "",
+    assignedClients: [],
     password: "",
     confirmPassword: "",
   });
+  const [signatureFile, setSignatureFile] = useState(null);
+  const [signaturePreview, setSignaturePreview] = useState("");
 
   const [branches, setBranches] = useState([]);
   const { data: companies = [] } = useGetAllCompaniesQuery({ status: "true" });
@@ -128,14 +131,10 @@ const CreateVendor = () => {
       assignedClient,
       password,
       confirmPassword,
+      panNumber,
     } = vendorFormData;
 
     // Detailed validation with specific error messages
-    if (!name?.trim()) {
-      toast.error("Vendor Name is required");
-      return;
-    }
-
     if (!email?.trim()) {
       toast.error("Email is required");
       return;
@@ -169,8 +168,13 @@ const CreateVendor = () => {
       return;
     }
 
-    if (!assignedClient) {
-      toast.error("Assigned Client is required");
+    if (!panNumber?.trim()) {
+      toast.error("PAN Number is required");
+      return;
+    }
+
+    if (!vendorFormData.assignedClients || vendorFormData.assignedClients.length === 0) {
+      toast.error("At least one customer must be assigned");
       return;
     }
 
@@ -195,11 +199,28 @@ const CreateVendor = () => {
     }
 
     try {
-      const payload = {
-        ...vendorFormData,
-        password,
-        createdBy: user?._id,
-      };
+      const payload = new FormData();
+      payload.append("name", vendorFormData.name);
+      payload.append("email", vendorFormData.email);
+      payload.append("phone", vendorFormData.phone);
+      payload.append("address", vendorFormData.address);
+      payload.append("gstNumber", vendorFormData.gstNumber);
+      payload.append("panNumber", vendorFormData.panNumber);
+      payload.append("bankName", vendorFormData.bankName);
+      payload.append("accountNumber", vendorFormData.accountNumber);
+      payload.append("ifsc", vendorFormData.ifsc);
+      payload.append("status", vendorFormData.status);
+      payload.append("company", vendorFormData.company);
+      payload.append("branch", vendorFormData.branch);
+      // Append each assigned client
+      vendorFormData.assignedClients.forEach((clientId) => {
+        payload.append("assignedClients", clientId);
+      });
+      payload.append("password", password);
+      payload.append("createdBy", user?._id || "");
+      if (signatureFile) {
+        payload.append("signature", signatureFile);
+      }
 
       const result = await createVendor(payload).unwrap();
       // Success is handled in useEffect
@@ -242,13 +263,15 @@ const CreateVendor = () => {
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                 Add a new vendor to your organization
               </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Fields marked with <span className="text-red-500">*</span> are required.
+              </p>
             </div>
           </div>
         </div>
 
         {/* Form */}
         <div className="space-y-6">
-          {/* Basic Information */}
           <Card className="shadow-sm">
             <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -345,24 +368,65 @@ const CreateVendor = () => {
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="assignedClient">Assigned Client *</Label>
-                  <Select
-                    value={vendorFormData.assignedClient || undefined}
-                    onValueChange={(value) =>
-                      setVendorFormData({ ...vendorFormData, assignedClient: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a customer to assign" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(customers?.customers || []).map((customer) => (
-                        <SelectItem key={customer._id} value={customer._id}>
-                          {customer.name} - {customer.email}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="assignedClients">Assigned Customers *</Label>
+                  <div className="mt-2 border rounded-md p-4 max-h-60 overflow-y-auto bg-gray-50 dark:bg-gray-800/50">
+                    {customers?.customers && customers.customers.length > 0 ? (
+                      <div className="space-y-3">
+                        {customers.customers.map((customer) => (
+                          <div
+                            key={customer._id}
+                            className="flex items-center space-x-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+                          >
+                            <Checkbox
+                              id={`customer-${customer._id}`}
+                              checked={vendorFormData.assignedClients.includes(
+                                customer._id
+                              )}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setVendorFormData({
+                                    ...vendorFormData,
+                                    assignedClients: [
+                                      ...vendorFormData.assignedClients,
+                                      customer._id,
+                                    ],
+                                  });
+                                } else {
+                                  setVendorFormData({
+                                    ...vendorFormData,
+                                    assignedClients: vendorFormData.assignedClients.filter(
+                                      (id) => id !== customer._id
+                                    ),
+                                  });
+                                }
+                              }}
+                            />
+                            <label
+                              htmlFor={`customer-${customer._id}`}
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
+                            >
+                              {customer.name} - {customer.email}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        No customers available
+                      </p>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    Select one or more customers to assign to this vendor. The
+                    vendor will be able to create dockets for these customers
+                    only.
+                  </p>
+                  {vendorFormData.assignedClients.length > 0 && (
+                    <p className="text-xs text-[#FFD249] mt-1 font-medium">
+                      {vendorFormData.assignedClients.length} customer(s)
+                      selected
+                    </p>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="status">Status *</Label>
@@ -383,12 +447,56 @@ const CreateVendor = () => {
             </CardContent>
           </Card>
 
+        {/* Signature Upload */}
+        <Card className="shadow-sm">
+          <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <FileText className="w-5 h-5 text-[#202020]" />
+              Authorized Signature
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="space-y-3">
+              <div>
+                <Label>Upload Signature</Label>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    setSignatureFile(file || null);
+                    setSignaturePreview(file ? URL.createObjectURL(file) : "");
+                  }}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Supported formats: PNG, JPG. Recommended transparent
+                  background.
+                </p>
+                <p className="text-xs text-blue-600 mt-1">
+                  This signature will print automatically on dockets handled by
+                  this vendor.
+                </p>
+              </div>
+              {signaturePreview && (
+                <div className="border rounded-lg p-3 bg-gray-50">
+                  <Label className="text-xs text-gray-600">Preview</Label>
+                  <img
+                    src={signaturePreview}
+                    alt="Signature preview"
+                    className="mt-2 max-h-32 object-contain"
+                  />
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
           {/* Business Information */}
           <Card className="shadow-sm">
             <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <FileText className="w-5 h-5 text-[#202020]" />
-                Business Information (Optional)
+                Business Information
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-6">
@@ -404,7 +512,7 @@ const CreateVendor = () => {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="panNumber">PAN Number</Label>
+                  <Label htmlFor="panNumber">PAN Number *</Label>
                   <Input
                     id="panNumber"
                     name="panNumber"
@@ -498,7 +606,7 @@ const CreateVendor = () => {
           </Card>
 
           {/* Action Buttons */}
-          <div className="flex gap-3 justify-end sticky bottom-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg border">
+          <div className="flex gap-3 justify-end sticky bottom-4 ">
             <Button
               variant="outline"
               onClick={() => navigate("/admin/vendors")}

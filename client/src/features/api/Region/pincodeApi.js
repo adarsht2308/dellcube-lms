@@ -1,7 +1,6 @@
 import { BASE_URL } from "@/utils/BaseUrl";
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
-// const PINCODE_API = "https://dellcube-lms.onrender.com/api/region/pincodes";
 const PINCODE_API =  `${BASE_URL}/region/pincodes`;
 
 export const pincodeApi = createApi({
@@ -12,7 +11,6 @@ export const pincodeApi = createApi({
   }),
   tagTypes: ["Pincode"],
   endpoints: (builder) => ({
-    // Create a new pincode
     createPincode: builder.mutation({
       query: (inputData) => ({
         url: "/create",
@@ -22,7 +20,6 @@ export const pincodeApi = createApi({
       invalidatesTags: ["Pincode"],
     }),
 
-    // Get all pincodes (paginated + search)
     getAllPincodes: builder.query({
       query: ({ page = 1, limit = "", search = "" }) => ({
         url: "/all",
@@ -32,7 +29,6 @@ export const pincodeApi = createApi({
       providesTags: ["Pincode"],
     }),
 
-    // Get pincode by ID
     getPincodeById: builder.mutation({
       query: (id) => ({
         url: "/view",
@@ -50,7 +46,6 @@ export const pincodeApi = createApi({
       providesTags: ["Pincode"],
     }),
 
-    // Update a pincode
     updatePincode: builder.mutation({
       query: (inputData) => ({
         url: "/update",
@@ -60,7 +55,6 @@ export const pincodeApi = createApi({
       invalidatesTags: ["Pincode"],
     }),
 
-    // Delete a pincode
     deletePincode: builder.mutation({
       query: (id) => ({
         url: "/delete",

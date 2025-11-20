@@ -56,6 +56,8 @@ const CreateOperationUser = () => {
       accountHolderName: "",
     },
   });
+  const [signatureFile, setSignatureFile] = useState(null);
+  const [signaturePreview, setSignaturePreview] = useState("");
 
   const { data: companies } = useGetAllCompaniesQuery({ page: 1, limit: 100 });
   const [getBranchesByCompany, { data: branchData, isLoading: branchLoading }] =
@@ -165,7 +167,22 @@ const CreateOperationUser = () => {
       return;
     }
 
-    await createOperationUser(formData);
+    const submission = new FormData();
+    submission.append("name", formData.name);
+    submission.append("email", formData.email);
+    submission.append("password", formData.password);
+    submission.append("mobile", formData.mobile);
+    submission.append("company", formData.company);
+    submission.append("branch", formData.branch);
+    submission.append("status", String(formData.status));
+    submission.append("aadharNumber", formData.aadharNumber);
+    submission.append("panNumber", formData.panNumber);
+    submission.append("bankDetails", JSON.stringify(formData.bankDetails));
+    if (signatureFile) {
+      submission.append("signature", signatureFile);
+    }
+
+    await createOperationUser(submission);
   };
 
   useEffect(() => {
@@ -338,6 +355,50 @@ const CreateOperationUser = () => {
               </div>
             </CardContent>
           </Card>
+
+        {/* Signature Upload */}
+        <Card className="shadow-sm">
+          <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <FileText className="w-5 h-5 text-[#202020]" />
+              Authorized Signature
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="space-y-3">
+              <div>
+                <Label>Upload Signature</Label>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    setSignatureFile(file || null);
+                    setSignaturePreview(file ? URL.createObjectURL(file) : "");
+                  }}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Supported formats: PNG, JPG. Recommended transparent
+                  background.
+                </p>
+                <p className="text-xs text-blue-600 mt-1">
+                  This signature is embedded on every docket created by this
+                  user.
+                </p>
+              </div>
+              {signaturePreview && (
+                <div className="border rounded-lg p-3 bg-gray-50">
+                  <Label className="text-xs text-gray-600">Preview</Label>
+                  <img
+                    src={signaturePreview}
+                    alt="Signature preview"
+                    className="mt-2 max-h-32 object-contain"
+                  />
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
           {/* Identity Information */}
           <Card className="shadow-sm">

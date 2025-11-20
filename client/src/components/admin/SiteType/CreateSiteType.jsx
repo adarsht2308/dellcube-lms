@@ -50,7 +50,6 @@ const CreateSiteType = () => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="px-4 py-6 max-w-3xl">
-        {/* Header */}
         <div className="mb-6">
           <Button
             variant="ghost"
@@ -76,7 +75,6 @@ const CreateSiteType = () => {
         </div>
 
         <div className="space-y-6">
-          {/* Basic Information Card */}
           <Card className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
             <h3 className="text-lg font-semibold text-[#202020] dark:text-[#FFD249] mb-4 flex items-center gap-2">
               <MapPin className="w-5 h-5" />
@@ -127,8 +125,7 @@ const CreateSiteType = () => {
             </div>
           </Card>
         </div>
-
-        {/* Action Buttons */}
+                      
         <div className="flex gap-3 justify-end sticky bottom-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg border">
           <Button 
             variant="outline" 

@@ -34,7 +34,6 @@ const UpdateBranch = () => {
 
   const [getBranchById, { data: branchData, isSuccess: isBranchFetched }] =
     useGetBranchByIdMutation();
-  console.log(branchData);
   const [updateBranch, { isLoading: isUpdating, isSuccess: isUpdated, error }] =
     useUpdateBranchMutation();
 
@@ -43,7 +42,6 @@ const UpdateBranch = () => {
 
   const [getStatesByCountry, { data: stateData }] =
     useGetStatesByCountryMutation();
-  console.log(stateData);
   const [getCitiesByState, { data: cityData }] = useGetCitiesByStateMutation();
   const [getLocalitiesByCity, { data: localityData }] =
     useGetLocalitiesByCityMutation();
@@ -93,7 +91,6 @@ const UpdateBranch = () => {
         branchNo: b.branchNo || "",
       });
 
-      // Fetch dependent region data
       if (region.country) getStatesByCountry(region.country);
       if (region.state) getCitiesByState(region.state);
       if (region.city) getLocalitiesByCity(region.city);
@@ -151,7 +148,6 @@ const UpdateBranch = () => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="px-4 py-6 max-w-5xl">
-        {/* Header */}
         <div className="mb-6">
           <Button
             variant="ghost"
@@ -176,9 +172,7 @@ const UpdateBranch = () => {
           </div>
         </div>
 
-        {/* Form */}
         <div className="space-y-6">
-          {/* Basic Information */}
           <Card className="shadow-sm">
             <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -260,7 +254,6 @@ const UpdateBranch = () => {
             </CardContent>
           </Card>
 
-          {/* Tax Information */}
           <Card className="shadow-sm">
             <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -282,7 +275,6 @@ const UpdateBranch = () => {
             </CardContent>
           </Card>
 
-          {/* Action Buttons */}
           <div className="flex gap-3 justify-end sticky bottom-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg border">
             <Button 
               variant="outline" 

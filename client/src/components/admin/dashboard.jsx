@@ -76,11 +76,11 @@ const SuperAdminDashboard = () => {
       toDate,
     });
 
-  // Vendor-specific data fetching
+  // Vendor-specific data fetching - always call hooks, but skip if not vendor
   const { data: vendorInvoicesData, isLoading: loadingVendorInvoices } =
-    isVendor ? useGetVendorInvoicesQuery() : { data: null, isLoading: false };
+    useGetVendorInvoicesQuery(undefined, { skip: !isVendor });
   const { data: vendorVehiclesData, isLoading: loadingVendorVehicles } =
-    isVendor ? useGetVendorVehiclesQuery() : { data: null, isLoading: false };
+    useGetVendorVehiclesQuery(undefined, { skip: !isVendor });
 
   // Business stats calculations for the current month
   const currentInvoices = isVendor
@@ -130,7 +130,12 @@ const SuperAdminDashboard = () => {
         },
         {
           title: "Assigned Client",
-          value: user?.assignedClient?.name || "Not Assigned",
+          value:
+            user?.assignedClients?.length > 0
+              ? user.assignedClients
+                  .map((c) => c.name || c)
+                  .join(", ")
+              : "Not Assigned",
           icon: <FaUser className="text-2xl" />,
           color: "bg-orange-500",
         },
@@ -163,7 +168,11 @@ const SuperAdminDashboard = () => {
                 <p className="text-orange-100 mt-1 text-sm md:text-base">
                   {isVendor
                     ? `Manage your vehicles and view invoices for ${
-                        user?.assignedClient?.name || "your assigned client"
+                        user?.assignedClients?.length > 0
+                          ? user.assignedClients
+                              .map((c) => c.name || c)
+                              .join(", ")
+                          : "your assigned clients"
                       }`
                     : "Manage all Dellcube branches, staff, and logistics operations"}
                 </p>

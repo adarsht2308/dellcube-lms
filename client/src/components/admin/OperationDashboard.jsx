@@ -11,12 +11,10 @@ import { useGetAllDriversQuery } from "@/features/api/authApi";
 import { useGetAllVehiclesQuery } from "@/features/api/Vehicle/vehicleApi";
 import { useGetAllInvoicesQuery } from "@/features/api/Invoice/invoiceApi";
 import { useGetAllCompaniesQuery } from "@/features/api/Company/companyApi";
-import { useGetAllCustomersQuery } from "@/features/api/Customer/customerApi";
+import { useGetAllCustomersQuery } from "@/features/api/Customer/customerApi.js";
 
 const OperationDashboard = () => {
   const { user } = useSelector((store) => store.auth);
-
-  // Fetch data filtered by branch/company
   const branchId = user?.branch?._id || "";
   const companyId = user?.company?._id || "";
   const { data: driversData, isLoading: loadingDrivers } =
@@ -97,7 +95,6 @@ const OperationDashboard = () => {
             </div>
           </div>
         </div>
-        {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {stats.map((s, idx) => (
             <div
@@ -123,7 +120,6 @@ const OperationDashboard = () => {
           ))}
         </div>
 
-        {/* Shortcuts */}
         <div className="flex flex-wrap gap-4 mb-8">
           <a
             href="/admin/create-customer"
@@ -151,7 +147,6 @@ const OperationDashboard = () => {
           </a>
         </div>
 
-        {/* Latest Dockets Table */}
         <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-8">
           <div className="px-6 py-4 border-b border-gray-200 bg-blue-50">
             <div className="flex items-center justify-between">
@@ -229,7 +224,6 @@ const OperationDashboard = () => {
           </div>
         </div>
 
-        {/* Latest Vehicles Table */}
         <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-8">
           <div className="px-6 py-4 border-b border-gray-200 bg-yellow-50">
             <div className="flex items-center justify-between">
@@ -292,8 +286,7 @@ const OperationDashboard = () => {
             </table>
           </div>
         </div>
-
-        {/* Latest Drivers Table */}
+                
         <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-8">
           <div className="px-6 py-4 border-b border-gray-200 bg-green-50">
             <div className="flex items-center justify-between">

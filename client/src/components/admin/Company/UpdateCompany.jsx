@@ -205,7 +205,6 @@ const UpdateCompany = () => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="px-4 py-6 max-w-5xl">
-        {/* Header */}
         <div className="mb-6">
           <Button
             variant="ghost"
@@ -230,9 +229,7 @@ const UpdateCompany = () => {
           </div>
         </div>
 
-        {/* Form */}
         <div className="space-y-6">
-          {/* Basic Information */}
           <Card className="shadow-sm">
             <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -352,7 +349,6 @@ const UpdateCompany = () => {
             </CardContent>
           </Card>
 
-          {/* Legal & Tax Information */}
           <Card className="shadow-sm">
             <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -408,7 +404,6 @@ const UpdateCompany = () => {
             </CardContent>
           </Card>
 
-          {/* Bank Details */}
           <Card className="shadow-sm">
             <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -452,7 +447,6 @@ const UpdateCompany = () => {
             </CardContent>
           </Card>
 
-          {/* Emergency Contact */}
           <Card className="shadow-sm">
             <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -491,7 +485,6 @@ const UpdateCompany = () => {
             </CardContent>
           </Card>
 
-          {/* Action Buttons */}
           <div className="flex gap-3 justify-end sticky bottom-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg border">
             <Button 
               variant="outline" 

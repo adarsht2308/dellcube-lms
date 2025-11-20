@@ -1,7 +1,6 @@
 import { BASE_URL } from "@/utils/BaseUrl";
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
-// const COUNTRY_API = "https://dellcube-lms.onrender.com/api/region/country";
 const COUNTRY_API =  `${BASE_URL}/region/country`;
 
 export const countryApi = createApi({

@@ -11,7 +11,6 @@ export const invoiceApi = createApi({
   }),
   tagTypes: ["Invoice"],
   endpoints: (builder) => ({
-    // Create Invoice
     createInvoice: builder.mutation({
       query: (payload) => ({
         url: "/create",
@@ -21,7 +20,6 @@ export const invoiceApi = createApi({
       invalidatesTags: ["Invoice"],
     }),
 
-    // Get All Invoices with Filters & Pagination
     getAllInvoices: builder.query({
       query: ({
         page = 1,
@@ -53,7 +51,6 @@ export const invoiceApi = createApi({
       providesTags: ["Invoice"],
     }),
 
-    // View Single Invoice
     getInvoiceById: builder.mutation({
       query: (invoiceId) => ({
         url: "/view",
@@ -63,7 +60,6 @@ export const invoiceApi = createApi({
       providesTags: ["Invoice"],
     }),
 
-    // Update Invoice
     updateInvoice: builder.mutation({
       query: ({ invoiceId, ...rest }) => ({
         url: "/update",
@@ -73,7 +69,6 @@ export const invoiceApi = createApi({
       invalidatesTags: ["Invoice"],
     }),
 
-    // Delete Invoice
     deleteInvoice: builder.mutation({
       query: (invoiceId) => ({
         url: "/delete",
@@ -83,7 +78,6 @@ export const invoiceApi = createApi({
       invalidatesTags: ["Invoice"],
     }),
 
-    // Get Invoice PDF (returns blob)
     getInvoicePdf: builder.mutation({
       query: (invoiceId) => ({
         url: `/${invoiceId}/pdf`,
@@ -92,10 +86,8 @@ export const invoiceApi = createApi({
       }),
     }),
 
-    // Export Invoices as CSV (returns blob)
     exportInvoicesCSV: builder.mutation({
       query: (params) => {
-        // params: { ids, search, companyId, ... }
         return {
           url: "/export-csv",
           method: "GET",
@@ -105,7 +97,6 @@ export const invoiceApi = createApi({
       },
     }),
 
-    // Create Reserved Dockets
     createReservedDockets: builder.mutation({
       query: (payload) => ({
         url: "/reserve",

@@ -39,8 +39,7 @@ import {
 import { Loader2, EyeIcon, Truck, FileText, Calendar, CheckCircle, XCircle } from "lucide-react";
 import { Drawer } from "antd";
 import { useDebounce } from "@/hooks/Debounce";
-
-// Dellcube color theme constants
+  
 const DELLCUBE_COLORS = {
   gold: '#FFD249',
   dark: '#202020',
@@ -139,7 +138,6 @@ const TransportModes = () => {
   return (
     <section className=" min-h-screen">
       <div className="container mx-auto px-4 py-6 space-y-6">
-        {/* Header with Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-lg">
             <div className="flex items-center justify-between">
@@ -175,7 +173,6 @@ const TransportModes = () => {
             </div>
           </div>
         </div>
-        {/* Controls Section */}
         <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-lg">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="flex items-center gap-4">
@@ -219,10 +216,8 @@ const TransportModes = () => {
             </div>
           </div>
         </div>
-        {/* Transport Modes Table */}
         <div className="bg-white/80 dark:bg-gray-900/80 rounded-2xl shadow-lg overflow-x-auto border border-gray-100 dark:border-gray-800 backdrop-blur-md">
           <table className="min-w-full text-sm">
-            {/* Top thead */}
             <thead className="bg-[#FFD249]/20 dark:bg-[#FFD249]/10 text-center sticky top-0 z-10">
               <tr>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">No</th>
@@ -317,7 +312,6 @@ const TransportModes = () => {
                 ))
               )}
             </tbody>
-            {/* Bottom thead */}
             <thead className="bg-[#FFD249]/20 dark:bg-[#FFD249]/10 text-center">
               <tr>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">No</th>
@@ -333,7 +327,6 @@ const TransportModes = () => {
             Showing {data?.transportModes?.length ? (data?.page - 1) * data?.limit + 1 : 0} to {Math.min(data?.page * data?.limit, data?.total || 0)} of <span className="font-medium">{data?.total || 0}</span> entries
           </div>
         </div>
-        {/* Pagination */}
         {data?.totalPage > 1 && (
           <div className="flex justify-center">
             <Pagination>
@@ -373,7 +366,6 @@ const TransportModes = () => {
             </Pagination>
           </div>
         )}
-        {/* Drawer for viewing transport mode details remains unchanged */}
         <Drawer
           title="Transport Mode Details"
           placement="right"

@@ -56,14 +56,12 @@ import {
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
 
-// 1. Add Dellcube color theme variables for easy reuse
 const DELLCUBE_COLORS = {
   gold: "#FFD249",
   dark: "#202020",
   gray: "#828083",
 };
 
-// InfoCard and InfoRow components for Drawer, styled like Invoices.jsx
 const InfoCard = ({ icon: Icon, title, children, className = "" }) => (
   <div
     className={`group relative bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl p-6 transition-all duration-300 hover:shadow-lg hover:bg-white/80 dark:hover:bg-gray-800/80 hover:border-gray-300/50 dark:hover:border-gray-600/50 ${className}`}
@@ -109,7 +107,6 @@ const Drivers = () => {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [search, setSearch] = useState("");
-  // Update state defaults and query logic for 'all' value
   const [status, setStatus] = useState("all");
   const [companyId, setCompanyId] = useState(
     isBranchAdmin ? user?.company?._id : "all"
@@ -117,7 +114,6 @@ const Drivers = () => {
   const [branchId, setBranchId] = useState(
     isBranchAdmin ? user?.branch?._id : "all"
   );
-  // If vendor is logged in, automatically set driverType to "vendor"
   const [driverType, setDriverType] = useState(isVendor ? "vendor" : "all");
   const debouncedSearch = useDebounce(search, 500);
   const [branches, setBranches] = useState([]);
@@ -143,13 +139,11 @@ const Drivers = () => {
       : branchId === "all"
       ? ""
       : branchId,
-    // If vendor is logged in, force driverType to "vendor", otherwise use the selected driverType
     driverType: isVendor ? "vendor" : driverType === "all" ? "" : driverType,
   });
 
   const [deleteDriver] = useDeleteDriverMutation();
 
-  // Helper function to format driver type
   const formatDriverType = (driverType) => {
     if (!driverType) return "N/A";
     return driverType.charAt(0).toUpperCase() + driverType.slice(1);
@@ -233,8 +227,7 @@ const Drivers = () => {
               onClick={refetch}
             >
               <GrPowerCycle />
-            </Button>
-            {/* Limit dropdown outside filter panel, top right */}
+            </Button>   
             <Select
               value={limit.toString()}
               onValueChange={(val) => setLimit(Number(val))}
@@ -253,7 +246,6 @@ const Drivers = () => {
           </div>
         </div>
 
-        {/* Filter Section */}
         {showFilters && (
           <div className="bg-[#FFD249]/20 dark:bg-[#FFD249]/10 rounded-lg shadow mb-4 p-4 border border-[#FFD249]/40 dark:border-[#FFD249]/30">
             <div className="flex flex-wrap gap-4 items-center">
@@ -272,7 +264,6 @@ const Drivers = () => {
                   </SelectContent>
                 </Select>
               </div>
-              {/* Only show driver type filter if user is not a vendor */}
               {!isVendor && (
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -350,7 +341,6 @@ const Drivers = () => {
                   setStatus("all");
                   setCompanyId("all");
                   setBranchId("all");
-                  // Don't reset driverType if vendor is logged in
                   if (!isVendor) {
                     setDriverType("all");
                   }
@@ -361,7 +351,6 @@ const Drivers = () => {
               </Button>
             </div>
 
-            {/* Active Filters Display */}
             {(status !== "all" ||
               (driverType !== "all" && !isVendor) ||
               companyId !== "all" ||
@@ -375,13 +364,11 @@ const Drivers = () => {
                       Status: {status === "true" ? "Active" : "Inactive"}
                     </span>
                   )}
-                  {/* Show vendor driver filter if vendor is logged in */}
                   {isVendor && (
                     <span className="px-2 py-1 bg-[#FFD249]/30 text-[#202020] rounded-full text-xs">
                       Type: Vendor Driver
                     </span>
                   )}
-                  {/* Show driver type filter only if not vendor and driverType is not "all" */}
                   {!isVendor && driverType !== "all" && (
                     <span className="px-2 py-1 bg-[#FFD249]/30 text-[#202020] rounded-full text-xs">
                       Type: {formatDriverType(driverType)}
@@ -411,10 +398,8 @@ const Drivers = () => {
           </div>
         )}
 
-        {/* Drivers Table */}
         <div className="bg-white/80 dark:bg-gray-900/80 rounded-2xl shadow-lg overflow-x-auto border border-gray-100 dark:border-gray-800 backdrop-blur-md">
           <table className="min-w-full text-sm">
-            {/* Top thead */}
             <thead className="bg-[#FFD249]/20 dark:bg-[#FFD249]/10 text-center sticky top-0 z-10">
               <tr>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
@@ -570,7 +555,6 @@ const Drivers = () => {
                 </tr>
               )}
             </tbody>
-            {/* Bottom thead */}
             <thead className="bg-[#FFD249]/20 dark:bg-[#FFD249]/10 text-center">
               <tr>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">

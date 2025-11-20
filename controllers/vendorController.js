@@ -1,6 +1,7 @@
 import { User } from "../models/user.js";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
+import { v2 as cloudinary } from "cloudinary";
 
 // Controller to create a new vendor
 export const createVendor = async (req, res) => {
@@ -18,9 +19,22 @@ export const createVendor = async (req, res) => {
       bankName,
       accountNumber,
       ifsc,
-      assignedClient,
+      assignedClients,
       password,
     } = req.body;
+
+    // Handle assignedClients - can be array or single value from FormData
+    let assignedClientsArray = [];
+    if (assignedClients) {
+      assignedClientsArray = Array.isArray(assignedClients)
+        ? assignedClients
+        : [assignedClients];
+    }
+
+    const signatureFile = req.files?.signature?.[0];
+    const signaturePayload = signatureFile
+      ? { url: signatureFile.path, public_id: signatureFile.filename }
+      : null;
 
     const createdBy = req.user._id;
 
@@ -34,13 +48,13 @@ export const createVendor = async (req, res) => {
 
     // Check if vendor with this email or name already exists
     const existingVendor = await User.findOne({
-      $or: [{ email }, { name }],
+      $or: [{ email }, { phone }],
       role: "vendor",
     });
     if (existingVendor) {
       return res.status(400).json({
         success: false,
-        message: "Vendor with this email or name already exists.",
+        message: "Vendor with this email or phone already exists.",
       });
     }
 
@@ -63,9 +77,10 @@ export const createVendor = async (req, res) => {
       accountNumber,
       ifsc,
       vendorStatus: status || "active",
-      ...(assignedClient && { assignedClient }), // Only include if provided
+      assignedClients: assignedClientsArray, // Array of customer IDs
       createdAt: new Date(),
       status: true,
+      ...(signaturePayload && { signature: signaturePayload }),
     });
 
     return res.status(201).json({
@@ -114,7 +129,7 @@ export const getAllVendors = async (req, res) => {
     const vendors = await User.find(query)
       .populate("company", "name")
       .populate("branch", "name")
-      .populate("assignedClient", "name")
+      .populate("assignedClients", "name email")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -161,7 +176,7 @@ export const getVendorById = async (req, res) => {
     const vendor = await User.findOne({ _id: id, role: "vendor" })
       .populate("company", "name")
       .populate("branch", "name")
-      .populate("assignedClient", "name");
+      .populate("assignedClients", "name email");
 
     if (!vendor) {
       return res.status(404).json({
@@ -188,14 +203,42 @@ export const getVendorById = async (req, res) => {
 // Controller to update a vendor by ID
 export const updateVendor = async (req, res) => {
   try {
-    const { vendorId, ...updates } = req.body; // Expecting vendorId in body
+    // Handle FormData - multer parses all fields into req.body
+    // vendorId might be a string or array depending on how it's sent
+    let vendorId = req.body.vendorId;
+    
+    // If vendorId is an array (can happen with FormData), take the first element
+    if (Array.isArray(vendorId)) {
+      vendorId = vendorId[0];
+    }
+    
+    // Convert to string if it's an ObjectId
+    if (vendorId && typeof vendorId !== 'string') {
+      vendorId = String(vendorId);
+    }
+    
+    console.log("Update Vendor - vendorId:", vendorId);
+    console.log("Update Vendor - vendorId type:", typeof vendorId);
+    console.log("Update Vendor - req.body keys:", Object.keys(req.body));
+    console.log("Update Vendor - req.body.vendorId:", req.body.vendorId);
 
-    if (!vendorId || !mongoose.Types.ObjectId.isValid(vendorId)) {
+    if (!vendorId) {
+      return res.status(400).json({
+        success: false,
+        message: "Vendor ID is required for update",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(vendorId)) {
       return res.status(400).json({
         success: false,
         message: "Valid vendor ID is required for update",
       });
     }
+
+    // Extract updates, excluding vendorId
+    const updates = { ...req.body };
+    delete updates.vendorId;
 
     // Vendor can only update self
     if (
@@ -205,7 +248,15 @@ export const updateVendor = async (req, res) => {
       return res.status(403).json({ success: false, message: "Forbidden" });
     }
 
-    // Map front-end fields to User schema
+    const vendorDoc = await User.findOne({ _id: vendorId, role: "vendor" });
+    if (!vendorDoc) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor not found",
+      });
+    }
+
+    const signatureFile = req.files?.signature?.[0];
     const mapped = { ...updates };
     if (mapped.status) {
       mapped.vendorStatus = mapped.status;
@@ -213,6 +264,32 @@ export const updateVendor = async (req, res) => {
     }
     if (mapped.password) {
       mapped.password = await bcrypt.hash(mapped.password, 10);
+    }
+    // Handle assignedClients - FormData sends multiple values with same key as array
+    // Multer parses FormData arrays correctly, but we need to handle both cases
+    if (mapped.assignedClients !== undefined) {
+      if (Array.isArray(mapped.assignedClients)) {
+        // Filter out any empty strings
+        mapped.assignedClients = mapped.assignedClients.filter(Boolean);
+      } else if (mapped.assignedClients) {
+        // Single value case
+        mapped.assignedClients = [mapped.assignedClients].filter(Boolean);
+      } else {
+        // Empty or undefined - set to empty array
+        mapped.assignedClients = [];
+      }
+    }
+    
+    console.log("Update Vendor - assignedClients:", mapped.assignedClients);
+
+    if (signatureFile) {
+      if (vendorDoc.signature?.public_id) {
+        await cloudinary.uploader.destroy(vendorDoc.signature.public_id);
+      }
+      mapped.signature = {
+        url: signatureFile.path,
+        public_id: signatureFile.filename,
+      };
     }
 
     const updatedVendor = await User.findOneAndUpdate(
@@ -223,13 +300,6 @@ export const updateVendor = async (req, res) => {
         runValidators: true, // Run schema validators on update
       }
     );
-
-    if (!updatedVendor) {
-      return res.status(404).json({
-        success: false,
-        message: "Vendor not found",
-      });
-    }
 
     return res.status(200).json({
       success: true,
@@ -662,7 +732,7 @@ export const getVendorVehicles = async (req, res) => {
     const vendor = await User.findOne({ _id: vendorId, role: "vendor" })
       .populate("company", "name")
       .populate("branch", "name")
-      .populate("assignedClient", "name");
+      .populate("assignedClients", "name email");
 
     if (!vendor) {
       return res.status(404).json({
@@ -710,7 +780,7 @@ export const getVendorInvoices = async (req, res) => {
     const vendor = await User.findOne({
       _id: vendorId,
       role: "vendor",
-    }).populate("assignedClient", "name email");
+    }).populate("assignedClients", "name email");
 
     if (!vendor) {
       return res.status(404).json({
@@ -725,14 +795,15 @@ export const getVendorInvoices = async (req, res) => {
     // Build query to get invoices for this vendor
     let query = { vendor: vendorId };
 
-    // If vendor has an assigned client, show invoices for that client
+    // If vendor has assigned clients, show invoices for those clients
     // (even if vendor field is not set in the invoice)
-    if (vendor.assignedClient && vendor.assignedClient._id) {
-      query = { customer: vendor.assignedClient._id };
+    if (vendor.assignedClients && vendor.assignedClients.length > 0) {
+      const customerIds = vendor.assignedClients.map((client) => client._id || client);
+      query = { customer: { $in: customerIds } };
     }
 
     console.log("Vendor ID:", vendorId);
-    console.log("Vendor assigned client:", vendor.assignedClient);
+    console.log("Vendor assigned clients:", vendor.assignedClients);
     console.log("Query for invoices:", query);
 
     // First, let's check all invoices for this vendor without any filters
@@ -753,10 +824,11 @@ export const getVendorInvoices = async (req, res) => {
       }))
     );
 
-    // Check if there are any invoices for the assigned client
-    if (vendor.assignedClient && vendor.assignedClient._id) {
+    // Check if there are any invoices for the assigned clients
+    if (vendor.assignedClients && vendor.assignedClients.length > 0) {
+      const customerIds = vendor.assignedClients.map((client) => client._id || client);
       const clientInvoices = await Invoice.find({
-        customer: vendor.assignedClient._id,
+        customer: { $in: customerIds },
       })
         .populate("customer", "name email")
         .populate("vendor", "name email")
@@ -800,8 +872,8 @@ export const getVendorInvoices = async (req, res) => {
     // If no invoices found with customer filter, show all vendor invoices as fallback
     if (
       invoices.length === 0 &&
-      vendor.assignedClient &&
-      vendor.assignedClient._id
+      vendor.assignedClients &&
+      vendor.assignedClients.length > 0
     ) {
       console.log(
         "No invoices found with customer filter, showing all vendor invoices as fallback..."
@@ -862,13 +934,13 @@ export const getVendorInvoices = async (req, res) => {
       invoices: transformedInvoices,
       debug: {
         vendorId,
-        assignedClient: vendor.assignedClient,
+        assignedClients: vendor.assignedClients,
         totalInvoicesFound: transformedInvoices.length,
         queryUsed: query,
-        filteringByAssignedClient: vendor.assignedClient ? true : false,
-        queryStrategy: vendor.assignedClient ? "customer-only" : "vendor-only",
+        filteringByAssignedClients: vendor.assignedClients?.length > 0 ? true : false,
+        queryStrategy: vendor.assignedClients?.length > 0 ? "customer-only" : "vendor-only",
         usingFallbackInvoices:
-          invoices.length === 0 && vendor.assignedClient ? true : false,
+          invoices.length === 0 && vendor.assignedClients?.length > 0 ? true : false,
       },
     });
   } catch (error) {
@@ -897,16 +969,17 @@ export const testVendorInvoices = async (req, res) => {
 
     // Get vendor details
     const vendor = await User.findOne({ _id: vendorId, role: "vendor" })
-      .populate("assignedClient", "name email")
-      .select("name email assignedClient");
+      .populate("assignedClients", "name email")
+      .select("name email assignedClients");
 
     // Also check if there are any invoices at all in the database
     const totalInvoices = await Invoice.countDocuments();
     const totalVendorInvoices = await Invoice.countDocuments({
       vendor: vendorId,
     });
-    const totalCustomerInvoices = vendor.assignedClient
-      ? await Invoice.countDocuments({ customer: vendor.assignedClient._id })
+    const customerIds = vendor.assignedClients?.map((client) => client._id || client) || [];
+    const totalCustomerInvoices = customerIds.length > 0
+      ? await Invoice.countDocuments({ customer: { $in: customerIds } })
       : 0;
 
     return res.status(200).json({
@@ -916,7 +989,7 @@ export const testVendorInvoices = async (req, res) => {
         id: vendor._id,
         name: vendor.name,
         email: vendor.email,
-        assignedClient: vendor.assignedClient,
+        assignedClients: vendor.assignedClients,
       },
       allVendorInvoices: allVendorInvoices.map((inv) => ({
         id: inv._id,
@@ -931,7 +1004,7 @@ export const testVendorInvoices = async (req, res) => {
         totalInvoicesInDB: totalInvoices,
         totalVendorInvoices: totalVendorInvoices,
         totalCustomerInvoices: totalCustomerInvoices,
-        assignedClientId: vendor.assignedClient?._id,
+        assignedClientIds: customerIds,
       },
     });
   } catch (error) {
@@ -959,7 +1032,7 @@ export const getVendorProfile = async (req, res) => {
     const vendor = await User.findOne({ _id: vendorId, role: "vendor" })
       .populate("company", "name")
       .populate("branch", "name")
-      .populate("assignedClient", "name")
+      .populate("assignedClients", "name email")
       .select("-password");
 
     if (!vendor) {
@@ -996,6 +1069,14 @@ export const updateVendorProfile = async (req, res) => {
       });
     }
 
+    const vendor = await User.findOne({ _id: vendorId, role: "vendor" });
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor not found",
+      });
+    }
+
     const {
       name,
       phone,
@@ -1024,15 +1105,6 @@ export const updateVendorProfile = async (req, res) => {
 
     // Handle password update
     if (currentPassword && newPassword) {
-      // First, verify the current password
-      const vendor = await User.findOne({ _id: vendorId, role: "vendor" });
-      if (!vendor) {
-        return res.status(404).json({
-          success: false,
-          message: "Vendor not found",
-        });
-      }
-
       const isCurrentPasswordValid = await bcrypt.compare(
         currentPassword,
         vendor.password
@@ -1048,6 +1120,16 @@ export const updateVendorProfile = async (req, res) => {
       updateData.password = await bcrypt.hash(newPassword, 10);
     }
 
+    if (req.files?.signature?.[0]) {
+      if (vendor.signature?.public_id) {
+        await cloudinary.uploader.destroy(vendor.signature.public_id);
+      }
+      updateData.signature = {
+        url: req.files.signature[0].path,
+        public_id: req.files.signature[0].filename,
+      };
+    }
+
     const updatedVendor = await User.findOneAndUpdate(
       { _id: vendorId, role: "vendor" },
       updateData,
@@ -1058,7 +1140,7 @@ export const updateVendorProfile = async (req, res) => {
     )
       .populate("company", "name")
       .populate("branch", "name")
-      .populate("assignedClient", "name")
+      .populate("assignedClients", "name email")
       .select("-password");
 
     if (!updatedVendor) {

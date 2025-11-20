@@ -894,7 +894,13 @@ const Vendors = () => {
                 />
                 <InfoRow
                   label="Assigned Client"
-                  value={selectedVendor.assignedClient?.name || "Not assigned"}
+                  value={
+                    selectedVendor.assignedClients?.length > 0
+                      ? selectedVendor.assignedClients
+                          .map((c) => c.name || c)
+                          .join(", ")
+                      : "Not assigned"
+                  }
                   icon={Users}
                 />
               </InfoCard>

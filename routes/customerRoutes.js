@@ -11,6 +11,7 @@ import {
   bulkUploadConsignors,
   exportConsignees,
   exportConsignors,
+  manageMisFields,
 } from "../controllers/customerController.js";
 
 const router = express.Router();
@@ -44,5 +45,8 @@ router.get("/consignees/export/:customerId", isAuthenticated, exportConsignees);
 
 // Export Consignors
 router.get("/consignors/export/:customerId", isAuthenticated, exportConsignors);
+
+// Manage MIS Fields
+router.post("/mis-fields/manage", isAuthenticated, manageMisFields);
 
 export default router;

@@ -8,6 +8,15 @@ import { Loader2, Search, Package, MapPin, User, Truck, Calendar, FileText, Chec
 import { useLazyTrackByDocketNumberQuery } from "@/features/api/Tracking/trackingApi";
 import { toast } from "react-hot-toast";
 
+const TIMELINE_STEPS = [
+  { status: "Reserved", label: "Reserved", icon: Clock },
+  { status: "Created", label: "Created", icon: FileText },
+  { status: "Dispatched", label: "Dispatched", icon: Package },
+  { status: "In Transit", label: "In Transit", icon: Truck },
+  { status: "Arrived at Destination", label: "Arrived", icon: MapPin },
+  { status: "Delivered", label: "Delivered", icon: CheckCircle2 },
+];
+
 const TrackOrder = () => {
   const [searchParams] = useSearchParams();
   const docketFromUrl = searchParams.get("docket") || "";
@@ -24,6 +33,18 @@ const TrackOrder = () => {
   };
 
   const invoice = data?.invoice;
+  const currentStepIndex = invoice
+    ? Math.max(
+        TIMELINE_STEPS.findIndex((step) => step.status === invoice.status),
+        0
+      )
+    : 0;
+  const progressPercent =
+    TIMELINE_STEPS.length > 1
+      ? (currentStepIndex / (TIMELINE_STEPS.length - 1)) * 100
+      : 0;
+  const isExceptionStatus =
+    invoice && ["Cancelled", "Returned"].includes(invoice.status);
 
   const getStatusColor = (status) => {
     const statusColors = {
@@ -66,52 +87,52 @@ const TrackOrder = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#FFFBF0] via-white to-[#FFF9E6] dark:from-gray-900 dark:via-[#1a1a1a] dark:to-gray-900">
-      <div className="container mx-auto px-4 py-8 max-w-5xl">
+      <div className="container mx-auto px-4 py-6 md:py-8 max-w-6xl">
         {/* Header with improved styling */}
-        <div className="text-center mb-10">
-          <div className="flex items-center justify-center gap-4 mb-4">
+        <div className="text-center mb-8 md:mb-10">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-4">
             <div className="relative">
-              <div className="absolute inset-0 bg-[#FFD249] blur-xl opacity-30 animate-pulse"></div>
-              <div className="relative p-4 bg-gradient-to-br from-[#FFD249] to-[#FFC107] rounded-2xl shadow-lg">
-                <Package className="w-10 h-10 text-[#202020]" />
+              <div className="absolute inset-0 bg-[#FFD249] blur-xl opacity-30 animate-pulse hidden sm:block"></div>
+              <div className="relative p-4 bg-gradient-to-br from-[#FFD249] to-[#FFC107] rounded-2xl shadow-lg mx-auto sm:mx-0">
+                <Package className="w-9 h-9 sm:w-10 sm:h-10 text-[#202020]" />
               </div>
             </div>
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-[#202020] to-gray-700 dark:from-[#FFD249] dark:to-[#FFC107] bg-clip-text text-transparent">
+              <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-[#202020] to-gray-700 dark:from-[#FFD249] dark:to-[#FFC107] bg-clip-text text-transparent">
                 Track Your Order
               </h1>
-              <div className="h-1 w-32 bg-gradient-to-r from-[#FFD249] to-[#FFC107] rounded-full mt-2 mx-auto"></div>
+              <div className="h-1 w-24 sm:w-32 bg-gradient-to-r from-[#FFD249] to-[#FFC107] rounded-full mt-2 mx-auto sm:mx-0"></div>
             </div>
           </div>
-          <p className="text-gray-600 dark:text-gray-300 text-lg">
+          <p className="text-gray-600 dark:text-gray-300 text-base sm:text-lg px-2">
             Enter your docket number to track your shipment in real-time
           </p>
         </div>
 
         {/* Search Box with enhanced design */}
-        <Card className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-2xl mb-10 border-2 border-[#FFD249]/20 dark:border-[#FFD249]/10">
-          <div className="flex flex-col sm:flex-row gap-4">
+        <Card className="bg-white dark:bg-gray-800 rounded-2xl p-6 md:p-8 shadow-2xl mb-8 md:mb-10 border-2 border-[#FFD249]/20 dark:border-[#FFD249]/10">
+          <div className="flex flex-col lg:flex-row gap-4">
             <div className="flex-1 relative">
               <Input
                 placeholder="Enter Docket Number (e.g., DISPL-GUJ-251112-0001)"
                 value={docketNumber}
                 onChange={(e) => setDocketNumber(e.target.value)}
                 onKeyPress={(e) => e.key === "Enter" && handleTrack()}
-                className="text-lg h-14 pl-4 pr-4 border-2 border-gray-200 dark:border-gray-700 focus:border-[#FFD249] dark:focus:border-[#FFD249] rounded-xl transition-all"
+                className="text-base sm:text-lg h-12 sm:h-14 pl-4 pr-4 border-2 border-gray-200 dark:border-gray-700 focus:border-[#FFD249] dark:focus:border-[#FFD249] rounded-xl transition-all"
                 disabled={isLoading}
               />
             </div>
             <Button
               onClick={handleTrack}
               disabled={isLoading}
-              className="bg-gradient-to-r from-[#FFD249] to-[#FFC107] hover:from-[#FFC107] hover:to-[#FFD249] text-[#202020] font-semibold px-10 h-14 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+              className="bg-gradient-to-r from-[#FFD249] to-[#FFC107] hover:from-[#FFC107] hover:to-[#FFD249] text-[#202020] font-semibold px-8 sm:px-10 h-12 sm:h-14 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
             >
               {isLoading ? (
-                <Loader2 className="w-6 h-6 animate-spin" />
+                <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" />
               ) : (
                 <>
-                  <Search className="w-6 h-6 mr-2" />
-                  Track Order
+                  <Search className="w-5 h-5 sm:w-6 sm:h-6 mr-2" />
+                  <span className="text-sm sm:text-base">Track Order</span>
                 </>
               )}
             </Button>
@@ -166,7 +187,7 @@ const TrackOrder = () => {
 
               {/* Timeline with improved header */}
               <div className="border-t-2 border-[#FFD249]/30 dark:border-[#FFD249]/20 pt-8 relative">
-                <div className="flex items-center gap-3 mb-8">
+                <div className="flex items-center gap-3 mb-6 sm:mb-8">
                   <div className="p-2 bg-[#FFD249]/20 dark:bg-[#FFD249]/10 rounded-lg">
                     <Calendar className="w-5 h-5 text-[#202020] dark:text-[#FFD249]" />
                   </div>
@@ -175,152 +196,102 @@ const TrackOrder = () => {
                   </h3>
                 </div>
                 
-                {/* Progress Line Visual with theme colors */}
-                <div className="relative mb-12">
-                  {/* Horizontal progress bar background */}
-                  <div className="absolute left-0 right-0 top-6 h-2 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
-                  
-                  {/* Progress indicator with theme gradient */}
-                  {!["Cancelled", "Returned"].includes(invoice.status) && (
-                    <div 
-                      className="absolute left-0 top-6 h-2 bg-gradient-to-r from-[#FFD249] via-[#FFC107] to-[#FFD249] rounded-full transition-all duration-700 shadow-lg"
-                      style={{
-                        width: 
-                          invoice.status === "Reserved" ? "0%" :
-                          invoice.status === "Created" ? "20%" :
-                          invoice.status === "Dispatched" ? "40%" :
-                          invoice.status === "In Transit" ? "60%" :
-                          invoice.status === "Arrived at Destination" ? "80%" :
-                          invoice.status === "Delivered" ? "100%" : "0%"
-                      }}
-                    ></div>
-                  )}
-                  
-                  {/* Timeline steps with theme styling */}
-                  <div className="relative flex justify-between">
-                    {/* Reserved */}
-                    <div className="flex flex-col items-center">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center border-3 transition-all z-10 shadow-lg ${
-                        ["Reserved", "Created", "Dispatched", "In Transit", "Arrived at Destination", "Delivered"].includes(invoice.status)
-                          ? "bg-gradient-to-br from-[#FFD249] to-[#FFC107] border-[#FFD249] shadow-[#FFD249]/50"
-                          : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
-                      }`}>
-                        <Clock className={`w-6 h-6 ${
-                          ["Reserved", "Created", "Dispatched", "In Transit", "Arrived at Destination", "Delivered"].includes(invoice.status)
-                            ? "text-[#202020]"
-                            : "text-gray-400"
-                        }`} />
-                      </div>
-                      <p className="text-xs font-bold mt-3 text-center text-gray-700 dark:text-gray-300">Reserved</p>
-                      {invoice.status === "Reserved" && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{formatDate(invoice.createdAt)}</p>
-                      )}
-                    </div>
-                    
-                    {/* Created */}
-                    <div className="flex flex-col items-center">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center border-3 transition-all z-10 shadow-lg ${
-                        ["Created", "Dispatched", "In Transit", "Arrived at Destination", "Delivered"].includes(invoice.status)
-                          ? "bg-gradient-to-br from-[#FFD249] to-[#FFC107] border-[#FFD249] shadow-[#FFD249]/50"
-                          : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
-                      }`}>
-                        <FileText className={`w-6 h-6 ${
-                          ["Created", "Dispatched", "In Transit", "Arrived at Destination", "Delivered"].includes(invoice.status)
-                            ? "text-[#202020]"
-                            : "text-gray-400"
-                        }`} />
-                      </div>
-                      <p className="text-xs font-bold mt-3 text-center text-gray-700 dark:text-gray-300">Created</p>
-                      {invoice.status === "Created" && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{formatDate(invoice.createdAt)}</p>
-                      )}
-                    </div>
-                    
-                    {/* Dispatched */}
-                    <div className="flex flex-col items-center">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center border-3 transition-all z-10 shadow-lg ${
-                        ["Dispatched", "In Transit", "Arrived at Destination", "Delivered"].includes(invoice.status)
-                          ? "bg-gradient-to-br from-[#FFD249] to-[#FFC107] border-[#FFD249] shadow-[#FFD249]/50"
-                          : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
-                      }`}>
-                        <Package className={`w-6 h-6 ${
-                          ["Dispatched", "In Transit", "Arrived at Destination", "Delivered"].includes(invoice.status)
-                            ? "text-[#202020]"
-                            : "text-gray-400"
-                        }`} />
-                      </div>
-                      <p className="text-xs font-bold mt-3 text-center text-gray-700 dark:text-gray-300">Dispatched</p>
-                      {invoice.status === "Dispatched" && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{formatDate(invoice.updatedAt)}</p>
-                      )}
-                    </div>
-                    
-                    {/* In Transit */}
-                    <div className="flex flex-col items-center">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center border-3 transition-all z-10 shadow-lg ${
-                        ["In Transit", "Arrived at Destination", "Delivered"].includes(invoice.status)
-                          ? "bg-gradient-to-br from-[#FFD249] to-[#FFC107] border-[#FFD249] shadow-[#FFD249]/50"
-                          : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
-                      } ${invoice.status === "In Transit" ? "animate-pulse" : ""}`}>
-                        <Truck className={`w-6 h-6 ${
-                          ["In Transit", "Arrived at Destination", "Delivered"].includes(invoice.status)
-                            ? "text-[#202020]"
-                            : "text-gray-400"
-                        }`} />
-                      </div>
-                      <p className="text-xs font-bold mt-3 text-center text-gray-700 dark:text-gray-300">In Transit</p>
-                      {invoice.status === "In Transit" && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{formatDate(invoice.updatedAt)}</p>
-                      )}
-                    </div>
-                    
-                    {/* Arrived */}
-                    <div className="flex flex-col items-center">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center border-3 transition-all z-10 shadow-lg ${
-                        ["Arrived at Destination", "Delivered"].includes(invoice.status)
-                          ? "bg-gradient-to-br from-[#FFD249] to-[#FFC107] border-[#FFD249] shadow-[#FFD249]/50"
-                          : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
-                      } ${invoice.status === "Arrived at Destination" ? "animate-pulse" : ""}`}>
-                        <MapPin className={`w-6 h-6 ${
-                          ["Arrived at Destination", "Delivered"].includes(invoice.status)
-                            ? "text-[#202020]"
-                            : "text-gray-400"
-                        }`} />
-                      </div>
-                      <p className="text-xs font-bold mt-3 text-center text-gray-700 dark:text-gray-300">Arrived</p>
-                      {invoice.status === "Arrived at Destination" && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{formatDate(invoice.updatedAt)}</p>
-                      )}
-                    </div>
-                    
-                    {/* Delivered */}
-                    <div className="flex flex-col items-center">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center border-3 transition-all z-10 shadow-lg ${
-                        invoice.status === "Delivered"
-                          ? "bg-gradient-to-br from-[#FFD249] to-[#FFC107] border-[#FFD249] shadow-[#FFD249]/50"
-                          : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
-                      } ${invoice.status === "Delivered" ? "animate-pulse" : ""}`}>
-                        <CheckCircle2 className={`w-6 h-6 ${
-                          invoice.status === "Delivered"
-                            ? "text-[#202020]"
-                            : "text-gray-400"
-                        }`} />
-                      </div>
-                      <p className="text-xs font-bold mt-3 text-center text-gray-700 dark:text-gray-300">Delivered</p>
-                      {invoice.status === "Delivered" && invoice.deliveryProof && (
-                        <>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            {formatDate(invoice.deliveryProof.deliveredAt || invoice.updatedAt)}
-                          </p>
-                          {invoice.deliveryProof.receiverName && (
-                            <p className="text-xs font-semibold text-[#202020] dark:text-[#FFD249]">
-                              By: {invoice.deliveryProof.receiverName}
+                {/* Desktop timeline */}
+                <div className="hidden md:block">
+                  <div className="relative mb-10">
+                    <div className="absolute left-0 right-0 top-6 h-2 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+                    {!isExceptionStatus && (
+                      <div
+                        className="absolute left-0 top-6 h-2 bg-gradient-to-r from-[#FFD249] via-[#FFC107] to-[#FFD249] rounded-full transition-all duration-700 shadow-lg"
+                        style={{
+                          width: `${Math.max(
+                            0,
+                            Math.min(100, progressPercent)
+                          )}%`,
+                        }}
+                      ></div>
+                    )}
+                    <div className="relative flex justify-between">
+                      {TIMELINE_STEPS.map((step, index) => {
+                        const Icon = step.icon;
+                        const isCompleted =
+                          !isExceptionStatus && index <= currentStepIndex;
+                        return (
+                          <div
+                            key={step.status}
+                            className="flex flex-col items-center text-center px-2"
+                          >
+                            <div
+                              className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all z-10 shadow ${
+                                isCompleted
+                                  ? "bg-gradient-to-br from-[#FFD249] to-[#FFC107] border-[#FFD249]"
+                                  : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
+                              }`}
+                            >
+                              <Icon
+                                className={`w-6 h-6 ${
+                                  isCompleted
+                                    ? "text-[#202020]"
+                                    : "text-gray-400 dark:text-gray-500"
+                                }`}
+                              />
+                            </div>
+                            <p className="text-xs font-semibold mt-3 text-gray-700 dark:text-gray-300">
+                              {step.label}
                             </p>
-                          )}
-                        </>
-                      )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
+                </div>
+
+                {/* Mobile-friendly vertical timeline */}
+                <div className="flex flex-col gap-3 md:hidden">
+                  {TIMELINE_STEPS.map((step, index) => {
+                    const Icon = step.icon;
+                    const isCompleted =
+                      !isExceptionStatus && index <= currentStepIndex;
+                    return (
+                      <div
+                        key={step.status}
+                        className={`flex items-center gap-3 p-3 rounded-xl border ${
+                          isCompleted
+                            ? "border-[#FFD249]/70 bg-[#FFD249]/10"
+                            : "border-gray-200 dark:border-gray-700"
+                        }`}
+                      >
+                        <div
+                          className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                            isCompleted
+                              ? "bg-gradient-to-br from-[#FFD249] to-[#FFC107]"
+                              : "bg-gray-100 dark:bg-gray-800"
+                          }`}
+                        >
+                          <Icon
+                            className={`w-5 h-5 ${
+                              isCompleted
+                                ? "text-[#202020]"
+                                : "text-gray-400 dark:text-gray-500"
+                            }`}
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                            {step.label}
+                          </p>
+                          {index === currentStepIndex && !isExceptionStatus && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              Last update:{" "}
+                              {formatDate(
+                                invoice.updatedAt || invoice.createdAt
+                              )}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
                 
                 {/* Cancelled/Returned Status with enhanced design */}

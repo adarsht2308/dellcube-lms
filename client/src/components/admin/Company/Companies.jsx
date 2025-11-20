@@ -40,14 +40,12 @@ import { Loader2, EyeIcon, Briefcase, Building2, Mail, MapPin, Phone, Globe, Sli
 import { Drawer } from "antd";
 import { useDebounce } from "@/hooks/Debounce";
 
-// 1. Add Dellcube color theme variables for easy reuse
 const DELLCUBE_COLORS = {
   gold: '#FFD249',
   dark: '#202020',
   gray: '#828083',
 };
 
-// InfoCard and InfoRow components for Drawer, styled like Invoices.jsx
 const InfoCard = ({ icon: Icon, title, children, className = "" }) => (
   <div
     className={`group relative bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl p-6 transition-all duration-300 hover:shadow-lg hover:bg-white/80 dark:hover:bg-gray-800/80 hover:border-gray-300/50 dark:hover:border-gray-600/50 ${className}`}
@@ -179,7 +177,6 @@ const Companies = () => {
                 <ChevronDown className="w-4 h-4" />
               )}
             </Button>
-            {/* Limit dropdown outside filter panel, top right */}
             <Select value={limit.toString()} onValueChange={handleLimitChange}>
               <SelectTrigger className="w-[80px] border-gray-300 dark:border-gray-700 focus:border-[#FFD249] focus:ring-[#FFD249]">
                 <SelectValue placeholder="Limit" />
@@ -195,7 +192,6 @@ const Companies = () => {
           </div>
         </div>
 
-        {/* Filter Section */}
         {showFilters && (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-4 p-4 border border-gray-200 dark:border-gray-700">
             <div className="flex flex-wrap gap-4 items-center">
@@ -228,7 +224,6 @@ const Companies = () => {
 
         <div className="bg-white/80 dark:bg-gray-900/80 rounded-2xl shadow-lg overflow-x-auto border border-gray-100 dark:border-gray-800 backdrop-blur-md">
           <table className="min-w-full text-sm">
-            {/* Top thead */}
             <thead className="bg-[#FFD249]/20 dark:bg-[#FFD249]/10 text-center sticky top-0 z-10">
               <tr>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">No</th>
@@ -355,7 +350,6 @@ const Companies = () => {
                               <InfoRow label="Email" value={selectedCompany.emailId} icon={Mail} />
                               <InfoRow label="Website" value={selectedCompany.website || "N/A"} icon={Globe} />
                               <InfoRow label="GST Number" value={selectedCompany.gstNumber} icon={Building2} />
-                              {/* <InfoRow label="GST NO" value={selectedCompany.gstNo} icon={Building2} /> */}
                               <InfoRow label="GST Value" value={selectedCompany.gstValue} icon={Building2} />
                               <InfoRow label="PAN" value={selectedCompany.pan} icon={Building2} />
                               <InfoRow label="SAC/HSN" value={selectedCompany.sacHsnCode} icon={Building2} />
@@ -365,21 +359,14 @@ const Companies = () => {
                             </InfoCard>
                             <InfoCard icon={MapPin} title="Address & Region">
                               <InfoRow label="Address" value={selectedCompany.address} icon={MapPin} />
-                              {/* <InfoRow label="Country" value={selectedCompany?.region?.country?.name} icon={Globe} />
-                              <InfoRow label="State" value={selectedCompany?.region?.state?.name} icon={MapPin} />
-                              <InfoRow label="City" value={selectedCompany?.region?.city?.name} icon={MapPin} />
-                              <InfoRow label="Locality" value={selectedCompany?.region?.locality?.name} icon={MapPin} />
-                              <InfoRow label="Pincode" value={selectedCompany?.region?.pincode?.code} icon={MapPin} /> */}
                             </InfoCard>
 
-                            {/* Enhanced Bank Details */}
                             <InfoCard icon={Building2} title="Bank Details">
                               <InfoRow label="Bank Name" value={selectedCompany?.bankDetails?.bankName} icon={Building2} />
                               <InfoRow label="Account Number" value={selectedCompany?.bankDetails?.accountNumber} icon={Building2} />
                               <InfoRow label="IFSC Code" value={selectedCompany?.bankDetails?.ifsc} icon={Building2} />
                             </InfoCard>
 
-                            {/* Enhanced Emergency Contact */}
                             <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-100 dark:border-gray-700">
                               <div className="flex items-center gap-3 mb-6">
                                 <div className="w-10 h-10 bg-red-100 dark:bg-red-900 rounded-xl flex items-center justify-center">
@@ -405,7 +392,6 @@ const Companies = () => {
                               {selectedCompany?.emergencyContact?.name ||
                               selectedCompany?.emergencyContact?.mobile ? (
                                 <div className="grid md:grid-cols-2 gap-6 w-full overflow-x-auto">
-                                  {/* Contact Name */}
                                   <div className="p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 w-full max-w-full">
                                     <div className="flex items-center gap-3 mb-2">
                                       <svg
@@ -431,7 +417,6 @@ const Companies = () => {
                                       )}
                                     </div>
                                   </div>
-                                  {/* Contact Mobile */}
                                   <div className="p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 w-full max-w-full">
                                     <div className="flex items-center gap-3 mb-2">
                                       <svg
@@ -532,7 +517,6 @@ const Companies = () => {
                 </tr>
               )}
             </tbody>
-            {/* Bottom thead for usability */}
             <thead className="bg-[#FFD249]/20 dark:bg-[#FFD249]/10 text-center sticky bottom-0 z-10">
               <tr>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">No</th>
@@ -547,7 +531,6 @@ const Companies = () => {
             </thead>
           </table>
 
-          {/* Pagination and summary */}
           <div className="border-t border-gray-200 px-4 py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between bg-white/70 dark:bg-gray-900/70 rounded-b-2xl">
             <div className="mb-4 lg:mb-0">
               <p className="text-sm text-[#202020] dark:text-[#FFD249]">

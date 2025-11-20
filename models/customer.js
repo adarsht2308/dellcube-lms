@@ -100,6 +100,35 @@ const customerSchema = new mongoose.Schema(
       },
     ],
 
+    misFields: [
+      {
+        fieldName: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+        fieldType: {
+          type: String,
+          enum: ["text", "number", "date", "textarea", "dropdown"],
+          default: "text",
+        },
+        fieldLabel: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+        isRequired: {
+          type: Boolean,
+          default: false,
+        },
+        options: [String],
+        order: {
+          type: Number,
+          default: 0,
+        },
+      },
+    ],
+
     status: {
       type: Boolean,
       default: true,

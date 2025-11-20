@@ -11,7 +11,6 @@ export const siteTypeApi = createApi({
   }),
   tagTypes: ["SiteType"],
   endpoints: (builder) => ({
-    // Create a site type
     createSiteType: builder.mutation({
       query: (data) => ({
         url: "/create",
@@ -21,7 +20,6 @@ export const siteTypeApi = createApi({
       invalidatesTags: ["SiteType"],
     }),
 
-    // Fetch all site types with pagination/search/status
     getAllSiteTypes: builder.query({
       query: ({ page = 1, limit = "", search = "", status = "" }) => ({
         url: "/all",
@@ -31,7 +29,6 @@ export const siteTypeApi = createApi({
       providesTags: ["SiteType"],
     }),
 
-    // Get a single site type by ID
     getSiteTypeById: builder.mutation({
       query: (siteTypeId) => ({
         url: "/view",
@@ -41,7 +38,6 @@ export const siteTypeApi = createApi({
       providesTags: ["SiteType"],
     }),
 
-    // Update site type
     updateSiteType: builder.mutation({
       query: (data) => ({
         url: "/update",
@@ -51,7 +47,6 @@ export const siteTypeApi = createApi({
       invalidatesTags: ["SiteType"],
     }),
 
-    // Delete a site type by ID
     deleteSiteType: builder.mutation({
       query: (siteTypeId) => ({
         url: "/delete",

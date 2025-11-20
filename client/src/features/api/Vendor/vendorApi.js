@@ -4,90 +4,86 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 const VENDOR_API = `${BASE_URL}/vendors`;
 
 export const vendorApi = createApi({
-  reducerPath: "vendorApi", // Unique reducer path for this API slice
+  reducerPath: "vendorApi",
   baseQuery: fetchBaseQuery({
     baseUrl: VENDOR_API,
-    credentials: "include", // Ensure cookies/auth tokens are sent
+    credentials: "include",
   }),
-  // Define tag types for caching and invalidation
-  tagTypes: ["Vendor", "VendorVehicle"], // Added VendorVehicle for clarity if you manage these separately
+  tagTypes: ["Vendor", "VendorVehicle"],
 
   endpoints: (builder) => ({
-    // <--- 'builder' is defined here
-    // 1. Create a new vendor (POST /api/vendors/create)
     createVendor: builder.mutation({
       query: (payload) => ({
         url: "/create",
         method: "POST",
         body: payload,
       }),
-      invalidatesTags: ["Vendor"], // Invalidate 'Vendor' cache after creation
+      invalidatesTags: ["Vendor"],
     }),
 
-    // 2. Get all vendors (GET /api/vendors/all)
-    // This will be used to populate the initial "Select Vendor" dropdown
     getAllVendors: builder.query({
       query: ({
         page = 1,
         limit = 50,
-        search = "", // For searching by vendor name
+        search = "",
         status = "",
         companyId = "",
-        branchId = "", // For filtering by vendor status
+        branchId = "",
       } = {}) => ({
-        // Default empty object for query parameters
         url: "/all",
         method: "GET",
         params: { page, limit, search, status, companyId, branchId },
       }),
-      providesTags: ["Vendor"], // Provide 'Vendor' tag for caching
+      providesTags: ["Vendor"],
     }),
 
-    // 3. Get a single vendor by ID (POST /api/vendors/view)
     getVendorById: builder.mutation({
-      // Using mutation as per your backend's POST /view
       query: (vendorId) => ({
         url: "/view",
         method: "POST",
-        body: { id: vendorId }, // Send ID in the body
+        body: { id: vendorId },
       }),
       providesTags: ["Vendor"],
     }),
 
-    // 4. Update vendor (PUT /api/vendors/update)
     updateVendor: builder.mutation({
-      query: ({ vendorId, ...rest }) => ({
-        url: "/update",
-        method: "PUT",
-        body: { vendorId, ...rest }, // Send vendorId and other updates in the body
-      }),
-      invalidatesTags: ["Vendor"], // Invalidate 'Vendor' cache after update
+      query: (payload) => {
+        if (payload instanceof FormData) {
+          return {
+            url: "/update",
+            method: "PUT",
+            body: payload,
+          };
+        } else {
+          const { vendorId, ...rest } = payload;
+          return {
+            url: "/update",
+            method: "PUT",
+            body: { vendorId, ...rest },
+          };
+        }
+      },
+      invalidatesTags: ["Vendor"],
     }),
 
-    // 5. Delete vendor (DELETE /api/vendors/delete)
     deleteVendor: builder.mutation({
       query: (vendorId) => ({
         url: "/delete",
         method: "DELETE",
-        body: { id: vendorId }, // Send ID in the body
+        body: { id: vendorId },
       }),
-      invalidatesTags: ["Vendor"], // Invalidate 'Vendor' cache after deletion
+      invalidatesTags: ["Vendor"],
     }),
 
-    // 6. Add a vehicle to a vendor's fleet (PUT /api/vendors/vendor/vehicles)
-    // This is now correctly inside the endpoints object
     addVehicle: builder.mutation({
       query: ({ vehicle }) => {
-        // If vehicle is FormData, send it directly (vendorId should already be appended)
         if (vehicle instanceof FormData) {
           return {
             url: "/vendor/vehicles",
             method: "PUT",
             body: vehicle,
-            // Don't set Content-Type header for FormData, let the browser set it with boundary
           };
         } else {
-          // Regular JSON payload (fallback)
           return {
             url: "/vendor/vehicles",
             method: "PUT",
@@ -95,10 +91,9 @@ export const vendorApi = createApi({
           };
         }
       },
-      invalidatesTags: ["Vendor"], // Invalidate 'Vendor' cache as its vehicles array has changed
+      invalidatesTags: ["Vendor"],
     }),
 
-    // 7. Update a vehicle's status in a vendor's availableVehicles
     updateVendorVehicleStatus: builder.mutation({
       query: ({ vendorId, vehicleId, status }) => ({
         url: "/vendor/vehicle/status",
@@ -108,10 +103,8 @@ export const vendorApi = createApi({
       invalidatesTags: ["Vendor"],
     }),
 
-    // 8. Add maintenance record to a vendor vehicle
     addVendorVehicleMaintenance: builder.mutation({
       query: ({ maintenance }) => {
-        // If maintenance is FormData, send it directly (vendorId and vehicleId should already be appended)
         if (maintenance instanceof FormData) {
           return {
             url: "/vendor/vehicle/maintenance",
@@ -119,7 +112,6 @@ export const vendorApi = createApi({
             body: maintenance,
           };
         } else {
-          // Regular JSON payload (fallback)
           return {
             url: "/vendor/vehicle/maintenance",
             method: "PUT",
@@ -130,7 +122,6 @@ export const vendorApi = createApi({
       invalidatesTags: ["Vendor"],
     }),
 
-    // 9. Get vendor invoices (GET /api/vendors/my-invoices)
     getVendorInvoices: builder.query({
       query: () => ({
         url: "/my-invoices",
@@ -139,7 +130,6 @@ export const vendorApi = createApi({
       providesTags: ["Vendor"],
     }),
 
-    // 10. Get vendor vehicles (GET /api/vendors/my-vehicles)
     getVendorVehicles: builder.query({
       query: () => ({
         url: "/my-vehicles",
@@ -148,7 +138,6 @@ export const vendorApi = createApi({
       providesTags: ["Vendor"],
     }),
 
-    // 11. Get vendor profile (GET /api/vendors/my-profile)
     getVendorProfile: builder.query({
       query: () => ({
         url: "/my-profile",
@@ -157,7 +146,6 @@ export const vendorApi = createApi({
       providesTags: ["Vendor"],
     }),
 
-    // 12. Update vendor profile (PUT /api/vendors/my-profile)
     updateVendorProfile: builder.mutation({
       query: (profileData) => ({
         url: "/my-profile",
@@ -173,22 +161,21 @@ export const vendorApi = createApi({
       }),
       providesTags: ["Vendor"],
     }),
-  }), // <--- End of endpoints object
+  }),
 });
 
-// Export the hooks for use in your React components
 export const {
   useCreateVendorMutation,
   useGetAllVendorsQuery,
   useGetVendorByIdMutation,
   useUpdateVendorMutation,
   useDeleteVendorMutation,
-  useAddVehicleMutation, // Export the new hook
+  useAddVehicleMutation,
   useUpdateVendorVehicleStatusMutation,
-  useAddVendorVehicleMaintenanceMutation, // Export the new maintenance hook
-  useGetVendorInvoicesQuery, // Export the new invoices hook
-  useGetVendorVehiclesQuery, // Export the new vehicles hook
-  useGetVendorProfileQuery, // Export the new profile hook
-  useUpdateVendorProfileMutation, // Export the new profile update hook
+  useAddVendorVehicleMaintenanceMutation,
+  useGetVendorInvoicesQuery,
+  useGetVendorVehiclesQuery,
+  useGetVendorProfileQuery,
+  useUpdateVendorProfileMutation,
   useTestVendorInvoicesQuery,
 } = vendorApi;

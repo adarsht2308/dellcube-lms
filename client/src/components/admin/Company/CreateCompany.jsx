@@ -61,7 +61,6 @@ const CreateCompany = () => {
     search: "",
   });
 
-  console.log(countries);
   const [getStatesByCountry, { data: stateData }] =
     useGetStatesByCountryMutation();
   const [getCitiesByState, { data: cityData }] = useGetCitiesByStateMutation();
@@ -136,7 +135,6 @@ const CreateCompany = () => {
     if (!companyCode.trim()) return toast.error("Company code is required.");
     if (!emailId.trim()) return toast.error("Email ID is required.");
     if (!gstNumber.trim()) return toast.error("GST number is required.");
-    // if (!gstNo.trim()) return toast.error("GST NO is required.");
     if (gstValue === "") return toast.error("GST Value is required.");
     if (!pan.trim()) return toast.error("PAN is required.");
     if (!sacHsnCode.trim()) return toast.error("SAC/HSN code is required.");
@@ -209,7 +207,6 @@ const CreateCompany = () => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="px-4 py-6 max-w-5xl">
-        {/* Header */}
         <div className="mb-6">
           <Button
             variant="ghost"
@@ -234,9 +231,7 @@ const CreateCompany = () => {
           </div>
         </div>
 
-        {/* Form */}
         <div className="space-y-6">
-          {/* Basic Information */}
           <Card className="shadow-sm">
             <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -355,7 +350,6 @@ const CreateCompany = () => {
             </CardContent>
           </Card>
 
-          {/* Legal & Tax Information */}
           <Card className="shadow-sm">
             <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -416,7 +410,6 @@ const CreateCompany = () => {
             </CardContent>
           </Card>
 
-          {/* Bank Details Section */}
           <Card className="shadow-sm">
             <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
               <div className="flex items-center justify-between">
@@ -526,7 +519,6 @@ const CreateCompany = () => {
             </CardContent>
           </Card>
 
-          {/* Emergency Contact Section */}
           <Card className="shadow-sm">
             <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -563,7 +555,6 @@ const CreateCompany = () => {
             </CardContent>
           </Card>
 
-          {/* Action Buttons */}
           <div className="flex gap-3 justify-end sticky bottom-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg border">
             <Button 
               variant="outline" 

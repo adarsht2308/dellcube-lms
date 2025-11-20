@@ -120,11 +120,11 @@ const user = new mongoose.Schema(
       enum: ["active", "inactive"],
       default: "active",
     },
-    // Assign exactly one client to vendor (optional during creation)
-    assignedClient: {
-      type: mongoose.Schema.Types.ObjectId,
+    // Assign multiple clients to vendor (optional during creation)
+    assignedClients: {
+      type: [mongoose.Schema.Types.ObjectId],
       ref: "Customers",
-      required: false,
+      default: [],
     },
     // Vendor owned vehicles (embedded, mirroring previous Vendor model)
     availableVehicles: [
@@ -284,6 +284,16 @@ const user = new mongoose.Schema(
     bannerUrlPublicId: {
       type: String,
       default: "",
+    },
+    signature: {
+      url: {
+        type: String,
+        default: "",
+      },
+      public_id: {
+        type: String,
+        default: "",
+      },
     },
     status: {
       type: Boolean,
