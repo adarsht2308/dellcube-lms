@@ -245,7 +245,7 @@ const Sidebar = () => {
 
   return (
     <div className="pt-14 min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
-      <div className="flex">
+      <div className="flex w-full">
       {/* Mobile Menu Button */}
       <div className="lg:hidden fixed top-16 left-4 z-50">
         <Button
@@ -442,8 +442,8 @@ const Sidebar = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 min-h-screen bg-gradient-to-br from-gray-50 to-white lg:ml-[280px] pt-16">
-        <div className="w-full px-4 lg:px-8 ">
+      <div className="flex-1 min-h-screen w-full min-w-0 bg-gradient-to-br from-gray-50 to-white lg:ml-[280px] pt-16">
+        <div className="w-full px-4 lg:px-8">
           <Outlet />
         </div>
       </div>

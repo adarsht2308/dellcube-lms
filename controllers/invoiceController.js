@@ -80,6 +80,13 @@ export const createInvoice = async (req, res) => {
     const invoiceNumber = `${companyCode}-${branchCode}-${dateStr}-${runningCounter}`;
 
     const { vehicleNumber } = req.body;
+    const consignorSiteId =
+      req.body.siteId1 || req.body.consignorSiteId || "";
+    const consigneeSiteId =
+      req.body.siteId2 || req.body.siteId || req.body.consigneeSiteId || "";
+
+    let consignorDetailsForResponse = null;
+    let consigneeDetailsForResponse = null;
     let vehicleData = null;
     let ownerType = "";
 
@@ -114,44 +121,101 @@ export const createInvoice = async (req, res) => {
     }
 
     // Auto-create consignee/consignor if siteId provided but not found in customer
-    if (req.body.customer && (req.body.siteId || req.body.consignee || req.body.consignor)) {
+    if (
+      req.body.customer &&
+      (consigneeSiteId || req.body.consignee || req.body.consignor || consignorSiteId)
+    ) {
       try {
         const customer = await Customer.findById(req.body.customer);
         
         if (customer) {
           let customerUpdated = false;
 
-          // Auto-create consignee if siteId and consignee provided
-          if (req.body.siteId && req.body.consignee) {
-            const existingConsignee = customer.consignees.find(
-              (c) => c.siteId === req.body.siteId
+          // Auto-create/update consignee if siteId and consignee provided
+          if (consigneeSiteId && req.body.consignee) {
+            let existingConsignee = customer.consignees.find(
+              (c) => c.siteId === consigneeSiteId
             );
 
             if (!existingConsignee) {
-              customer.consignees.push({
-                siteId: req.body.siteId,
+              const newConsignee = {
+                siteId: consigneeSiteId,
                 consignee: req.body.consignee,
-                address: req.body.deliveryAddress || "",
-              });
+                address:
+                  req.body.consigneeAddress || req.body.deliveryAddress || "",
+              };
+              customer.consignees.push(newConsignee);
+              existingConsignee = newConsignee;
               customerUpdated = true;
-              console.log(`Auto-created consignee: ${req.body.consignee} (${req.body.siteId})`);
+              console.log(
+                `Auto-created consignee: ${req.body.consignee} (${consigneeSiteId})`
+              );
+            } else if (
+              !existingConsignee.address &&
+              (req.body.consigneeAddress || req.body.deliveryAddress)
+            ) {
+              existingConsignee.address =
+                req.body.consigneeAddress || req.body.deliveryAddress;
+              customerUpdated = true;
+            }
+
+            if (existingConsignee) {
+              consigneeDetailsForResponse = {
+                siteId: existingConsignee.siteId || "",
+                siteName: existingConsignee.consignee,
+                address:
+                  existingConsignee.address ||
+                  req.body.consigneeAddress ||
+                  req.body.deliveryAddress ||
+                  "",
+              };
             }
           }
 
-          // Auto-create consignor if provided and not exists
+          // Auto-create/update consignor if provided and not exists
           if (req.body.consignor) {
-            const existingConsignor = customer.consignors.find(
-              (c) => c.consignor === req.body.consignor
-            );
+            let existingConsignor = null;
+            if (consignorSiteId) {
+              existingConsignor = customer.consignors.find(
+                (c) => c.siteId === consignorSiteId
+              );
+            }
+            if (!existingConsignor) {
+              existingConsignor = customer.consignors.find(
+                (c) => c.consignor === req.body.consignor
+              );
+            }
 
             if (!existingConsignor) {
-              customer.consignors.push({
-                siteId: req.body.siteId || "",
+              const newConsignor = {
+                siteId: consignorSiteId || "",
                 consignor: req.body.consignor,
-                address: req.body.pickupAddress || "",
-              });
+                address:
+                  req.body.consignorAddress || req.body.pickupAddress || "",
+              };
+              customer.consignors.push(newConsignor);
+              existingConsignor = newConsignor;
               customerUpdated = true;
               console.log(`Auto-created consignor: ${req.body.consignor}`);
+            } else if (
+              !existingConsignor.address &&
+              (req.body.consignorAddress || req.body.pickupAddress)
+            ) {
+              existingConsignor.address =
+                req.body.consignorAddress || req.body.pickupAddress;
+              customerUpdated = true;
+            }
+
+            if (existingConsignor) {
+              consignorDetailsForResponse = {
+                siteId: existingConsignor.siteId || "",
+                siteName: existingConsignor.consignor,
+                address:
+                  existingConsignor.address ||
+                  req.body.consignorAddress ||
+                  req.body.pickupAddress ||
+                  "",
+              };
             }
           }
 
@@ -209,12 +273,65 @@ export const createInvoice = async (req, res) => {
       }
     }
 
+    if (
+      !consigneeDetailsForResponse &&
+      (consigneeSiteId || req.body.consignee || req.body.consigneeAddress)
+    ) {
+      consigneeDetailsForResponse = {
+        siteId: consigneeSiteId || "",
+        siteName: req.body.consignee || "",
+        address:
+          req.body.consigneeAddress || req.body.deliveryAddress || "",
+      };
+    }
+
+    if (
+      !consignorDetailsForResponse &&
+      (consignorSiteId || req.body.consignor || req.body.consignorAddress)
+    ) {
+      consignorDetailsForResponse = {
+        siteId: consignorSiteId || "",
+        siteName: req.body.consignor || "",
+        address:
+          req.body.consignorAddress || req.body.pickupAddress || "",
+      };
+    }
+
     const invoice = await Invoice.create(invoicePayload);
+    const invoiceData = invoice.toObject();
+    const formattedConsignor =
+      consignorDetailsForResponse && (consignorDetailsForResponse.siteName || consignorDetailsForResponse.siteId)
+        ? {
+            siteId: consignorDetailsForResponse.siteId || "",
+            siteName: consignorDetailsForResponse.siteName || "",
+            address: consignorDetailsForResponse.address || "",
+          }
+        : null;
+    const formattedConsignee =
+      consigneeDetailsForResponse && (consigneeDetailsForResponse.siteName || consigneeDetailsForResponse.siteId)
+        ? {
+            siteId: consigneeDetailsForResponse.siteId || "",
+            siteName: consigneeDetailsForResponse.siteName || "",
+            address: consigneeDetailsForResponse.address || "",
+          }
+        : null;
 
     return res.status(201).json({
       success: true,
       message: "Invoice created successfully",
-      invoice,
+      invoice: {
+        ...invoiceData,
+        siteId1: formattedConsignor,
+        siteId2: formattedConsignee,
+        consignorAddress:
+          (formattedConsignor && formattedConsignor.address) ||
+          req.body.consignorAddress ||
+          "",
+        consigneeAddress:
+          (formattedConsignee && formattedConsignee.address) ||
+          req.body.consigneeAddress ||
+          "",
+      },
     });
   } catch (error) {
     console.error("Error creating invoice:", error);
