@@ -242,6 +242,41 @@ const Sidebar = () => {
   );
 
   return (
+    <>
+      <style>{`
+        .sidebar-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: #FFD249 rgba(255, 210, 73, 0.25);
+          overflow-y: auto !important;
+        }
+        .sidebar-scrollbar::-webkit-scrollbar {
+          width: 8px;
+          -webkit-appearance: none;
+        }
+        .sidebar-scrollbar::-webkit-scrollbar-track {
+          background: rgba(255, 210, 73, 0.2);
+          border-radius: 10px;
+          margin: 4px 0;
+        }
+        .sidebar-scrollbar::-webkit-scrollbar-thumb {
+          background: #FFD249;
+          border-radius: 10px;
+          border: 1px solid rgba(255, 210, 73, 0.4);
+          min-height: 30px;
+          transition: background 0.2s ease, border 0.2s ease;
+        }
+        .sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #FFCA00;
+          border: 1px solid rgba(255, 210, 73, 0.6);
+        }
+        .sidebar-scrollbar::-webkit-scrollbar-thumb:active {
+          background: #e6b800;
+          border: 1px solid rgba(255, 210, 73, 0.8);
+        }
+        .sidebar-scrollbar::-webkit-scrollbar-corner {
+          background: transparent;
+        }
+      `}</style>
     <div className="pt-14 min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
       <div className="flex w-full">
       <div className="lg:hidden fixed top-16 left-4 z-50">
@@ -316,8 +351,8 @@ const Sidebar = () => {
         </div>
 
         <div
-          className="flex-1 overflow-y-auto py-4 px-4 space-y-3"
-          style={{ scrollBehavior: "smooth", scrollbarWidth: "thin" }}
+          className="flex-1 overflow-y-auto py-4 px-4 space-y-3 sidebar-scrollbar"
+          style={{ scrollBehavior: "smooth" }}
         >
           <div className="sticky top-0 bg-gradient-to-b from-yellow-50/80 via-white to-transparent py-2 z-10">
             <p className="text-xs font-semibold text-[#b58b00] tracking-[0.2em] uppercase">
@@ -440,6 +475,7 @@ const Sidebar = () => {
       </div>
       </div>
     </div>
+    </>
   );
 };
 
