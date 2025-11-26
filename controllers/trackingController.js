@@ -82,6 +82,8 @@ export const trackInvoiceByDocketNumber = async (req, res) => {
         goodsType: invoice.goodsType,
         goodsValue: invoice.goodsValue,
       },
+    deliveryAttempts: invoice.deliveryAttempts || [],
+    undeliveredReason: invoice.undeliveredReason || "",
       createdAt: invoice.createdAt,
       updatedAt: invoice.updatedAt,
     };

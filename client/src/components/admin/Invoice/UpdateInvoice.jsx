@@ -2628,9 +2628,6 @@ const UpdateInvoice = () => {
                     <SelectContent>
                       <SelectItem value="Reserved">Reserved</SelectItem>
                       <SelectItem value="Created">Created</SelectItem>
-                      <SelectItem value="Dispatched">Dispatched</SelectItem>
-                      <SelectItem value="In Transit">In Transit</SelectItem>
-                      <SelectItem value="Arrived at Destination">Arrived at Destination</SelectItem>
                       <SelectItem value="Delivered">Delivered</SelectItem>
                       <SelectItem value="Undelivered">Undelivered</SelectItem>
                       <SelectItem value="Cancelled">Cancelled</SelectItem>

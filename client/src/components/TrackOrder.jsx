@@ -4,19 +4,22 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Search, Package, MapPin, User, Truck, Calendar, FileText, CheckCircle2, XCircle, Clock, AlertCircle } from "lucide-react";
+import {
+  Loader2,
+  Search,
+  Package,
+  MapPin,
+  User,
+  Truck,
+  Calendar,
+  FileText,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  AlertCircle,
+} from "lucide-react";
 import { useLazyTrackByDocketNumberQuery } from "@/features/api/Tracking/trackingApi";
 import { toast } from "react-hot-toast";
-
-const TIMELINE_STEPS = [
-  { status: "Reserved", label: "Reserved", icon: Clock },
-  { status: "Created", label: "Created", icon: FileText },
-  { status: "Dispatched", label: "Dispatched", icon: Package },
-  { status: "In Transit", label: "In Transit", icon: Truck },
-  { status: "Arrived at Destination", label: "Arrived", icon: MapPin },
-  { status: "Undelivered", label: "Undelivered", icon: AlertCircle },
-  { status: "Delivered", label: "Delivered", icon: CheckCircle2 },
-];
 
 const TrackOrder = () => {
   const [searchParams] = useSearchParams();
@@ -34,15 +37,90 @@ const TrackOrder = () => {
   };
 
   const invoice = data?.invoice;
+  const deliveryAttempts = invoice?.deliveryAttempts
+    ?.filter((attempt) =>
+      ["Undelivered", "Delivered"].includes(attempt.status)
+    )
+    ?.sort((a, b) => {
+      const aTime = a?.attemptedAt ? new Date(a.attemptedAt).getTime() : 0;
+      const bTime = b?.attemptedAt ? new Date(b.attemptedAt).getTime() : 0;
+      return bTime - aTime;
+    });
+  const buildTimelineEvents = (inv) => {
+    if (!inv) return [];
+
+    const events = [];
+
+    events.push({
+      status: "Reserved",
+      label: "Reserved",
+      icon: Clock,
+      timestamp: inv.createdAt,
+      description: "Docket reserved",
+    });
+
+    events.push({
+      status: "Created",
+      label: "Created",
+      icon: FileText,
+      timestamp: inv.invoiceDate || inv.createdAt,
+      description: "Docket created",
+    });
+
+    const sortedAttempts = (inv.deliveryAttempts || [])
+      .filter((attempt) =>
+        ["Undelivered", "Delivered"].includes(attempt.status)
+      )
+      .sort((a, b) => {
+        const aTime = a?.attemptedAt ? new Date(a.attemptedAt).getTime() : 0;
+        const bTime = b?.attemptedAt ? new Date(b.attemptedAt).getTime() : 0;
+        return aTime - bTime;
+      });
+
+    sortedAttempts.forEach((attempt, idx) => {
+      events.push({
+        status: attempt.status,
+        label:
+          attempt.status === "Delivered"
+            ? `Delivered (Attempt #${idx + 1})`
+            : `Undelivered (Attempt #${idx + 1})`,
+        icon: attempt.status === "Delivered" ? CheckCircle2 : AlertCircle,
+        timestamp: attempt.attemptedAt,
+        description: attempt.reason,
+      });
+    });
+
+    if (
+      inv.status === "Delivered" &&
+      !sortedAttempts.some((attempt) => attempt.status === "Delivered")
+    ) {
+      events.push({
+        status: "Delivered",
+        label: "Delivered",
+        icon: CheckCircle2,
+        timestamp:
+          inv.deliveredAt ||
+          inv.deliveryProof?.deliveredAt ||
+          inv.updatedAt ||
+          null,
+        description: "Shipment delivered",
+      });
+    }
+
+    return events;
+  };
+
+  const timelineEvents = buildTimelineEvents(invoice);
+
   const currentStepIndex = invoice
     ? Math.max(
-        TIMELINE_STEPS.findIndex((step) => step.status === invoice.status),
-        0
+        timelineEvents.findIndex((event) => event.status === invoice.status),
+        timelineEvents.length - 1
       )
     : 0;
   const progressPercent =
-    TIMELINE_STEPS.length > 1
-      ? (currentStepIndex / (TIMELINE_STEPS.length - 1)) * 100
+    timelineEvents.length > 1
+      ? (currentStepIndex / (timelineEvents.length - 1)) * 100
       : 0;
   const isExceptionStatus =
     invoice && ["Cancelled", "Returned", "Undelivered"].includes(invoice.status);
@@ -51,9 +129,6 @@ const TrackOrder = () => {
     const statusColors = {
       "Reserved": "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20",
       "Created": "bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/20",
-      "Dispatched": "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20",
-      "In Transit": "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/20",
-      "Arrived at Destination": "bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/20",
       "Undelivered": "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20",
       "Delivered": "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20",
       "Cancelled": "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20",
@@ -66,9 +141,6 @@ const TrackOrder = () => {
     const icons = {
       "Reserved": <Clock className="w-5 h-5" />,
       "Created": <FileText className="w-5 h-5" />,
-      "Dispatched": <Package className="w-5 h-5" />,
-      "In Transit": <Truck className="w-5 h-5" />,
-      "Arrived at Destination": <MapPin className="w-5 h-5" />,
       "Undelivered": <AlertCircle className="w-5 h-5" />,
       "Delivered": <CheckCircle2 className="w-5 h-5" />,
       "Cancelled": <XCircle className="w-5 h-5" />,
@@ -225,7 +297,7 @@ const TrackOrder = () => {
                       ></div>
                     )}
                     <div className="relative flex justify-between">
-                      {TIMELINE_STEPS.map((step, index) => {
+                      {timelineEvents.map((step, index) => {
                         const Icon = step.icon;
                         const isCompleted =
                           !isExceptionStatus && index <= currentStepIndex;
@@ -252,6 +324,16 @@ const TrackOrder = () => {
                             <p className="text-xs font-semibold mt-3 text-gray-700 dark:text-gray-300">
                               {step.label}
                             </p>
+                            {step.timestamp && (
+                              <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                                {formatDate(step.timestamp)}
+                              </p>
+                            )}
+                            {step.description && (
+                              <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                                {step.description}
+                              </p>
+                            )}
                           </div>
                         );
                       })}
@@ -261,7 +343,7 @@ const TrackOrder = () => {
 
                 {/* Mobile-friendly vertical timeline */}
                 <div className="flex flex-col gap-3 md:hidden">
-                  {TIMELINE_STEPS.map((step, index) => {
+                  {timelineEvents.map((step, index) => {
                     const Icon = step.icon;
                     const isCompleted =
                       !isExceptionStatus && index <= currentStepIndex;
@@ -293,12 +375,14 @@ const TrackOrder = () => {
                           <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
                             {step.label}
                           </p>
-                          {index === currentStepIndex && !isExceptionStatus && (
+                          {step.timestamp && (
                             <p className="text-xs text-gray-500 dark:text-gray-400">
-                              Last update:{" "}
-                              {formatDate(
-                                invoice.updatedAt || invoice.createdAt
-                              )}
+                              {formatDate(step.timestamp)}
+                            </p>
+                          )}
+                          {step.description && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {step.description}
                             </p>
                           )}
                         </div>
@@ -333,6 +417,83 @@ const TrackOrder = () => {
                 )}
               </div>
             </Card>
+
+            {/* Attempt History */}
+            {deliveryAttempts?.length > 0 && (
+              <Card className="bg-white dark:bg-gray-900 rounded-2xl p-6 border-2 border-blue-100 dark:border-blue-900 shadow-lg">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                    <Clock className="w-5 h-5 text-blue-700 dark:text-blue-300" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-blue-900 dark:text-blue-100">
+                      Delivery Attempts Timeline
+                    </h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Shows every time the docket was tried for delivery
+                    </p>
+                  </div>
+                </div>
+
+                <div className="relative pl-6">
+                  <div className="absolute left-3 top-2 bottom-4 border-l-2 border-blue-100 dark:border-blue-900/50"></div>
+                  {deliveryAttempts.map((attempt, index) => {
+                    const isDelivered = attempt.status === "Delivered";
+                    const attemptNumber =
+                      deliveryAttempts.length - index; // latest attempt first
+                    return (
+                      <div
+                        key={`${attempt.status}-${attempt.attemptedAt || index}`}
+                        className="relative mb-6 last:mb-0"
+                      >
+                        <div
+                          className={`absolute -left-[11px] top-1 w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                            isDelivered
+                              ? "border-green-500 bg-green-100"
+                              : "border-red-500 bg-red-100"
+                          }`}
+                        >
+                          {isDelivered ? (
+                            <CheckCircle2 className="w-3 h-3 text-green-600" />
+                          ) : (
+                            <AlertCircle className="w-3 h-3 text-red-600" />
+                          )}
+                        </div>
+                        <div className="bg-gray-50/90 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-700 rounded-xl p-4 shadow-sm">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                                Attempt #{attemptNumber}
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {attempt.attemptedAt
+                                  ? formatDate(attempt.attemptedAt)
+                                  : "Timestamp not available"}
+                              </p>
+                            </div>
+                            <span
+                              className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                                isDelivered
+                                  ? "bg-green-100 text-green-700"
+                                  : "bg-red-100 text-red-600"
+                              }`}
+                            >
+                              {attempt.status}
+                            </span>
+                          </div>
+                          {attempt.reason && (
+                            <p className="text-sm text-gray-700 dark:text-gray-300 mt-2">
+                              <span className="font-medium">Reason:</span>{" "}
+                              {attempt.reason}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            )}
 
             {/* Shipment Details with theme styling */}
             <div className="grid md:grid-cols-2 gap-6">

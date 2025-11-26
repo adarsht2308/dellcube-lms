@@ -41,9 +41,6 @@ import {
 import { useGetInvoiceByIdMutation } from "@/features/api/Invoice/invoiceApi.js";
 const statusOptions = [
   "Created",
-  "Dispatched",
-  "In Transit",
-  "Arrived at Destination",
   "Delivered",
   "Undelivered",
   "Cancelled",
