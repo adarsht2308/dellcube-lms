@@ -460,7 +460,11 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
             </View>
             <View style={styles.partyRow}>
               <Text style={styles.partyLabel}>E-Way Bill:</Text>
-              <Text style={styles.partyValue}>{invoice?.ewayBillNo || invoice?.wayBillNo || '-'}</Text>
+              <Text style={styles.partyValue}>
+                {Array.isArray(invoice?.ewayBillNo)
+                  ? invoice.ewayBillNo.join(", ")
+                  : invoice?.ewayBillNo || invoice?.wayBillNo || "-"}
+              </Text>
             </View>
           </View>
 

@@ -27,6 +27,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import MultiValueInput from "./MultiValueInput.jsx";
+
+const normalizeList = (value) => {
+  if (value === undefined || value === null) return [];
+  const list = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+    ? value.split(",")
+    : [value];
+  return list
+    .map((item) =>
+      typeof item === "string" ? item.trim() : String(item || "").trim()
+    )
+    .filter((item) => item.length > 0);
+};
 
 // API imports
 import {
@@ -346,15 +361,16 @@ const UpdateInvoice = () => {
   const [consignorAddress, setConsignorAddress] = useState("");
   const [consigneeAddress, setConsigneeAddress] = useState("");
   const [address, setAddress] = useState("");
-  const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [invoiceNumbers, setInvoiceNumbers] = useState([]);
   const [invoiceBill, setInvoiceBill] = useState("");
-  const [ewayBillNo, setEwayBillNo] = useState("");
+  const [ewayBillNumbers, setEwayBillNumbers] = useState([]);
   const [siteId, setSiteId] = useState("");
   const [sealNo, setSealNo] = useState("");
   const [orderNumber, setOrderNumber] = useState("");
   const [selectedSiteType, setSelectedSiteType] = useState("");
   const [selectedTransportMode, setSelectedTransportMode] = useState("");
   const [status, setStatus] = useState("");
+  const [undeliveredReason, setUndeliveredReason] = useState("");
   const [deliveredAt, setDeliveredAt] = useState("");
   const [deliveryProof, setDeliveryProof] = useState({
     receiverName: "",
@@ -897,6 +913,7 @@ const UpdateInvoice = () => {
       setOrderNumber(invoice.orderNumber || "");
       setSelectedTransportMode(invoice.transportMode?._id || "");
       setStatus(invoice.status || "Created");
+      setUndeliveredReason(invoice.undeliveredReason || "");
       setDeliveredAt(
         invoice.deliveredAt
           ? new Date(invoice.deliveredAt).toISOString().slice(0, 16)
@@ -945,9 +962,9 @@ const UpdateInvoice = () => {
       setConsignorAddress(invoice.consignorAddress || "");
       setConsigneeAddress(invoice.consigneeAddress || "");
       setAddress(invoice.address || "");
-      setInvoiceNumber(invoice.invoiceNumber || "");
+      setInvoiceNumbers(normalizeList(invoice.invoiceNumber));
       setInvoiceBill(invoice.invoiceBill || "");
-      setEwayBillNo(invoice.ewayBillNo || "");
+      setEwayBillNumbers(normalizeList(invoice.ewayBillNo));
       setSiteId(invoice.siteId || "");
       setSealNo(invoice.sealNo || "");
       setSelectedSiteType(invoice.siteType?._id || "");
@@ -1067,6 +1084,12 @@ const UpdateInvoice = () => {
     };
     fetchBranches();
   }, [companyId, isSuperAdmin, getBranchesByCompany]);
+
+  useEffect(() => {
+    if (status !== "Undelivered") {
+      setUndeliveredReason("");
+    }
+  }, [status]);
 
   useEffect(() => {
     if (
@@ -1231,6 +1254,11 @@ const UpdateInvoice = () => {
       return;
     }
 
+    if (status === "Undelivered" && !undeliveredReason.trim()) {
+      toast.error("Please provide a reason for marking this docket as Undelivered.");
+      return;
+    }
+
     let payload = {
       invoiceId,
       customer: customerId,
@@ -1290,9 +1318,9 @@ const UpdateInvoice = () => {
       ...(consignor && { consignor }),
       ...(consignee && { consignee }),
       ...(address && { address }),
-      ...(invoiceNumber && { invoiceNumber }),
+      ...(invoiceNumbers.length > 0 && { invoiceNumber: invoiceNumbers }),
       ...(invoiceBill && { invoiceBill }),
-      ...(ewayBillNo && { ewayBillNo }),
+      ...(ewayBillNumbers.length > 0 && { ewayBillNo: ewayBillNumbers }),
       ...(siteId && { siteId }),
       ...(sealNo && { sealNo }),
       ...(vehicleModel && { vehicleModel }),
@@ -1301,6 +1329,9 @@ const UpdateInvoice = () => {
       ...(orderNumber && { orderNumber }),
       ...(selectedTransportMode && { transportMode: selectedTransportMode }),
       ...(status && { status }),
+      ...(status === "Undelivered" && undeliveredReason.trim() && {
+        undeliveredReason: undeliveredReason.trim(),
+      }),
       ...(deliveredAt && { deliveredAt }),
       ...(Object.values(deliveryProof).some((val) => val) && {
         deliveryProof: {
@@ -2411,28 +2442,22 @@ const UpdateInvoice = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Eway Bill No</Label>
-                  <Input
-                    type="text"
-                    value={ewayBillNo}
-                    onChange={(e) => setEwayBillNo(e.target.value)}
-                    placeholder="Enter eway bill no"
-                    className="w-full"
-                    disabled={isFormDisabled}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Invoice No</Label>
-                  <Input
-                    type="text"
-                    value={invoiceNumber}
-                    onChange={(e) => setInvoiceNumber(e.target.value)}
-                    placeholder="Enter invoice number"
-                    className="w-full"
-                    disabled={isFormDisabled}
-                  />
-                </div>
+                <MultiValueInput
+                  label="E-Way Bill No"
+                  placeholder="Enter e-way bill number and press Enter"
+                  values={ewayBillNumbers}
+                  onChange={setEwayBillNumbers}
+                  disabled={isFormDisabled}
+                  helperText="Add multiple e-way bill numbers for this docket."
+                />
+                <MultiValueInput
+                  label="Invoice No"
+                  placeholder="Enter invoice number and press Enter"
+                  values={invoiceNumbers}
+                  onChange={setInvoiceNumbers}
+                  disabled={isFormDisabled}
+                  helperText="Optional. Add multiple invoice numbers."
+                />
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Invoice Amount</Label>
                   <Input
@@ -2607,10 +2632,25 @@ const UpdateInvoice = () => {
                       <SelectItem value="In Transit">In Transit</SelectItem>
                       <SelectItem value="Arrived at Destination">Arrived at Destination</SelectItem>
                       <SelectItem value="Delivered">Delivered</SelectItem>
+                      <SelectItem value="Undelivered">Undelivered</SelectItem>
                       <SelectItem value="Cancelled">Cancelled</SelectItem>
                       <SelectItem value="Returned">Returned</SelectItem>
                     </SelectContent>
                   </Select>
+                  {status === "Undelivered" && (
+                    <div className="space-y-2 mt-3">
+                      <Label className="text-sm font-medium">
+                        Reason for Undelivered Status
+                      </Label>
+                      <Textarea
+                        value={undeliveredReason}
+                        onChange={(e) => setUndeliveredReason(e.target.value)}
+                        placeholder="Explain why the delivery could not be completed"
+                        disabled={isFormDisabled}
+                        rows={3}
+                      />
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}

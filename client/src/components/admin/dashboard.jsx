@@ -418,7 +418,10 @@ const SuperAdminDashboard = () => {
                   currentInvoices.slice(0, 5).map((inv) => (
                     <tr key={inv._id || inv.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-semibold text-blue-600">
-                        {inv.docketNumber || inv.invoiceNumber}
+                        {inv.docketNumber ||
+                          (Array.isArray(inv.invoiceNumber)
+                            ? inv.invoiceNumber.join(", ")
+                            : inv.invoiceNumber || "-")}
                       </td>
                       <td className="px-4 py-3">
                         {inv.fromAddress?.city?.name || "-"}

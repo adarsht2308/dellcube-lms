@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useSelector } from "react-redux";
@@ -36,12 +36,12 @@ import {
 } from "lucide-react";
 import { MdOutlineEdit } from "react-icons/md";
 import { FaRegTrashCan } from "react-icons/fa6";
+import { BASE_URL } from "@/utils/BaseUrl";
 
 import {
   useGetAllInvoicesQuery,
   useDeleteInvoiceMutation,
   useGetInvoicePdfMutation,
-  useExportInvoicesCSVMutation,
   useCreateReservedDocketsMutation,
   useUpdateInvoiceMutation,
 } from "@/features/api/Invoice/invoiceApi.js";
@@ -117,8 +117,21 @@ const InvoiceDetailCard = ({ title, children }) => {
   );
 };
 
+const formatMultiValue = (value, fallback = "-") => {
+  if (Array.isArray(value)) {
+    return value.length ? value.join(", ") : fallback;
+  }
+  if (typeof value === "string") {
+    return value.trim() || fallback;
+  }
+  return fallback;
+};
+
 const CSV_COLUMNS = [
   { key: "DocketNumber", label: "Docket Number" },
+  { key: "AttemptStatus", label: "Attempt Status" },
+  { key: "AttemptReason", label: "Attempt Reason" },
+  { key: "AttemptedAt", label: "Attempted At" },
   { key: "Company", label: "Company" },
   { key: "CompanyAddress", label: "Company Address" },
   { key: "CompanyGST", label: "Company GST" },
@@ -246,8 +259,7 @@ const Invoices = () => {
   const [csvColumns, setCsvColumns] = useState(
     CSV_COLUMNS.map((col) => ({ ...col, checked: true, custom: col.label }))
   );
-  const [exportInvoicesCSV, { isLoading: isExporting }] =
-    useExportInvoicesCSVMutation();
+  const [isExporting, setIsExporting] = useState(false);
 
   const [reservedDialogOpen, setReservedDialogOpen] = useState(false);
   const [reservedForm, setReservedForm] = useState({
@@ -452,6 +464,64 @@ const Invoices = () => {
     setSelectedInvoice(invoice);
     setOpenDrawer(true);
   };
+
+  const getStatusStyles = (value) => {
+    switch (value) {
+      case "Delivered":
+        return "bg-[#FFD249]/80 text-[#202020]";
+      case "Cancelled":
+        return "bg-red-200/70 text-red-700";
+      case "Returned":
+        return "bg-purple-200/60 text-purple-700";
+      case "Undelivered":
+        return "bg-red-100 text-red-600 border border-red-200";
+      default:
+        return "bg-[#FFD249]/30 text-[#202020]";
+    }
+  };
+
+  const duplicateAttemptStatuses = ["Undelivered", "Delivered"];
+
+  const expandedInvoices = useMemo(() => {
+    if (!data?.invoices) return [];
+
+    return data.invoices.flatMap((inv) => {
+      const attempts = inv.deliveryAttempts
+        ?.filter((attempt) => duplicateAttemptStatuses.includes(attempt.status))
+        ?.map((attempt, idx) => ({
+          ...attempt,
+          sequence: idx + 1,
+        }));
+
+      if (!attempts || attempts.length === 0) {
+        return [
+          {
+            rowKey: inv._id,
+            baseInvoice: inv,
+            attemptMeta: null,
+            displayStatus: inv.status,
+          },
+        ];
+      }
+
+      const sortedAttempts = [...attempts].sort((a, b) => {
+        const aTime = a.attemptedAt ? new Date(a.attemptedAt).getTime() : 0;
+        const bTime = b.attemptedAt ? new Date(b.attemptedAt).getTime() : 0;
+        return bTime - aTime;
+      });
+
+      return sortedAttempts.map((attempt, idx) => ({
+        rowKey: `${inv._id}-${attempt.status}-${attempt.attemptedAt || idx}`,
+        baseInvoice: inv,
+        attemptMeta: {
+          ...attempt,
+          sequence: attempt.sequence,
+          displayOrder: idx + 1,
+        },
+        displayStatus: attempt.status,
+      }));
+    });
+  }, [data?.invoices]);
 
   // Convert AVIF or other unsupported formats to PNG for PDF compatibility
   const convertImageToPNG = (base64String) => {
@@ -807,6 +877,180 @@ const Invoices = () => {
       cols.map((col, i) => (i === idx ? { ...col, custom: value } : col))
     );
   };
+
+  const formatArrayField = (value) => {
+    if (Array.isArray(value)) {
+      return value.join(", ");
+    }
+    return value || "";
+  };
+
+  const formatDateField = (value) => {
+    if (!value) return "";
+    try {
+      return new Date(value).toLocaleString("en-IN");
+    } catch {
+      return value;
+    }
+  };
+
+  const buildExportRow = (inv, attemptMeta = null) => ({
+    DocketNumber: inv.docketNumber || "",
+    InvoiceNumbers: formatArrayField(inv.invoiceNumber),
+    EwayBillNumbers: formatArrayField(inv.ewayBillNo),
+    AttemptStatus: attemptMeta?.status || inv.status || "",
+    AttemptReason: attemptMeta?.reason || "",
+    AttemptedAt: attemptMeta?.attemptedAt
+      ? formatDateField(attemptMeta.attemptedAt)
+      : "",
+    Company: inv.company?.name || "",
+    CompanyAddress: inv.company?.address || "",
+    CompanyGST: inv.company?.gstNumber || "",
+    CompanyPAN: inv.company?.pan || "",
+    Branch: inv.branch?.name || "",
+    Customer: inv.customer?.name || "",
+    CustomerPhone: inv.customer?.phone || "",
+    CustomerEmail: inv.customer?.email || "",
+    GoodsType: inv.goodsType?.name || "",
+    GoodsItems: Array.isArray(inv.goodsType?.items)
+      ? inv.goodsType.items.join("; ")
+      : "",
+    VehicleType: inv.vehicleType || "",
+    VehicleNumber:
+      inv.vehicle?.vehicleNumber || inv.vendorVehicle?.vehicleNumber || "",
+    Vendor: inv.vendor?.name || "",
+    Driver: inv.driver?.name || "",
+    DriverPhone: inv.driver?.mobile || inv.driver?.phone || "",
+    Status: inv.status || "",
+    InvoiceDate: formatDateField(inv.invoiceDate),
+    DispatchDateTime: formatDateField(inv.dispatchDateTime),
+    FromCountry:
+      inv.fromAddress?.country?.name || inv.fromAddress?.countryName || "",
+    FromState:
+      inv.fromAddress?.state?.name || inv.fromAddress?.stateName || "",
+    FromCity: inv.fromAddress?.city?.name || "",
+    FromLocality: inv.fromAddress?.locality?.name || "",
+    FromPincode: inv.fromAddress?.pincode || "",
+    FromPostOffice: inv.fromAddress?.postOfficeName || "",
+    FromDistrict: inv.fromAddress?.district || "",
+    FromTaluk: inv.fromAddress?.taluk || "",
+    ToCountry:
+      inv.toAddress?.country?.name || inv.toAddress?.countryName || "",
+    ToState: inv.toAddress?.state?.name || inv.toAddress?.stateName || "",
+    ToCity: inv.toAddress?.city?.name || "",
+    ToLocality: inv.toAddress?.locality?.name || "",
+    ToPincode: inv.toAddress?.pincode || "",
+    ToPostOffice: inv.toAddress?.postOfficeName || "",
+    ToDistrict: inv.toAddress?.district || "",
+    ToTaluk: inv.toAddress?.taluk || "",
+    TotalWeight: inv.totalWeight ?? "",
+    NumberOfPackages: inv.numberOfPackages ?? "",
+    FreightCharges: inv.freightCharges ?? "",
+    PaymentType: inv.paymentType || "",
+    Remarks: inv.remarks || "",
+    DeliveredAt: formatDateField(inv.deliveredAt),
+    DeliveryProofReceiverName: inv.deliveryProof?.receiverName || "",
+    DeliveryProofReceiverMobile: inv.deliveryProof?.receiverMobile || "",
+    DeliveryProofRemarks: inv.deliveryProof?.remarks || "",
+    CreatedAt: formatDateField(inv.createdAt),
+    UpdatedAt: formatDateField(inv.updatedAt),
+  });
+
+  const flattenInvoicesForExport = (invoices) => {
+    const rows = [];
+    invoices.forEach((inv) => {
+      const attempts = inv.deliveryAttempts
+        ?.filter((attempt) =>
+          duplicateAttemptStatuses.includes(attempt.status)
+        )
+        ?.sort((a, b) => {
+          const aTime = a.attemptedAt ? new Date(a.attemptedAt).getTime() : 0;
+          const bTime = b.attemptedAt ? new Date(b.attemptedAt).getTime() : 0;
+          return bTime - aTime;
+        });
+
+      if (attempts && attempts.length > 0) {
+        attempts.forEach((attempt) =>
+          rows.push(buildExportRow(inv, attempt))
+        );
+      } else {
+        rows.push(buildExportRow(inv));
+      }
+    });
+    return rows;
+  };
+
+  const buildCsvContent = (rows, columns, headers) => {
+    const escapeValue = (value) => {
+      if (value === null || value === undefined) return "";
+      const stringValue = String(value);
+      if (/[",\n]/.test(stringValue)) {
+        return `"${stringValue.replace(/"/g, '""')}"`;
+      }
+      return stringValue;
+    };
+
+    const csvLines = [
+      headers.join(","),
+      ...rows.map((row) =>
+        columns.map((colKey) => escapeValue(row[colKey])).join(",")
+      ),
+    ];
+
+    return csvLines.join("\n");
+  };
+
+  const downloadCsv = (content) => {
+    const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "invoices_export.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  };
+
+  const fetchInvoicesForExport = async () => {
+    const exportFilters = {
+      ...filters,
+      page: 1,
+      limit: data?.total || filters.limit || 1000,
+    };
+
+    const params = new URLSearchParams();
+    Object.entries(exportFilters).forEach(([key, value]) => {
+      if (
+        value !== undefined &&
+        value !== null &&
+        value !== "" &&
+        value !== "all"
+      ) {
+        params.append(key, value);
+      }
+    });
+
+    const response = await fetch(
+      `${BASE_URL}/invoices/all?${params.toString()}`,
+      {
+        credentials: "include",
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch invoices for export");
+    }
+
+    const result = await response.json();
+
+    if (!result?.success) {
+      throw new Error(result?.message || "Failed to fetch invoices for export");
+    }
+
+    return result.invoices || [];
+  };
+
   // Handle export
   const handleExportCSV = async () => {
     const selected = csvColumns.filter((col) => col.checked);
@@ -816,27 +1060,29 @@ const Invoices = () => {
     }
     const columns = selected.map((col) => col.key);
     const headers = selected.map((col) => col.custom || col.label);
+    setIsExporting(true);
     try {
-      const params = {
-        ...filters,
-        columns: JSON.stringify(columns),
-        headers: JSON.stringify(headers),
-        page: undefined, // remove pagination for export
-        limit: undefined,
-      };
-      const blob = await exportInvoicesCSV(params).unwrap();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "invoices_export.csv";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      const invoicesForExport = await fetchInvoicesForExport();
+      if (!invoicesForExport.length) {
+        toast.error("No invoices found for the selected filters.");
+        return;
+      }
+      const rows = flattenInvoicesForExport(invoicesForExport);
+      if (!rows.length) {
+        toast.error("No docket attempts found to export.");
+        return;
+      }
+      const csvContent = buildCsvContent(rows, columns, headers);
+      downloadCsv(csvContent);
       setCsvModalOpen(false);
       toast.success("CSV exported successfully!");
     } catch (error) {
-      toast.error("Failed to export CSV.");
+      console.error(error);
+      toast.error(
+        error?.message || "Failed to export CSV. Please try again later."
+      );
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -1152,6 +1398,7 @@ const Invoices = () => {
                     Arrived at Destination
                   </SelectItem>
                   <SelectItem value="Delivered">Delivered</SelectItem>
+                  <SelectItem value="Undelivered">Undelivered</SelectItem>
                   <SelectItem value="Cancelled">Cancelled</SelectItem>
                   <SelectItem value="Returned">Returned</SelectItem>
                 </SelectContent>
@@ -1376,10 +1623,14 @@ const Invoices = () => {
                     </div>
                   </td>
                 </tr>
-              ) : data?.invoices?.length ? (
-                data.invoices.map((inv, i) => (
+              ) : expandedInvoices?.length ? (
+                expandedInvoices.map((item, i) => {
+                  const inv = item.baseInvoice;
+                  const attemptInfo = item.attemptMeta;
+                  const displayStatus = item.displayStatus;
+                  return (
                   <tr
-                    key={inv._id}
+                    key={item.rowKey}
                     className={
                       (i % 2 === 0
                         ? "bg-white/80 dark:bg-[#202020]/80"
@@ -1391,15 +1642,21 @@ const Invoices = () => {
                       {limit * (page - 1) + i + 1}
                     </td>
                     <td
-                      className={`p-3 font-semibold text-center 
-    ${
-      inv.status === "Reserved"
-        ? "text-red-500"
-        : "text-[#ad8a21] dark:text-[#FFD249]"
-    }
-  `}
+                      className={`p-3 font-semibold text-center ${
+                        displayStatus === "Reserved"
+                          ? "text-red-500"
+                          : "text-[#ad8a21] dark:text-[#FFD249]"
+                      }`}
                     >
                       {inv.docketNumber}
+                      {attemptInfo && (
+                        <span className="block text-[10px] text-gray-500 mt-1">
+                          Attempt #{attemptInfo.sequence} ·{" "}
+                          {attemptInfo.attemptedAt
+                            ? new Date(attemptInfo.attemptedAt).toLocaleString()
+                            : "N/A"}
+                        </span>
+                      )}
                     </td>
 
                     <td className="p-3 text-center">
@@ -1433,17 +1690,17 @@ const Invoices = () => {
                     <td className="p-3 text-center">
                       <div className="flex flex-col gap-1">
                         <span
-                          className={`px-2 py-1 rounded-full text-xs font-semibold text-center ${
-                            inv.status === "Delivered"
-                              ? "bg-[#FFD249]/80 text-[#202020]"
-                              : inv.status === "Cancelled"
-                              ? "bg-red-100 text-red-700"
-                              : "bg-[#FFD249]/30 text-[#202020]"
-                          }`}
+                          className={`px-2 py-1 rounded-full text-xs font-semibold text-center ${getStatusStyles(
+                            displayStatus
+                          )}`}
                         >
-                          {inv.status || "Created"}
+                          {displayStatus || "Created"}
                         </span>
-                        {/* Edit time indicator */}
+                        {attemptInfo?.reason && (
+                          <span className="text-[10px] text-gray-500">
+                            Reason: {attemptInfo.reason}
+                          </span>
+                        )}
                         {inv.createdAt && (
                           <span
                             className={`px-2 py-1 rounded-full text-xs font-medium text-center ${
@@ -1609,7 +1866,8 @@ const Invoices = () => {
                       )}
                     </td>
                   </tr>
-                ))
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan="8" className="text-center py-16">
@@ -1809,7 +2067,7 @@ const Invoices = () => {
                   />
                   <InfoRow
                     label="Invoice Number"
-                    value={selectedInvoice?.invoiceNumber}
+                    value={formatMultiValue(selectedInvoice?.invoiceNumber)}
                     icon={FileText}
                   />
                   <InfoRow
@@ -1819,7 +2077,7 @@ const Invoices = () => {
                   />
                   <InfoRow
                     label="E-Way Bill No"
-                    value={selectedInvoice?.ewayBillNo}
+                    value={formatMultiValue(selectedInvoice?.ewayBillNo)}
                     icon={FileText}
                   />
                   <InfoRow

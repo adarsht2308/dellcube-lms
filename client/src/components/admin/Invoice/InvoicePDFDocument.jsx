@@ -32,6 +32,18 @@ const FieldInputView = ({ value, style }) => (
   </View>
 );
 
+const renderMultiValue = (value, fallback = "-") => {
+  if (Array.isArray(value)) {
+    return value.length ? value.join("\n") : fallback;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed.length) return fallback;
+    return trimmed.includes(",") ? trimmed.split(",").map((v) => v.trim()).join("\n") : trimmed;
+  }
+  return fallback;
+};
+
 const styles = StyleSheet.create({
   page: {
     backgroundColor: "#fff",
@@ -616,7 +628,7 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
               <Text style={[styles.tableHeaderCell, { width: "25%" }]}>
                 VEHICLE DETAILS
               </Text>
-              <Text style={[styles.tableHeaderCell, { width: "10%" }]}>
+              <Text style={[styles.tableHeaderCell, { width: "15%" }]}>
                 QTY
               </Text>
               <Text style={[styles.tableHeaderCell, { width: "40%" }]}>
@@ -647,7 +659,7 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
                   }
                 />
               </View>
-              <View style={[styles.tableCell, { width: "10%" }]}>
+              <View style={[styles.tableCell, { width: "15%" }]}>
                 {/* <Text style={styles.fieldLabel}>QTY:</Text> */}
                 <FieldInputView value={invoice?.numberOfPackages || "-"} />
               </View>
@@ -686,9 +698,9 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
                 <Text style={styles.fieldLabel}>VEHICLE TYPE:</Text>
                 <FieldInputView value={invoice?.vehicleSize || "-"} />
               </View>
-              <View style={[styles.tableCell, { width: "10%" }]}>
+              <View style={[styles.tableCell, { width: "15%" }]}>
                 <Text style={styles.fieldLabel}>INV NO:</Text>
-                <FieldInputView value={invoice?.invoiceNumber || "-"} />
+                <FieldInputView value={renderMultiValue(invoice?.invoiceNumber)} />
               </View>
               <View style={[styles.tableCell, { width: "40%" }]}>
                 <Text style={styles.fieldLabel}>INVOICE VALUE:</Text>
@@ -697,7 +709,9 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
               <View style={[styles.tableCell, { width: "15%" }]}>
                 <Text style={styles.fieldLabel}>E-WAY BILL:</Text>
                 <FieldInputView
-                  value={invoice?.ewayBillNo || invoice?.wayBillNo || "-"}
+                  value={renderMultiValue(
+                    invoice?.ewayBillNo || invoice?.wayBillNo
+                  )}
                 />
               </View>
               <View
@@ -714,7 +728,7 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
                 <Text style={styles.fieldLabel}>DRIVER NAME:</Text>
                 <FieldInputView value={invoice?.driver?.name || "-"} />
               </View>
-              <View style={[styles.tableCell, { width: "10%" }]}>
+              <View style={[styles.tableCell, { width: "15%" }]}>
                 <Text style={styles.fieldLabel}>SITE ID:</Text>
                 <FieldInputView value={invoice?.siteId || "-"} />
               </View>

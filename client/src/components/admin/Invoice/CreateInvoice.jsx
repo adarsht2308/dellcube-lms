@@ -40,6 +40,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import MultiValueInput from "./MultiValueInput.jsx";
 
 // API imports
 import { useCreateInvoiceMutation } from "@/features/api/Invoice/invoiceApi.js";
@@ -289,9 +290,9 @@ const CreateInvoice = () => {
   const [consignor, setConsignor] = useState("");
   const [consignee, setConsignee] = useState("");
   const [address, setAddress] = useState("");
-  const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [invoiceNumbers, setInvoiceNumbers] = useState([]);
   const [invoiceBill, setInvoiceBill] = useState("");
-  const [ewayBillNo, setEwayBillNo] = useState("");
+  const [ewayBillNumbers, setEwayBillNumbers] = useState([]);
   const [siteId, setSiteId] = useState("");
   const [sealNo, setSealNo] = useState("");
   const [vehicleModel, setVehicleModel] = useState("");
@@ -920,9 +921,9 @@ const CreateInvoice = () => {
       ...(consignor && { consignor }),
       ...(consignee && { consignee }),
       ...(address && { address }),
-      // invoiceNumber is auto-generated on backend, don't send it
+      ...(invoiceNumbers.length > 0 && { invoiceNumber: invoiceNumbers }),
       ...(invoiceBill && { invoiceBill }),
-      ...(ewayBillNo && { ewayBillNo }),
+      ...(ewayBillNumbers.length > 0 && { ewayBillNo: ewayBillNumbers }),
       ...(driverContactNumber && { driverContactNumber }),
       ...(siteId && { siteId }),
       ...(sealNo && { sealNo }),
@@ -1939,29 +1940,20 @@ const CreateInvoice = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Eway Bill No</Label>
-                  <Input
-                    type="text"
-                    value={ewayBillNo}
-                    onChange={(e) => setEwayBillNo(e.target.value)}
-                    placeholder="Enter eway bill no"
-                    className="w-full"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Invoice No</Label>
-                  <Input
-                    type="text"
-                    value={invoiceNumber}
-                    onChange={(e) => setInvoiceNumber(e.target.value)}
-                    placeholder="Enter invoice number (optional)"
-                    className="w-full"
-                  />
-                  <p className="text-xs text-gray-500">
-                    Leave blank if you don't want to record an invoice number.
-                  </p>
-                </div>
+                <MultiValueInput
+                  label="E-Way Bill No"
+                  placeholder="Enter e-way bill number and press Enter"
+                  values={ewayBillNumbers}
+                  onChange={setEwayBillNumbers}
+                  helperText="Add multiple e-way bill numbers; press Enter or click Add after each value."
+                />
+                <MultiValueInput
+                  label="Invoice No"
+                  placeholder="Enter invoice number and press Enter"
+                  values={invoiceNumbers}
+                  onChange={setInvoiceNumbers}
+                  helperText="Optional. Add one or more invoice numbers for this docket."
+                />
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Invoice Amount</Label>
                   <Input

@@ -156,6 +156,7 @@ export const updateInvoiceByDriver = async (req, res) => {
       note,
       deliveryProof,
       deliveredAt,
+      undeliveredReason,
     } = req.body;
 
     if (!driverId || !invoiceId) {
@@ -196,9 +197,41 @@ export const updateInvoiceByDriver = async (req, res) => {
       signatureImageUrl = req.files.receiverSignature[0].path;
     }
 
-    // Update status
+    const previousStatus = invoice.status;
+    const attemptStatuses = ["Undelivered", "Delivered"];
+
     if (status) {
       invoice.status = status;
+    }
+
+    if (
+      status &&
+      attemptStatuses.includes(status) &&
+      status !== previousStatus
+    ) {
+      const attemptEntry = {
+        status,
+        attemptedAt: new Date(),
+      };
+
+      if (status === "Undelivered") {
+        const reason = undeliveredReason || invoice.undeliveredReason || "";
+        if (!reason.trim()) {
+          return res.status(400).json({
+            success: false,
+            message: "Reason is required when marking the delivery as Undelivered.",
+          });
+        }
+        attemptEntry.reason = reason.trim();
+        invoice.undeliveredReason = reason.trim();
+      } else if (status === "Delivered") {
+        invoice.undeliveredReason = "";
+      }
+
+      invoice.deliveryAttempts = invoice.deliveryAttempts || [];
+      invoice.deliveryAttempts.push(attemptEntry);
+    } else if (undeliveredReason) {
+      invoice.undeliveredReason = undeliveredReason.trim();
     }
 
     // Add driver update

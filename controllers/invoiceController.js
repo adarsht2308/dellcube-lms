@@ -75,6 +75,25 @@ const getUserSignatureBase64 = async (userId) => {
   }
 };
 
+const normalizeMultiValueField = (input) => {
+  if (input === undefined || input === null) return [];
+  const list = Array.isArray(input)
+    ? input
+    : typeof input === "string"
+    ? input.split(",")
+    : [input];
+  return list
+    .map((value) =>
+      typeof value === "string" ? value.trim() : String(value || "").trim()
+    )
+    .filter((value) => value.length > 0);
+};
+
+const formatMultiValueField = (input) => {
+  const values = normalizeMultiValueField(input);
+  return values.length ? values.join(", ") : "";
+};
+
 export const createInvoice = async (req, res) => {
   try {
     const userToken = req.user;
@@ -157,10 +176,10 @@ export const createInvoice = async (req, res) => {
     const runningCounter = String(lastCounter + 1).padStart(4, "0");
     const docketNumber = `${companyCode}-${branchCode}-${dateStr}-${runningCounter}`;
 
-    const invoiceNumberInput =
-      typeof req.body.invoiceNumber === "string"
-        ? req.body.invoiceNumber.trim()
-        : "";
+    const invoiceNumberValues = normalizeMultiValueField(
+      req.body.invoiceNumber
+    );
+    const ewayBillNumberValues = normalizeMultiValueField(req.body.ewayBillNo);
 
     const { vehicleNumber } = req.body;
     const consignorSiteId =
@@ -323,7 +342,8 @@ export const createInvoice = async (req, res) => {
       company: companyId,
       branch: branchId,
       docketNumber,
-      invoiceNumber: invoiceNumberInput || "",
+      invoiceNumber: invoiceNumberValues,
+      ewayBillNo: ewayBillNumberValues,
       orderNumber: req.body.orderNumber || "",
       transportMode: req.body.transportMode,
       ...(creatorSignatureBase64 && {
@@ -494,6 +514,7 @@ export const createReservedInvoices = async (req, res) => {
       toAddress,
       quantity = 1,
       invoiceNumber: requestedInvoiceNumber,
+      ewayBillNo: requestedEwayBillNo,
       ...rest
     } = req.body;
     if (!customer || !quantity) {
@@ -552,15 +573,16 @@ export const createReservedInvoices = async (req, res) => {
       req.user?.userId
     );
 
+    const invoiceNumberValues = normalizeMultiValueField(
+      requestedInvoiceNumber
+    );
+    const ewayBillValues = normalizeMultiValueField(requestedEwayBillNo);
+
     const reservedInvoices = [];
     for (let i = 1; i <= quantity; i++) {
       runningCounter++;
       const counterStr = String(runningCounter).padStart(4, "0");
       const docketNumber = `${companyCode}-${branchCode}-${dateStr}-${counterStr}`;
-      const invoiceNumberValue =
-        typeof requestedInvoiceNumber === "string"
-          ? requestedInvoiceNumber.trim()
-          : "";
       reservedInvoices.push({
         company: companyId,
         branch: branchId,
@@ -568,7 +590,8 @@ export const createReservedInvoices = async (req, res) => {
         fromAddress,
         toAddress,
         docketNumber,
-        invoiceNumber: invoiceNumberValue,
+        invoiceNumber: invoiceNumberValues,
+        ewayBillNo: ewayBillValues,
         status: "Reserved",
         ...rest,
         ...(creatorSignatureBase64 && {
@@ -774,6 +797,19 @@ export const updateInvoice = async (req, res) => {
       });
     }
 
+    const previousStatus = invoice.status;
+    const attemptStatuses = ["Undelivered", "Delivered"];
+
+    if (updates.invoiceNumber !== undefined) {
+      invoice.invoiceNumber = normalizeMultiValueField(updates.invoiceNumber);
+      delete updates.invoiceNumber;
+    }
+
+    if (updates.ewayBillNo !== undefined) {
+      invoice.ewayBillNo = normalizeMultiValueField(updates.ewayBillNo);
+      delete updates.ewayBillNo;
+    }
+
     // Vehicle logic (same as createInvoice)
     if (updates.vehicleNumber) {
       let vehicleData = null;
@@ -849,6 +885,9 @@ export const updateInvoice = async (req, res) => {
       }
     }
 
+    const pendingUndeliveredReason = updates.undeliveredReason;
+    delete updates.undeliveredReason;
+
     Object.keys(updates).forEach((key) => {
       // Don't overwrite vehicle fields if vehicleNumber was handled above
       if (updates[key] !== undefined && key !== "vehicleNumber") {
@@ -874,6 +913,40 @@ export const updateInvoice = async (req, res) => {
     // Ensure transportMode is updated if provided
     if (updates.transportMode !== undefined) {
       invoice.transportMode = updates.transportMode;
+    }
+
+    if (
+      updates.status &&
+      attemptStatuses.includes(updates.status) &&
+      updates.status !== previousStatus
+    ) {
+      const attemptEntry = {
+        status: updates.status,
+        attemptedAt: new Date(),
+      };
+
+      if (updates.status === "Undelivered") {
+        const reason =
+          pendingUndeliveredReason ||
+          invoice.undeliveredReason ||
+          updates.reason ||
+          "";
+        if (!reason.trim()) {
+          return res.status(400).json({
+            success: false,
+            message: "Reason is required when marking a docket as Undelivered.",
+          });
+        }
+        attemptEntry.reason = reason.trim();
+        invoice.undeliveredReason = reason.trim();
+      } else if (updates.status === "Delivered") {
+        invoice.undeliveredReason = "";
+      }
+
+      invoice.deliveryAttempts = invoice.deliveryAttempts || [];
+      invoice.deliveryAttempts.push(attemptEntry);
+    } else if (pendingUndeliveredReason) {
+      invoice.undeliveredReason = pendingUndeliveredReason.trim();
     }
 
     await invoice.save();
@@ -1027,10 +1100,20 @@ export const exportInvoicesCSV = async (req, res) => {
       }
     });
 
+    const attemptStatuses = ["Undelivered", "Delivered"];
+
     // Flatten and map fields for CSV
-    const data = invoices.map((inv) => {
-      const baseRow = {
+    const rows = [];
+
+    const buildBaseRow = (inv, attempt) => ({
         DocketNumber: inv.docketNumber,
+        InvoiceNumbers: formatMultiValueField(inv.invoiceNumber),
+        EwayBillNumbers: formatMultiValueField(inv.ewayBillNo),
+        AttemptStatus: attempt?.status || inv.status,
+        AttemptReason: attempt?.reason || "",
+        AttemptedAt: attempt?.attemptedAt
+          ? new Date(attempt.attemptedAt).toLocaleString()
+          : "",
         Company: inv.company?.name || "",
         CompanyAddress: inv.company?.address || "",
         CompanyGST: inv.company?.gstNumber || "",
@@ -1083,9 +1166,9 @@ export const exportInvoicesCSV = async (req, res) => {
         DeliveryProofRemarks: inv.deliveryProof?.remarks || "",
         CreatedAt: inv.createdAt ? new Date(inv.createdAt).toLocaleString() : "",
         UpdatedAt: inv.updatedAt ? new Date(inv.updatedAt).toLocaleString() : "",
-      };
+      });
 
-      // Add MIS data fields
+    invoices.forEach((inv) => {
       const misDataRow = {};
       if (inv.customer?.misFields && Array.isArray(inv.customer.misFields)) {
         inv.customer.misFields.forEach((field) => {
@@ -1095,21 +1178,31 @@ export const exportInvoicesCSV = async (req, res) => {
         });
       }
 
-      // Add empty values for MIS fields that exist in other invoices but not this one
       allMisFieldNames.forEach((fieldName) => {
-        if (!misDataRow[`MIS_${fieldName}`]) {
-          const field = inv.customer?.misFields?.find((f) => f.fieldName === fieldName);
-          if (field) {
-            misDataRow[`MIS_${field.fieldLabel || fieldName}`] = inv.misData?.[fieldName] || "";
-          } else {
-            // Field doesn't exist for this customer, add empty value
-            misDataRow[`MIS_${fieldName}`] = "";
-          }
+        if (misDataRow[`MIS_${fieldName}`]) return;
+        const field = inv.customer?.misFields?.find((f) => f.fieldName === fieldName);
+        if (field) {
+          misDataRow[`MIS_${field.fieldLabel || fieldName}`] =
+            inv.misData?.[fieldName] || "";
+        } else {
+          misDataRow[`MIS_${fieldName}`] = "";
         }
       });
 
-      return { ...baseRow, ...misDataRow };
+      const attempts = inv.deliveryAttempts?.filter((attempt) =>
+        attemptStatuses.includes(attempt.status)
+      );
+
+      if (attempts && attempts.length > 0) {
+        attempts.forEach((attempt) => {
+          rows.push({ ...buildBaseRow(inv, attempt), ...misDataRow });
+        });
+      } else {
+        rows.push({ ...buildBaseRow(inv), ...misDataRow });
+      }
     });
+
+    const data = rows;
 
     const fields = Object.keys(data[0] || {});
     const json2csv = new Json2CsvParser({ fields });

@@ -30,6 +30,7 @@ import {
   CheckCircle,
   ArrowLeft,
   ClipboardList,
+  AlertCircle,
 } from "lucide-react";
 
 
@@ -44,6 +45,7 @@ const statusOptions = [
   "In Transit",
   "Arrived at Destination",
   "Delivered",
+  "Undelivered",
   "Cancelled",
   "Returned",
 ];
@@ -64,6 +66,7 @@ const UpdateInvoice = () => {
   const [toState, setToState] = useState("");
   const [toPincode, setToPincode] = useState("");
   const [status, setStatus] = useState("");
+  const [undeliveredReason, setUndeliveredReason] = useState("");
   const [note, setNote] = useState("");
   const [lat, setLat] = useState("");
   const [lng, setLng] = useState("");
@@ -104,6 +107,7 @@ const UpdateInvoice = () => {
         // Set invoice state
         setInvoice(invoice);
         setStatus(invoice.status || "");
+        setUndeliveredReason(invoice.undeliveredReason || "");
         setNote(
           invoice?.driverUpdates?.[invoice.driverUpdates.length - 1]?.note || ""
         );
@@ -187,6 +191,7 @@ const UpdateInvoice = () => {
       isMounted = false;
       // Reset all fields when invoiceId changes
       setStatus("");
+      setUndeliveredReason("");
       setNote("");
       setLat("");
       setLng("");
@@ -240,6 +245,12 @@ const UpdateInvoice = () => {
     }
   }, [existingOrderPhotoUrl, orderPhoto, previewUrl]);
 
+  useEffect(() => {
+    if (status !== "Undelivered") {
+      setUndeliveredReason("");
+    }
+  }, [status]);
+
   const handleSubmit = async () => {
 
     // Debug: Check if required fields are present
@@ -248,6 +259,11 @@ const UpdateInvoice = () => {
     
     if (!driverId || !invoiceId) {
       toast.error("Driver ID or Invoice ID is missing");
+      return;
+    }
+
+    if (status === "Undelivered" && !undeliveredReason.trim()) {
+      toast.error("Please provide a reason for marking this delivery as Undelivered.");
       return;
     }
 
@@ -268,6 +284,9 @@ const UpdateInvoice = () => {
     formData.append("invoiceId", invoiceId);
 
     if (status) formData.append("status", status);
+    if (status === "Undelivered" && undeliveredReason.trim()) {
+      formData.append("undeliveredReason", undeliveredReason.trim());
+    }
     if (note || lat || lng) {
       formData.append(
         "location",
@@ -439,6 +458,21 @@ const UpdateInvoice = () => {
                     Select the current status of this delivery
                   </p>
                 </div>
+              {status === "Undelivered" && (
+                <div>
+                  <Label className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-500" />
+                    Reason for Undelivered Status
+                  </Label>
+                  <Textarea
+                    value={undeliveredReason}
+                    onChange={(e) => setUndeliveredReason(e.target.value)}
+                    placeholder="Explain why the delivery could not be completed"
+                    className="mt-2"
+                    rows={3}
+                  />
+                </div>
+              )}
                 <div>
                   <Label className="flex items-center gap-2">
                     <PenTool className="w-4 h-4 text-[#FFD249]" />

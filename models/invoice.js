@@ -1,5 +1,20 @@
 import mongoose from "mongoose";
 
+const normalizeStringArray = (value) => {
+  if (value === undefined || value === null) return [];
+  const list = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+    ? value.split(",")
+    : [value];
+
+  return list
+    .map((item) =>
+      typeof item === "string" ? item.trim() : String(item || "").trim()
+    )
+    .filter((item) => item.length > 0);
+};
+
 const invoiceSchema = new mongoose.Schema(
   {
     docketNumber: {
@@ -116,11 +131,26 @@ const invoiceSchema = new mongoose.Schema(
         "In Transit",
         "Arrived at Destination",
         "Delivered",
+        "Undelivered",
         "Cancelled",
         "Returned",
       ],
       default: "Created",
     },
+    deliveryAttempts: {
+      type: [
+        {
+          status: {
+            type: String,
+            enum: ["Undelivered", "Delivered"],
+          },
+          reason: { type: String, trim: true },
+          attemptedAt: { type: Date, default: Date.now },
+        },
+      ],
+      default: [],
+    },
+    undeliveredReason: { type: String, trim: true, default: "" },
 
     driverUpdates: [
       {
@@ -187,9 +217,17 @@ const invoiceSchema = new mongoose.Schema(
     consignor: { type: String, trim: true },
     consignee: { type: String, trim: true },
     address: { type: String, trim: true },
-    invoiceNumber: { type: String, trim: true },
+    invoiceNumber: {
+      type: [String],
+      default: [],
+      set: normalizeStringArray,
+    },
     invoiceBill: { type: String, trim: true },
-    ewayBillNo: { type: String, trim: true },
+    ewayBillNo: {
+      type: [String],
+      default: [],
+      set: normalizeStringArray,
+    },
     misData: {
       type: mongoose.Schema.Types.Mixed,
       default: {},

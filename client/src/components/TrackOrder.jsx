@@ -14,6 +14,7 @@ const TIMELINE_STEPS = [
   { status: "Dispatched", label: "Dispatched", icon: Package },
   { status: "In Transit", label: "In Transit", icon: Truck },
   { status: "Arrived at Destination", label: "Arrived", icon: MapPin },
+  { status: "Undelivered", label: "Undelivered", icon: AlertCircle },
   { status: "Delivered", label: "Delivered", icon: CheckCircle2 },
 ];
 
@@ -44,7 +45,7 @@ const TrackOrder = () => {
       ? (currentStepIndex / (TIMELINE_STEPS.length - 1)) * 100
       : 0;
   const isExceptionStatus =
-    invoice && ["Cancelled", "Returned"].includes(invoice.status);
+    invoice && ["Cancelled", "Returned", "Undelivered"].includes(invoice.status);
 
   const getStatusColor = (status) => {
     const statusColors = {
@@ -53,6 +54,7 @@ const TrackOrder = () => {
       "Dispatched": "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20",
       "In Transit": "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/20",
       "Arrived at Destination": "bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/20",
+      "Undelivered": "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20",
       "Delivered": "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20",
       "Cancelled": "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20",
       "Returned": "bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-500/20",
@@ -67,6 +69,7 @@ const TrackOrder = () => {
       "Dispatched": <Package className="w-5 h-5" />,
       "In Transit": <Truck className="w-5 h-5" />,
       "Arrived at Destination": <MapPin className="w-5 h-5" />,
+      "Undelivered": <AlertCircle className="w-5 h-5" />,
       "Delivered": <CheckCircle2 className="w-5 h-5" />,
       "Cancelled": <XCircle className="w-5 h-5" />,
       "Returned": <AlertCircle className="w-5 h-5" />,
@@ -175,8 +178,18 @@ const TrackOrder = () => {
                     </h2>
                     <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
                       <FileText className="w-4 h-4" />
-                      Invoice: <span className="font-medium">{invoice.invoiceNumber}</span>
+                      Invoice:{" "}
+                      <span className="font-medium">
+                        {Array.isArray(invoice.invoiceNumber)
+                          ? invoice.invoiceNumber.join(", ")
+                          : invoice.invoiceNumber || "-"}
+                      </span>
                     </p>
+                    {invoice.status === "Undelivered" && invoice.undeliveredReason && (
+                      <p className="text-sm text-red-500 mt-2">
+                        Last Attempt: {invoice.undeliveredReason}
+                      </p>
+                    )}
                   </div>
                   <Badge className={`${getStatusColor(invoice.status)} px-6 py-3 text-base font-bold flex items-center gap-2 shadow-lg border-2`}>
                     {getStatusIcon(invoice.status)}
