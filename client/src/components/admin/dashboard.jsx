@@ -40,8 +40,20 @@ import {
   Line,
 } from "recharts";
 
+// Helper function to get initials from name
+const getInitials = (name) => {
+  if (!name) return "U";
+  const words = name.trim().split(/\s+/);
+  if (words.length === 1) {
+    return words[0].charAt(0).toUpperCase();
+  }
+  // Get first letter of first word and first letter of last word
+  return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase();
+};
+
 const SuperAdminDashboard = () => {
   const { user } = useSelector((store) => store.auth);
+  const [imageError, setImageError] = React.useState(false);
 
   // Get current month's date range
   const now = new Date();
@@ -128,17 +140,7 @@ const SuperAdminDashboard = () => {
           icon: <FaClipboardList className="text-2xl" />,
           color: "bg-purple-500",
         },
-        {
-          title: "Assigned Client",
-          value:
-            user?.assignedClients?.length > 0
-              ? user.assignedClients
-                  .map((c) => c.name || c)
-                  .join(", ")
-              : "Not Assigned",
-          icon: <FaUser className="text-2xl" />,
-          color: "bg-orange-500",
-        },
+        
       ]
     : [
         {
@@ -165,17 +167,6 @@ const SuperAdminDashboard = () => {
                 <h2 className="text-2xl md:text-3xl font-bold">
                   Welcome back, {user?.name || "User"}!
                 </h2>
-                <p className="text-orange-100 mt-1 text-sm md:text-base">
-                  {isVendor
-                    ? `Manage your vehicles and view invoices for ${
-                        user?.assignedClients?.length > 0
-                          ? user.assignedClients
-                              .map((c) => c.name || c)
-                              .join(", ")
-                          : "your assigned clients"
-                      }`
-                    : "Manage all Dellcube branches, staff, and logistics operations"}
-                </p>
                 <div className="mt-4 text-sm text-orange-100">
                   Today:{" "}
                   {new Date().toLocaleDateString("en-IN", {
@@ -187,12 +178,19 @@ const SuperAdminDashboard = () => {
                 </div>
               </div>
               <div className="text-right">
-                <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center text-3xl font-bold mb-2">
-                  <img
-                    src={user?.photoUrl}
-                    alt={user?.name}
-                    className="w-20 h-20   object-cover rounded-full"
-                  />
+                <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center text-3xl font-bold mb-2 relative overflow-hidden">
+                  {user?.photoUrl && !imageError ? (
+                    <img
+                      src={user.photoUrl}
+                      alt={user?.name}
+                      className="w-20 h-20 object-cover rounded-full"
+                      onError={() => setImageError(true)}
+                    />
+                  ) : (
+                    <span className="text-white">
+                      {getInitials(user?.name)}
+                    </span>
+                  )}
                 </div>
                 <p className="text-sm text-orange-100">{user?.role}</p>
               </div>

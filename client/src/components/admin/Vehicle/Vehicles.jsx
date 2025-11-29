@@ -600,6 +600,9 @@ const Vehicles = () => {
                     Type
                   </th>
                   <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                    Cargo Type
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
                     Insurance No
                   </th>
                   <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
@@ -625,7 +628,7 @@ const Vehicles = () => {
               <tbody className="divide-y divide-gray-200 text-center">
                 {isLoading ? (
                   <tr>
-                    <td colSpan="10" className="text-center py-6">
+                    <td colSpan="11" className="text-center py-6">
                       <Loader2 className="animate-spin mx-auto text-[#FFD249]" />{" "}
                       Loading...
                     </td>
@@ -649,6 +652,11 @@ const Vehicles = () => {
                       </td>
                       <td className="p-3 text-[#202020] dark:text-[#FFD249]">
                         {veh.type}
+                      </td>
+                      <td className="p-3 text-[#202020] dark:text-[#FFD249]">
+                        {veh.cargoType || (
+                          <span className="text-gray-400">N/A</span>
+                        )}
                       </td>
                       <td className="p-3 text-[#202020] dark:text-[#FFD249]">
                         {veh.vehicleInsuranceNo || (
@@ -805,7 +813,7 @@ const Vehicles = () => {
                 ) : (
                   <tr>
                     <td
-                      colSpan="10"
+                      colSpan="11"
                       className="text-center py-10 text-[#828083]"
                     >
                       <Box className="w-8 h-8 mx-auto text-[#828083]" />
@@ -830,6 +838,9 @@ const Vehicles = () => {
                   </th>
                   <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
                     Type
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                    Cargo Type
                   </th>
                   <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
                     Insurance No
@@ -930,7 +941,7 @@ const Vehicles = () => {
               </div>
             }
             placement="right"
-            width={380}
+            width={480}
             onClose={() => {
               setOpen(false);
               setSelectedVehicle(null);
@@ -973,6 +984,11 @@ const Vehicles = () => {
                   <InfoRow
                     label="Type"
                     value={selectedVehicle.type}
+                    icon={Car}
+                  />
+                  <InfoRow
+                    label="Cargo Type"
+                    value={selectedVehicle.cargoType || "N/A"}
                     icon={Car}
                   />
                   <InfoRow

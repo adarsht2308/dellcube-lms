@@ -293,12 +293,26 @@ const CreateCompany = () => {
                     <SelectContent>
                       <SelectItem value="counter company">Counter Company</SelectItem>
                       <SelectItem value="logistic company">Logistic Company</SelectItem>
-                      <SelectItem value="transport company">
-                        Transport Company
-                      </SelectItem>
-                      <SelectItem value="warehouse company">
-                        Warehouse Company
-                      </SelectItem>
+                      <SelectItem value="transport company">Transport Company</SelectItem>
+                      <SelectItem value="warehouse company">Warehouse Company</SelectItem>
+                      <SelectItem value="freight forwarder">Freight Forwarder</SelectItem>
+                      <SelectItem value="courier service">Courier Service</SelectItem>
+                      <SelectItem value="express delivery">Express Delivery</SelectItem>
+                      <SelectItem value="third party logistics">Third-Party Logistics (3PL)</SelectItem>
+                      <SelectItem value="supply chain management">Supply Chain Management</SelectItem>
+                      <SelectItem value="distribution company">Distribution Company</SelectItem>
+                      <SelectItem value="e-commerce logistics">E-commerce Logistics</SelectItem>
+                      <SelectItem value="cold chain logistics">Cold Chain Logistics</SelectItem>
+                      <SelectItem value="customs broker">Customs Broker</SelectItem>
+                      <SelectItem value="shipping company">Shipping Company</SelectItem>
+                      <SelectItem value="packaging company">Packaging Company</SelectItem>
+                      <SelectItem value="fulfillment center">Fulfillment Center</SelectItem>
+                      <SelectItem value="last mile delivery">Last Mile Delivery</SelectItem>
+                      <SelectItem value="cargo handling">Cargo Handling</SelectItem>
+                      <SelectItem value="port operator">Port Operator</SelectItem>
+                      <SelectItem value="railway logistics">Railway Logistics</SelectItem>
+                      <SelectItem value="air freight">Air Freight</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

@@ -28,6 +28,7 @@ const UpdateVehicle = () => {
 
   const [vehicleNumber, setVehicleNumber] = useState("");
   const [type, setType] = useState("");
+  const [cargoType, setCargoType] = useState("");
   const [brand, setBrand] = useState("");
   const [model, setModel] = useState("");
   const [yearOfManufacture, setYearOfManufacture] = useState("");
@@ -85,6 +86,7 @@ const UpdateVehicle = () => {
       const v = viewData.vehicle;
       setVehicleNumber(v.vehicleNumber || "");
       setType(v.type || "");
+      setCargoType(v.cargoType || "");
       setBrand(v.brand || "");
       setModel(v.model || "");
       setYearOfManufacture(v.yearOfManufacture || "");
@@ -127,6 +129,7 @@ const UpdateVehicle = () => {
     payload.append("vehicleId", vehicleId);
     payload.append("vehicleNumber", vehicleNumber);
     payload.append("type", type);
+    payload.append("cargoType", cargoType);
     payload.append("brand", brand);
     payload.append("model", model);
     payload.append("yearOfManufacture", yearOfManufacture);
@@ -201,15 +204,20 @@ const UpdateVehicle = () => {
                   Vehicle Number *
                 </Label>
                 <Input
+                  placeholder="e.g. MH-12-AB-1234"
                   value={vehicleNumber}
-                  onChange={(e) => setVehicleNumber(e.target.value)}
+                  onChange={(e) => {
+                    // Replace spaces with hyphens and convert to uppercase
+                    const formatted = e.target.value.replace(/\s+/g, "-").toUpperCase();
+                    setVehicleNumber(formatted);
+                  }}
                   className="mt-1.5"
                 />
               </div>
 
               <div>
                 <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Type *
+                  Vehicle Type (Size) *
                 </Label>
                 <Select value={type} onValueChange={setType}>
                   <SelectTrigger className="mt-1.5">
@@ -220,6 +228,26 @@ const UpdateVehicle = () => {
                       (t) => (
                         <SelectItem key={t} value={t}>
                           {t}
+                        </SelectItem>
+                      )
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Cargo Type
+                </Label>
+                <Select value={cargoType} onValueChange={setCargoType}>
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder="Select cargo type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {["Dry", "Refrigerated", "Container", "Open", "Closed", "Flatbed", "Tanker", "Other"].map(
+                      (ct) => (
+                        <SelectItem key={ct} value={ct}>
+                          {ct}
                         </SelectItem>
                       )
                     )}

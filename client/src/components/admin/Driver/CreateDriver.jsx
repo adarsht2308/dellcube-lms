@@ -109,6 +109,9 @@ const CreateDriver = () => {
     } else if (name === "licenseNumber") {
       const cleanValue = value.replace(/[^A-Za-z0-9\-\s]/g, "");
       setFormData((prev) => ({ ...prev, [name]: cleanValue }));
+    } else if (name === "experienceYears") {
+      const numValue = value === "" ? "" : Math.max(0, parseInt(value) || 0);
+      setFormData((prev) => ({ ...prev, [name]: numValue }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
@@ -124,6 +127,8 @@ const CreateDriver = () => {
       company,
       branch,
       driverType,
+      aadharNumber,
+      panNumber,
     } = formData;
 
     if (
@@ -162,6 +167,54 @@ const CreateDriver = () => {
 
     if (experienceYears < 0 || experienceYears > 50) {
       toast.error("Experience years must be between 0 and 50.");
+      return false;
+    }
+
+    if (!aadharNumber || !aadharNumber.trim()) {
+      toast.error("Aadhar Card Number is required.");
+      return false;
+    }
+
+    if (aadharNumber.length !== 12 || !/^\d{12}$/.test(aadharNumber)) {
+      toast.error("Aadhar Card Number must be exactly 12 digits.");
+      return false;
+    }
+
+    if (!panNumber || !panNumber.trim()) {
+      toast.error("PAN Card Number is required.");
+      return false;
+    }
+
+    if (panNumber.length !== 10 || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(panNumber)) {
+      toast.error("PAN Card Number must be in valid format (e.g., ABCDE1234F).");
+      return false;
+    }
+
+    // Bank Details Validation
+    const { accountHolderName, bankName, accountNumber, ifscCode } = formData.bankDetails;
+    
+    if (!accountHolderName || !accountHolderName.trim()) {
+      toast.error("Account Holder Name is required.");
+      return false;
+    }
+
+    if (!bankName || !bankName.trim()) {
+      toast.error("Bank Name is required.");
+      return false;
+    }
+
+    if (!accountNumber || !accountNumber.trim()) {
+      toast.error("Account Number is required.");
+      return false;
+    }
+
+    if (!ifscCode || !ifscCode.trim()) {
+      toast.error("IFSC Code is required.");
+      return false;
+    }
+
+    if (ifscCode.length !== 11 || !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)) {
+      toast.error("IFSC Code must be in valid format (e.g., ABCD0123456).");
       return false;
     }
 
@@ -285,6 +338,11 @@ const CreateDriver = () => {
                     name="experienceYears"
                     value={formData.experienceYears}
                     onChange={handleInputChange}
+                    onInput={(e) => {
+                      if (e.target.value < 0) e.target.value = 0;
+                    }}
+                    min="0"
+                    max="50"
                     placeholder="Years of Experience"
                   />
                 </div>
@@ -420,13 +478,13 @@ const CreateDriver = () => {
             <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <FileText className="w-5 h-5 text-[#202020]" />
-                Identity Information (Optional)
+                Identity Information
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label>Aadhar Card Number</Label>
+                  <Label>Aadhar Card Number *</Label>
                   <Input
                     name="aadharNumber"
                     value={formData.aadharNumber}
@@ -436,7 +494,7 @@ const CreateDriver = () => {
                   />
                 </div>
                 <div>
-                  <Label>PAN Card Number</Label>
+                  <Label>PAN Card Number *</Label>
                   <Input
                     name="panNumber"
                     value={formData.panNumber}
@@ -454,13 +512,13 @@ const CreateDriver = () => {
             <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Banknote className="w-5 h-5 text-[#202020]" />
-                Bank Account Details (Optional)
+                Bank Account Details
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label>Account Holder Name</Label>
+                  <Label>Account Holder Name *</Label>
                   <Input
                     name="bank.accountHolderName"
                     value={formData.bankDetails.accountHolderName}
@@ -469,7 +527,7 @@ const CreateDriver = () => {
                   />
                 </div>
                 <div>
-                  <Label>Bank Name</Label>
+                  <Label>Bank Name *</Label>
                   <Input
                     name="bank.bankName"
                     value={formData.bankDetails.bankName}
@@ -478,7 +536,7 @@ const CreateDriver = () => {
                   />
                 </div>
                 <div>
-                  <Label>Account Number</Label>
+                  <Label>Account Number *</Label>
                   <Input
                     name="bank.accountNumber"
                     value={formData.bankDetails.accountNumber}
@@ -487,7 +545,7 @@ const CreateDriver = () => {
                   />
                 </div>
                 <div>
-                  <Label>IFSC Code</Label>
+                  <Label>IFSC Code *</Label>
                   <Input
                     name="bank.ifscCode"
                     value={formData.bankDetails.ifscCode}

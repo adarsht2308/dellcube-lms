@@ -475,8 +475,12 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
   const signature = invoice?.deliveryProof?.signature;
   const isValidSignature =
     signature &&
+    typeof signature === 'string' &&
+    signature.trim() !== '' &&
     (signature.startsWith("data:image/png;base64,") ||
-      signature.startsWith("data:image/jpeg;base64,"));
+      signature.startsWith("data:image/jpeg;base64,") ||
+      signature.startsWith("data:image/jpg;base64,") ||
+      signature.startsWith("data:image/webp;base64,"));
 
   // Debug logging for signature
   console.log("=== PDF Signature Debug ===");
@@ -666,11 +670,7 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
               <View style={[styles.tableCell, { width: "40%" }]}>
                 {/* <Text style={styles.fieldLabel}>GOODS:</Text> */}
                 <FieldInputView
-                  value={`${invoice?.goodsType?.name || "-"} ${
-                    invoice?.goodsType?.items?.length
-                      ? "(" + invoice.goodsType.items.join(", ") + ")"
-                      : ""
-                  }`}
+                  value={`${invoice?.goodsType?.name || "-"}`}
                 />
               </View>
               <View style={[styles.tableCell, { width: "15%" }]}>
@@ -757,7 +757,7 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
                 <Text style={styles.fieldLabel}>DRIVER PHONE:</Text>
                 <FieldInputView value={invoice?.driverContactNumber || "-"} />
               </View>
-              <View style={[styles.tableCell, { width: "10%" }]}>
+              <View style={[styles.tableCell, { width: "15%" }]}>
                 <Text style={styles.fieldLabel}>SEAL NO:</Text>
                 <FieldInputView value={invoice?.sealNo || "-"} />
               </View>
@@ -765,30 +765,18 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
                 <Text style={styles.fieldLabel}>TRANSPORT MODE:</Text>
                 <FieldInputView value={invoice?.transportMode?.name || "-"} />
               </View>
-              
+              <View style={[styles.tableCell, { width: "15%" }]}>
+                <Text style={styles.fieldLabel}>PAYMENT:</Text>
+                <FieldInputView value={invoice?.paymentType || "-"} />
+              </View>
               <View
                 style={[
                   styles.tableCell,
                   { width: "10%", borderRight: "none" },
                 ]}
               >
-                {/* <Text style={styles.fieldLabel}>DISPATCHED AT:</Text>
-                <FieldInputView
-                  value={
-                    invoice?.dispatchDateTime
-                      ? new Date(invoice.dispatchDateTime).toLocaleString(
-                          "en-IN",
-                          {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "2-digit",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          }
-                        )
-                      : "-"
-                  }
-                /> */}
+                {/* <Text style={styles.fieldLabel}>NONE:</Text>
+                <FieldInputView value={invoice?.paymentType || "-"} /> */}
               </View>
             </View>
           </View>

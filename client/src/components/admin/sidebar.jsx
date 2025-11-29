@@ -101,14 +101,14 @@ const Sidebar = () => {
       title: "Dashboard",
       icon: LayoutDashboard,
       path:
-        user?.role === "superAdmin"
+        user?.role === "superAdmin" || user?.role === "vendor"
           ? "/admin/dashboard"
           : user?.role === "driver"
           ? "/admin/driver-dashboard"
           : user?.role === "operation"
           ? "/admin/operation-dashboard"
           : "/admin/branch-admin-dashboard",
-      roles: ["superAdmin", "branchAdmin", "operation", "driver"],
+      roles: ["superAdmin", "branchAdmin", "operation", "driver", "vendor"],
     },
     // {
     //   id: "regions",
@@ -181,10 +181,10 @@ const Sidebar = () => {
               { title: "Customers", icon: Users, path: "/admin/customers" },
             ]
           : [
+            { title: "Customers", icon: Users, path: "/admin/customers" },
+            { title: "Vendors", icon: Handshake, path: "/admin/vendors" },
               { title: "Vehicles", icon: Truck, path: "/admin/vehicles" },
               { title: "Goods", icon: Boxes, path: "/admin/goods" },
-              { title: "Vendors", icon: Handshake, path: "/admin/vendors" },
-              { title: "Customers", icon: Users, path: "/admin/customers" },
               { title: "Site Types", icon: Caravan, path: "/admin/site-types" },
               {
                 title: "Transport Modes",

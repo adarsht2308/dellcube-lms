@@ -256,30 +256,6 @@ const UpdateCustomer = () => {
                     className="mt-1.5"
                   />
                 </div>
-              </div>
-            </Card>
-
-            {/* Company Information Card */}
-            <Card className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-[#202020] dark:text-[#FFD249] mb-4 flex items-center gap-2">
-                <Building2 className="w-5 h-5" />
-                Company Information
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Company Name
-                  </Label>
-                  <Input
-                    placeholder="e.g., ABC Corporation"
-                    value={formData.companyName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, companyName: e.target.value })
-                    }
-                    className="mt-1.5"
-                  />
-                </div>
-
                 <div>
                   <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Company Contact Name
@@ -294,7 +270,7 @@ const UpdateCustomer = () => {
                   />
                 </div>
 
-                <div className="md:col-span-2">
+                <div >
                   <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Company Contact Info
                   </Label>
@@ -309,6 +285,8 @@ const UpdateCustomer = () => {
                 </div>
               </div>
             </Card>
+
+          
 
             {/* Tax Information Card */}
             <Card className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">

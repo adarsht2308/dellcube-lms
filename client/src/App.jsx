@@ -628,7 +628,7 @@ const appRouter = createBrowserRouter([
         path: "update-invoice",
         element: (
           <RoleProtectedRoute
-            allowedRoles={["superAdmin", "branchAdmin", "operation"]}
+            allowedRoles={["superAdmin", "branchAdmin", "operation", "vendor"]}
           >
             <UpdateInvoice />
           </RoleProtectedRoute>

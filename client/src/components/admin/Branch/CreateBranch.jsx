@@ -101,9 +101,18 @@ const CreateBranch = () => {
   };
 
   const handleSubmit = async () => {
-    const { name, branchCode, company, address } = formData;
+    const { name, branchCode, company, address, branchNo, gstNo } = formData;
     if (!name || !branchCode || !company || !address) {
       return toast.error("All required fields must be filled");
+    }
+    if (!branchNo || !branchNo.trim()) {
+      return toast.error("Branch Contact No is required");
+    }
+    if (!/^\d{10}$/.test(branchNo)) {
+      return toast.error("Branch Contact No must be 10 digits");
+    }
+    if (!gstNo || !gstNo.trim()) {
+      return toast.error("GST No is required");
     }
     await createBranch(formData);
   };
@@ -193,12 +202,17 @@ const CreateBranch = () => {
                   </Select>
                 </div>
                 <div>
-                  <Label>Branch Contact No</Label>
+                  <Label>Branch Contact No *</Label>
                   <Input
+                    type="tel"
                     name="branchNo"
                     value={formData.branchNo}
                     onChange={handleInputChange}
-                    placeholder="Branch Number"
+                    onInput={(e) => {
+                      e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    }}
+                    placeholder="10-digit phone number"
+                    maxLength="10"
                   />
                 </div>
                 <div className="md:col-span-2">
@@ -237,7 +251,7 @@ const CreateBranch = () => {
             <CardContent className="pt-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label>GST No</Label>
+                  <Label>GST No *</Label>
                   <Input
                     name="gstNo"
                     value={formData.gstNo}

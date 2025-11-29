@@ -26,10 +26,12 @@ const CreateVehicle = () => {
   const navigate = useNavigate();
   const user = useSelector((state) => state.auth.user);
   const isBranchAdmin = user?.role === "branchAdmin";
+  const isVendor = user?.role === "vendor";
 
   const [formData, setFormData] = useState({
     vehicleNumber: "",
     type: "",
+    cargoType: "",
     brand: "",
     model: "",
     yearOfManufacture: "",
@@ -68,14 +70,20 @@ const CreateVehicle = () => {
         company: String(user?.company?._id),
         branch: String(user?.branch?._id),
       }));
+    } else if (isVendor && user?.company && user?.branch) {
+      setFormData((prev) => ({
+        ...prev,
+        company: String(user?.company?._id),
+        branch: String(user?.branch?._id),
+      }));
     }
-  }, [user]);
+  }, [user, isBranchAdmin, isVendor]);
 
   const handleCompanyChange = async (companyId) => {
     setFormData((prev) => ({
       ...prev,
-      company: isBranchAdmin ? prev?.company : companyId,
-      branch: isBranchAdmin ? prev?.branch : "",
+      company: isBranchAdmin || isVendor ? prev?.company : companyId,
+      branch: isBranchAdmin || isVendor ? prev?.branch : "",
     }));
 
     const res = await getBranchesByCompany(companyId);
@@ -88,9 +96,11 @@ const CreateVehicle = () => {
   };
 
   useEffect(() => {
-    if (!isBranchAdmin && formData.company) {
+    if (!isBranchAdmin && !isVendor && formData.company) {
       handleCompanyChange(formData.company);
     } else if (isBranchAdmin && user?.company) {
+      handleCompanyChange(user.company);
+    } else if (isVendor && user?.company) {
       handleCompanyChange(user.company);
     }
   }, []);
@@ -173,18 +183,20 @@ const CreateVehicle = () => {
                   Vehicle Number *
                 </Label>
                 <Input
-                  placeholder="e.g. MH 12 AB 1234"
+                  placeholder="e.g. MH-12-AB-1234"
                   value={formData.vehicleNumber}
-                  onChange={(e) =>
-                    setFormData({ ...formData, vehicleNumber: e.target.value })
-                  }
+                  onChange={(e) => {
+                    // Replace spaces with hyphens and convert to uppercase
+                    const formatted = e.target.value.replace(/\s+/g, "-").toUpperCase();
+                    setFormData({ ...formData, vehicleNumber: formatted });
+                  }}
                   className="mt-1.5"
                 />
               </div>
 
               <div>
                 <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Vehicle Type *
+                  Vehicle Type (Size) *
                 </Label>
                 <Select
                   value={formData.type}
@@ -198,6 +210,29 @@ const CreateVehicle = () => {
                       (type) => (
                         <SelectItem key={type} value={type}>
                           {type}
+                        </SelectItem>
+                      )
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Cargo Type
+                </Label>
+                <Select
+                  value={formData.cargoType}
+                  onValueChange={(value) => setFormData({ ...formData, cargoType: value })}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder="Select cargo type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {["Dry", "Refrigerated", "Container", "Open", "Closed", "Flatbed", "Tanker", "Other"].map(
+                      (cargoType) => (
+                        <SelectItem key={cargoType} value={cargoType}>
+                          {cargoType}
                         </SelectItem>
                       )
                     )}
@@ -245,11 +280,20 @@ const CreateVehicle = () => {
                     <SelectValue placeholder="Select Driver" />
                   </SelectTrigger>
                   <SelectContent>
-                    {driversData?.drivers?.map((driver) => (
-                      <SelectItem key={driver._id} value={driver._id}>
-                        {driver.name} - {driver.mobile} - {driver.driverType}
-                      </SelectItem>
-                    ))}
+                    {driversData?.drivers
+                      ?.filter((driver) => {
+                        // For vendors, exclude dellcube drivers
+                        if (isVendor) {
+                          return driver.driverType !== "dellcube";
+                        }
+                        // For others, show all drivers
+                        return true;
+                      })
+                      ?.map((driver) => (
+                        <SelectItem key={driver._id} value={driver._id}>
+                          {driver.name} - {driver.mobile} - {driver.driverType}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -457,7 +501,7 @@ const CreateVehicle = () => {
           </Card>
 
           {/* Company & Branch Information Card */}
-          {!isBranchAdmin && (
+          {!isBranchAdmin && !isVendor && (
             <Card className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
               <h3 className="text-lg font-semibold text-[#202020] dark:text-[#FFD249] mb-4 flex items-center gap-2">
                 <Calendar className="w-5 h-5" />

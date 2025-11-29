@@ -278,7 +278,7 @@ const Companies = () => {
                     <td className="p-3 flex gap-2 items-center justify-center">
                       <Button
                         className="p-2 rounded-full bg-[#FFD249]/30 text-[#202020] hover:bg-[#FFD249]/60"
-                        onClick={() => handleView(company)}
+                        onClick={() => handleView(company._id)}
                       >
                         <EyeIcon className="w-4 h-4" />
                       </Button>
@@ -310,7 +310,7 @@ const Companies = () => {
                           </div>
                         }
                         placement="right"
-                        width={380}
+                        width={480}
                         onClose={() => {
                           setOpen(false);
                           setSelectedCompany(null);
@@ -362,9 +362,24 @@ const Companies = () => {
                             </InfoCard>
 
                             <InfoCard icon={Building2} title="Bank Details">
-                              <InfoRow label="Bank Name" value={selectedCompany?.bankDetails?.bankName} icon={Building2} />
-                              <InfoRow label="Account Number" value={selectedCompany?.bankDetails?.accountNumber} icon={Building2} />
-                              <InfoRow label="IFSC Code" value={selectedCompany?.bankDetails?.ifsc} icon={Building2} />
+                              {Array.isArray(selectedCompany?.bankDetails) && selectedCompany.bankDetails.length > 0 ? (
+                                selectedCompany.bankDetails.map((bank, idx) => (
+                                  <div key={idx} className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                                    {selectedCompany.bankDetails.length > 1 && (
+                                      <div className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-2 uppercase tracking-wider">
+                                        Bank #{idx + 1}
+                                      </div>
+                                    )}
+                                    <InfoRow label="Bank Name" value={bank.bankName || "N/A"} icon={Building2} />
+                                    <InfoRow label="Account Number" value={bank.accountNumber || "N/A"} icon={Building2} />
+                                    <InfoRow label="IFSC Code" value={bank.ifsc || "N/A"} icon={Building2} />
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="text-center py-4">
+                                  <span className="text-gray-400 text-sm">No bank details available</span>
+                                </div>
+                              )}
                             </InfoCard>
 
                             <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-100 dark:border-gray-700">

@@ -314,7 +314,7 @@ const Branches = () => {
                           </div>
                         }
                         placement="right"
-                        width={380}
+                        width={480}
                         onClose={() => {
                           setOpen(false);
                           setSelectedBranch(null);

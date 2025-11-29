@@ -26,14 +26,31 @@ const MultiValueInput = ({
   onChange,
   helperText,
   disabled = false,
+  validateValue = null, // Optional validation function that returns error message or null
+  maxLength = null, // Optional max length for input
+  inputType = "text", // Input type (text, tel, etc.)
+  inputMode = null, // Input mode for mobile keyboards
 }) => {
   const [currentValue, setCurrentValue] = useState("");
+  const [error, setError] = useState("");
   const normalizedValues = normalizeArray(values);
 
   const handleAdd = () => {
-    if (!currentValue.trim()) return;
+    const trimmedValue = currentValue.trim();
+    if (!trimmedValue) return;
+
+    // Validate if validation function is provided
+    if (validateValue) {
+      const validationError = validateValue(trimmedValue);
+      if (validationError) {
+        setError(validationError);
+        return;
+      }
+    }
+
+    setError("");
     const nextValues = Array.from(
-      new Set([...normalizedValues, currentValue.trim()])
+      new Set([...normalizedValues, trimmedValue])
     );
     onChange(nextValues);
     setCurrentValue("");
@@ -51,6 +68,25 @@ const MultiValueInput = ({
     }
   };
 
+  const handleInputChange = (event) => {
+    let value = event.target.value;
+    
+    // If inputType is tel and maxLength is set, only allow digits
+    if (inputType === "tel" && maxLength) {
+      value = value.replace(/\D/g, ''); // Remove non-digits
+      if (value.length > maxLength) {
+        value = value.slice(0, maxLength);
+      }
+    } else if (maxLength && value.length > maxLength) {
+      // For other input types, just limit length
+      value = value.slice(0, maxLength);
+    }
+    
+    setCurrentValue(value);
+    // Clear error when user starts typing
+    if (error) setError("");
+  };
+
   return (
     <div className="space-y-2">
       {label && (
@@ -61,13 +97,15 @@ const MultiValueInput = ({
       <div className="flex gap-2">
         <Input
           id={label}
-          type="text"
+          type={inputType}
           value={currentValue}
           disabled={disabled}
-          onChange={(event) => setCurrentValue(event.target.value)}
+          onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="flex-1"
+          className={`flex-1 ${error ? "border-red-500" : ""}`}
+          maxLength={maxLength || undefined}
+          inputMode={inputMode || undefined}
         />
         <Button
           type="button"
@@ -78,7 +116,10 @@ const MultiValueInput = ({
           Add
         </Button>
       </div>
-      {helperText && (
+      {error && (
+        <p className="text-xs text-red-500">{error}</p>
+      )}
+      {!error && helperText && (
         <p className="text-xs text-gray-500">{helperText}</p>
       )}
       <div className="flex flex-wrap gap-2">

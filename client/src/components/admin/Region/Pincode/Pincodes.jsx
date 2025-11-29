@@ -228,7 +228,7 @@ const Pincodes = () => {
                           </div>
                         }
                         placement="right"
-                        width={380}
+                        width={480}
                         onClose={() => {
                           setOpen(false);
                           setSelectedPincode(null);

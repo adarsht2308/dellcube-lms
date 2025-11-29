@@ -1,34 +1,29 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import toast from "react-hot-toast";
-import {
-  Loader2,
-  SlidersHorizontal,
-  ChevronDown,
-  ChevronUp,
-  Box,
-  EyeIcon,
-  UserRound,
-  Truck,
-  Building2,
-  MapPin,
-} from "lucide-react";
-import { MdOutlineEdit } from "react-icons/md";
-import { FaRegTrashCan } from "react-icons/fa6";
-import { GrPowerCycle } from "react-icons/gr";
-import { Drawer } from "antd";
-import { useSelector } from "react-redux";
-
-import {
-  useDeleteDriverMutation,
-  useGetAllDriversQuery,
-} from "@/features/api/authApi";
-import { useGetAllCompaniesQuery } from "@/features/api/Company/companyApi";
-import { useGetBranchesByCompanyMutation } from "@/features/api/Branch/branchApi";
-import { useDebounce } from "@/hooks/Debounce";
-
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Loader2,
+  CreditCard,
+  Building,
+  User,
+  Mail,
+  Lock,
+  MapPin,
+  Banknote,
+  Hash,
+  Building2,
+  Phone,
+  Car,
+  Clock,
+  ArrowLeft,
+  FileText,
+  Truck,
+} from "lucide-react";
+import toast from "react-hot-toast";
 import {
   Select,
   SelectTrigger,
@@ -36,766 +31,616 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+
+import { useSelector } from "react-redux";
+import { useGetAllCompaniesQuery } from "@/features/api/Company/companyApi";
+import { useGetBranchesByCompanyMutation } from "@/features/api/Branch/branchApi";
 import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
-import {
-  AlertDialog,
-  AlertDialogTrigger,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogFooter,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogAction,
-  AlertDialogCancel,
-} from "@/components/ui/alert-dialog";
+  useGetDriverByIdMutation,
+  useUpdateDriverMutation,
+} from "@/features/api/authApi";
+import { useGetAllVendorsQuery } from "@/features/api/Vendor/vendorApi";
 
-const DELLCUBE_COLORS = {
-  gold: "#FFD249",
-  dark: "#202020",
-  gray: "#828083",
-};
-
-const InfoCard = ({ icon: Icon, title, children, className = "" }) => (
-  <div
-    className={`group relative bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl p-6 transition-all duration-300 hover:shadow-lg hover:bg-white/80 dark:hover:bg-gray-800/80 hover:border-gray-300/50 dark:hover:border-gray-600/50 ${className}`}
-  >
-    <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 via-transparent to-purple-50/30 dark:from-blue-900/10 dark:via-transparent dark:to-purple-900/10 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-    <div className="relative flex items-center gap-3 mb-4 pb-3 border-b border-gray-200/50 dark:border-gray-700/50">
-      <div className="p-2 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/50 dark:to-purple-900/50 rounded-lg">
-        <UserRound className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-      </div>
-      <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-        {title}
-      </h3>
-    </div>
-    <div className="relative space-y-3">{children}</div>
-  </div>
-);
-
-const InfoRow = ({ label, value, icon: Icon }) => (
-  <div className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors duration-200">
-    <div className="flex items-center gap-2 min-w-0">
-      {Icon && (
-        <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
-      )}
-      <span className="text-sm font-medium text-gray-600 dark:text-gray-300 truncate">
-        {label}:
-      </span>
-    </div>
-    <div className="flex-shrink-0 ml-3">
-      <span className="text-sm text-gray-800 dark:text-gray-200 font-medium">
-        {value || <span className="text-gray-400 italic">N/A</span>}
-      </span>
-    </div>
-  </div>
-);
-
-const Drivers = () => {
+const UpdateDriver = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const driverId = location.state?.driverId;
   const user = useSelector((state) => state.auth.user);
   const isBranchAdmin = user?.role === "branchAdmin";
-  const isSuperAdmin = user?.role === "superAdmin";
-  const isVendor = user?.role === "vendor";
 
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("all");
-  const [companyId, setCompanyId] = useState(
-    isBranchAdmin ? user?.company?._id : "all"
-  );
-  const [branchId, setBranchId] = useState(
-    isBranchAdmin ? user?.branch?._id : "all"
-  );
-  const [driverType, setDriverType] = useState(isVendor ? "vendor" : "all");
-  const debouncedSearch = useDebounce(search, 500);
-  const [branches, setBranches] = useState([]);
-  const [showFilters, setShowFilters] = useState(false);
+  const [getDriverById, { data: driverData, isLoading: isDriverLoading }] =
+    useGetDriverByIdMutation();
+  const [updateDriver, { isLoading, isSuccess, isError, error }] =
+    useUpdateDriverMutation();
 
-  const [selectedDriver, setSelectedDriver] = useState(null);
-  const [open, setOpen] = useState(false);
+  const { data: companies } = useGetAllCompaniesQuery({ page: 1, limit: 100 });
+  const [getBranchesByCompany, { data: branchData, isLoading: branchLoading }] =
+    useGetBranchesByCompanyMutation();
 
-  const [getBranchesByCompany] = useGetBranchesByCompanyMutation();
-  const { data: companyData } = useGetAllCompaniesQuery({});
-  const { data, isLoading, refetch } = useGetAllDriversQuery({
-    page,
-    limit,
-    search: debouncedSearch,
-    status: status === "all" ? "" : status,
-    company: isBranchAdmin
-      ? user?.company?._id
-      : companyId === "all"
-      ? ""
-      : companyId,
-    branch: isBranchAdmin
-      ? user?.branch?._id
-      : branchId === "all"
-      ? ""
-      : branchId,
-    driverType: isVendor ? "vendor" : driverType === "all" ? "" : driverType,
+  const [formData, setFormData] = useState({
+    name: "",
+    mobile: "",
+    licenseNumber: "",
+    experienceYears: "",
+    driverType: user?.role === "vendor" ? "vendor" : "dellcube",
+    company: isBranchAdmin ? user?.company?._id : "",
+    branch: isBranchAdmin ? user?.branch?._id : "",
+    vendor: "",
+    status: true,
+    aadharNumber: "",
+    panNumber: "",
+    bankDetails: {
+      accountNumber: "",
+      ifscCode: "",
+      bankName: "",
+      accountHolderName: "",
+    },
   });
 
-  const [deleteDriver] = useDeleteDriverMutation();
+  const { data: vendorsData } = useGetAllVendorsQuery({
+    page: 1,
+    limit: 100,
+    companyId: formData.company || "",
+    branchId: formData.branch || "",
+  });
 
-  const formatDriverType = (driverType) => {
-    if (!driverType) return "N/A";
-    return driverType.charAt(0).toUpperCase() + driverType.slice(1);
+  useEffect(() => {
+    if (driverId) {
+      getDriverById({ id: driverId });
+    }
+  }, [driverId]);
+
+  useEffect(() => {
+    if (driverData?.user) {
+      const d = driverData.user;
+      setFormData({
+        name: d.name || "",
+        mobile: d.mobile || "",
+        licenseNumber: d.licenseNumber || "",
+        experienceYears: d.experienceYears || "",
+        driverType: d.driverType || "dellcube",
+        company: d.company?._id || "",
+        branch: d.branch?._id || "",
+        vendor: d.vendor?._id || "",
+        status: d.status ?? true,
+        aadharNumber: d.aadharNumber || "",
+        panNumber: d.panNumber || "",
+        bankDetails: {
+          accountNumber: d.bankDetails?.accountNumber || "",
+          ifscCode: d.bankDetails?.ifscCode || "",
+          bankName: d.bankDetails?.bankName || "",
+          accountHolderName: d.bankDetails?.accountHolderName || "",
+        },
+      });
+
+      if (d.company?._id) {
+        getBranchesByCompany(d.company._id);
+      }
+    }
+  }, [driverData]);
+
+  useEffect(() => {
+    if (!isBranchAdmin && formData.company) {
+      getBranchesByCompany(formData.company);
+    }
+  }, [formData.company]);
+
+  useEffect(() => {
+    if (formData.driverType !== "vendor") {
+      setFormData((prev) => ({ ...prev, vendor: "" }));
+    }
+  }, [formData.driverType]);
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    if (name.startsWith("bank.")) {
+      const bankField = name.split(".")[1];
+      setFormData((prev) => ({
+        ...prev,
+        bankDetails: {
+          ...prev.bankDetails,
+          [bankField]: value,
+        },
+      }));
+    } else if (name === "aadharNumber") {
+      const numericValue = value.replace(/\D/g, "");
+      setFormData((prev) => ({ ...prev, [name]: numericValue }));
+    } else if (name === "panNumber") {
+      setFormData((prev) => ({ ...prev, [name]: value.toUpperCase() }));
+    } else if (name === "licenseNumber") {
+      const cleanValue = value.replace(/[^A-Za-z0-9\-\s]/g, "");
+      setFormData((prev) => ({ ...prev, [name]: cleanValue }));
+    } else if (name === "experienceYears") {
+      const numValue = value === "" ? "" : Math.max(0, parseInt(value) || 0);
+      setFormData((prev) => ({ ...prev, [name]: numValue }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const validateForm = () => {
+    const {
+      name,
+      mobile,
+      licenseNumber,
+      experienceYears,
+      company,
+      branch,
+      driverType,
+      aadharNumber,
+      panNumber,
+    } = formData;
+
+    if (
+      !name ||
+      !mobile ||
+      !licenseNumber ||
+      experienceYears === "" ||
+      !company ||
+      !branch ||
+      !driverType
+    ) {
+      toast.error("All required fields are required.");
+      return false;
+    }
+
+    if (driverType === "vendor" && !formData.vendor) {
+      toast.error("Vendor is required when driver type is 'vendor'.");
+      return false;
+    }
+
+    if (licenseNumber.length < 5) {
+      toast.error("License number must be at least 5 characters long.");
+      return false;
+    }
+
+    if (licenseNumber.length > 20) {
+      toast.error("License number must not exceed 20 characters.");
+      return false;
+    }
+
+    if (mobile.length !== 10 || !/^\d{10}$/.test(mobile)) {
+      toast.error("Mobile number must be exactly 10 digits.");
+      return false;
+    }
+
+    if (experienceYears < 0 || experienceYears > 50) {
+      toast.error("Experience years must be between 0 and 50.");
+      return false;
+    }
+
+    if (!aadharNumber || !aadharNumber.trim()) {
+      toast.error("Aadhar Card Number is required.");
+      return false;
+    }
+
+    if (aadharNumber.length !== 12 || !/^\d{12}$/.test(aadharNumber)) {
+      toast.error("Aadhar Card Number must be exactly 12 digits.");
+      return false;
+    }
+
+    if (!panNumber || !panNumber.trim()) {
+      toast.error("PAN Card Number is required.");
+      return false;
+    }
+
+    if (panNumber.length !== 10 || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(panNumber)) {
+      toast.error("PAN Card Number must be in valid format (e.g., ABCDE1234F).");
+      return false;
+    }
+
+    // Bank Details Validation
+    const { accountHolderName, bankName, accountNumber, ifscCode } =
+      formData.bankDetails;
+
+    if (!accountHolderName || !accountHolderName.trim()) {
+      toast.error("Account Holder Name is required.");
+      return false;
+    }
+
+    if (!bankName || !bankName.trim()) {
+      toast.error("Bank Name is required.");
+      return false;
+    }
+
+    if (!accountNumber || !accountNumber.trim()) {
+      toast.error("Account Number is required.");
+      return false;
+    }
+
+    if (!ifscCode || !ifscCode.trim()) {
+      toast.error("IFSC Code is required.");
+      return false;
+    }
+
+    if (ifscCode.length !== 11 || !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)) {
+      toast.error("IFSC Code must be in valid format (e.g., ABCD0123456).");
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
+
+    const payload = {
+      userId: driverId,
+      name: formData.name,
+      mobile: formData.mobile,
+      licenseNumber: formData.licenseNumber,
+      experienceYears: formData.experienceYears,
+      company: formData.company,
+      branch: formData.branch,
+      driverType: formData.driverType,
+      vendor: formData.driverType === "vendor" ? formData.vendor : "",
+      status: formData.status,
+      aadharNumber: formData.aadharNumber,
+      panNumber: formData.panNumber,
+      bankDetails: formData.bankDetails,
+    };
+
+    await updateDriver(payload);
   };
 
   useEffect(() => {
-    const fetchBranches = async () => {
-      if (companyId && isSuperAdmin) {
-        const res = await getBranchesByCompany(companyId);
-        if (res?.data?.branches) setBranches(res.data.branches);
-      }
-    };
-    fetchBranches();
-  }, [companyId]);
-
-  const handleDelete = async (id) => {
-    const res = await deleteDriver(id);
-    if (res?.data?.success) {
-      toast.success("Driver deleted successfully");
-      refetch();
-    } else {
-      toast.error(res?.error?.data?.message || "Failed to delete");
+    if (isSuccess) {
+      toast.success("Driver updated successfully");
+      navigate("/admin/drivers");
+    } else if (isError) {
+      toast.error(error?.data?.message || "Failed to update driver");
     }
-  };
+  }, [isSuccess, isError]);
 
-  const handleView = (driver) => {
-    setSelectedDriver(driver);
-    setOpen(true);
-  };
-
-  const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= (data?.totalPage || 1)) {
-      setPage(newPage);
-    }
-  };
-
-  const getPageNumbers = () => {
-    const totalPages = data?.totalPage || 1;
-    if (totalPages <= 5)
-      return Array.from({ length: totalPages }, (_, i) => i + 1);
-    let start = Math.max(1, Math.min(page - 2, totalPages - 4));
-    let end = Math.min(start + 4, totalPages);
-    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
-  };
+  if (isDriverLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[#FFD249]" />
+      </div>
+    );
+  }
 
   return (
-    <section className=" min-h-[100vh] rounded-md">
-      <div className="md:p-6 p-2">
-        {/* Top bar */}
-        <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4">
-          <h2 className="text-xl font-semibold text-gray-700 dark:text-white">
-            {isVendor ? "Vendor Drivers" : "All Drivers"}
-          </h2>
-          <div className="flex gap-4 items-center flex-wrap">
-            <Input
-              placeholder="Search driver..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="px-4 py-2 border rounded-md text-sm w-64 bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:border-[#FFD249] focus:ring-[#FFD249]"
-            />
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="px-4 py-6 max-w-5xl">
+        <div className="mb-6">
             <Button
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-2 rounded-full bg-[#FFD249]/20 text-[#202020] hover:bg-[#FFD249]/40 px-4 py-2"
-            >
-              <SlidersHorizontal className="w-4 h-4" />
-              Filter
-              {showFilters ? (
-                <ChevronUp className="w-4 h-4" />
-              ) : (
-                <ChevronDown className="w-4 h-4" />
-              )}
+            variant="ghost"
+            onClick={() => navigate("/admin/drivers")}
+            className="mb-4 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Drivers
             </Button>
-            <Button
-              onClick={() => navigate("/admin/create-driver")}
-              className="rounded-full bg-[#FFD249] text-[#202020] hover:bg-[#FFD249]/90 font-semibold shadow-md px-4 py-2"
-            >
-              Add Driver
-            </Button>
-            <Button
-              className="p-2 rounded-full bg-[#FFD249]/20 text-[#FFD249] hover:bg-[#FFD249]/40"
-              onClick={refetch}
-            >
-              <GrPowerCycle />
-            </Button>
-            {/* Limit dropdown outside filter panel, top right */}
-            <Select
-              value={limit.toString()}
-              onValueChange={(val) => setLimit(Number(val))}
-            >
-              <SelectTrigger className="w-[80px] border-gray-300 dark:border-gray-700 focus:border-[#FFD249] focus:ring-[#FFD249]">
-                <SelectValue placeholder="Limit" />
-              </SelectTrigger>
-              <SelectContent>
-                {[5, 10, 15].map((n) => (
-                  <SelectItem key={n} value={n.toString()}>
-                    {n}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-[#FFD249]/20 rounded-lg">
+              <Truck className="w-6 h-6 text-[#202020]" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Update Driver
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Edit driver information
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Filter Section */}
-        {showFilters && (
-          <div className="bg-[#FFD249]/20 dark:bg-[#FFD249]/10 rounded-lg shadow mb-4 p-4 border border-[#FFD249]/40 dark:border-[#FFD249]/30">
-            <div className="flex flex-wrap gap-4 items-center">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Status:
-                </span>
-                <Select value={status} onValueChange={setStatus}>
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue placeholder="All Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="true">Active</SelectItem>
-                    <SelectItem value="false">Inactive</SelectItem>
-                  </SelectContent>
-                </Select>
+        <div className="space-y-6">
+          <Card className="shadow-sm">
+            <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <User className="w-5 h-5 text-[#202020]" />
+                Basic Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Name *</Label>
+                  <Input
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    placeholder="Full Name"
+                  />
               </div>
-              {/* Only show driver type filter if user is not a vendor */}
-              {!isVendor && (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Driver Type:
-                  </span>
-                  <Select value={driverType} onValueChange={setDriverType}>
-                    <SelectTrigger className="w-[160px]">
-                      <SelectValue placeholder="All Types" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Types</SelectItem>
-                      <SelectItem value="dellcube">Dellcube Driver</SelectItem>
-                      <SelectItem value="vendor">Vendor Driver</SelectItem>
-                      <SelectItem value="temporary">
-                        Temporary Driver
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div>
+                  <Label>Mobile Number *</Label>
+                  <Input
+                    type="tel"
+                    name="mobile"
+                    value={formData.mobile}
+                    onChange={handleInputChange}
+                    onInput={(e) => {
+                      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10);
+                    }}
+                    placeholder="10-digit mobile number"
+                    maxLength="10"
+                  />
                 </div>
-              )}
-              {isSuperAdmin && (
-                <>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Company:
+                <div>
+                  <Label>License Number *</Label>
+                  <Input
+                    name="licenseNumber"
+                    value={formData.licenseNumber}
+                    onChange={handleInputChange}
+                    placeholder="Driver's License Number (e.g., DL-0123456789)"
+                    maxLength="20"
+                  />
+                  <div className="flex justify-between items-center mt-1">
+                    <span className="text-xs text-gray-500">
+                      Alphanumeric, hyphens, spaces allowed
                     </span>
+                    <span
+                      className={`text-xs ${
+                        formData.licenseNumber.length < 5
+                          ? "text-red-500"
+                          : formData.licenseNumber.length > 15
+                          ? "text-yellow-500"
+                          : "text-green-500"
+                      }`}
+                    >
+                      {formData.licenseNumber.length}/20
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <Label>Experience (Years) *</Label>
+                  <Input
+                    type="number"
+                    name="experienceYears"
+                    value={formData.experienceYears}
+                    onChange={handleInputChange}
+                    onInput={(e) => {
+                      if (e.target.value < 0) e.target.value = 0;
+                    }}
+                    min="0"
+                    max="50"
+                    placeholder="Years of Experience"
+                  />
+                </div>
+                <div>
+                  <Label>Company *</Label>
+                  {!isBranchAdmin ? (
                     <Select
-                      value={companyId}
-                      onValueChange={(val) => {
-                        setCompanyId(val);
-                        setBranchId("all");
+                      value={formData.company}
+                      onValueChange={async (val) => {
+                        setFormData((prev) => ({ ...prev, company: val, branch: "" }));
+                        try {
+                          await getBranchesByCompany(val);
+                        } catch {
+                          toast.error("Failed to fetch branches");
+                        }
                       }}
                     >
-                      <SelectTrigger className="w-[200px]">
-                        <SelectValue placeholder="All Companies" />
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Company" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Companies</SelectItem>
-                        {companyData?.companies?.map((comp) => (
-                          <SelectItem key={comp._id} value={comp._id}>
-                            {comp.name}
+                        {companies?.companies?.map((c) => (
+                          <SelectItem key={c._id} value={c._id}>
+                            {c.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                  ) : (
+                    <Input
+                      value={user?.company?.name}
+                      disabled
+                      className="bg-gray-100 cursor-not-allowed dark:bg-gray-800"
+                    />
+                  )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Branch:
-                    </span>
+                <div>
+                  <Label>Branch *</Label>
+                  {!isBranchAdmin ? (
                     <Select
-                      value={branchId}
-                      onValueChange={setBranchId}
-                      disabled={companyId === "all"}
+                      value={formData.branch}
+                      onValueChange={(val) =>
+                        setFormData((prev) => ({ ...prev, branch: val }))
+                      }
+                      disabled={!formData.company || branchLoading}
                     >
-                      <SelectTrigger className="w-[200px]">
-                        <SelectValue placeholder="All Branches" />
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Branch" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Branches</SelectItem>
-                        {branches.map((b) => (
+                        {branchData?.branches?.map((b) => (
                           <SelectItem key={b._id} value={b._id}>
                             {b.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                  </div>
-                </>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setStatus("all");
-                  setCompanyId("all");
-                  setBranchId("all");
-                  // Don't reset driverType if vendor is logged in
-                  if (!isVendor) {
-                    setDriverType("all");
-                  }
-                }}
-                className="text-xs"
-              >
-                Clear Filters
-              </Button>
-            </div>
-
-            {/* Active Filters Display */}
-            {(status !== "all" ||
-              (driverType !== "all" && !isVendor) ||
-              companyId !== "all" ||
-              branchId !== "all" ||
-              isVendor) && (
-              <div className="mt-4 pt-3 border-t border-[#FFD249]/30">
-                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                  <span className="font-medium">Active Filters:</span>
-                  {status !== "all" && (
-                    <span className="px-2 py-1 bg-[#FFD249]/30 text-[#202020] rounded-full text-xs">
-                      Status: {status === "true" ? "Active" : "Inactive"}
-                    </span>
-                  )}
-                  {/* Show vendor driver filter if vendor is logged in */}
-                  {isVendor && (
-                    <span className="px-2 py-1 bg-[#FFD249]/30 text-[#202020] rounded-full text-xs">
-                      Type: Vendor Driver
-                    </span>
-                  )}
-                  {/* Show driver type filter only if not vendor and driverType is not "all" */}
-                  {!isVendor && driverType !== "all" && (
-                    <span className="px-2 py-1 bg-[#FFD249]/30 text-[#202020] rounded-full text-xs">
-                      Type: {formatDriverType(driverType)}
-                    </span>
-                  )}
-                  {companyId !== "all" &&
-                    companyData?.companies?.find(
-                      (c) => c._id === companyId
-                    ) && (
-                      <span className="px-2 py-1 bg-[#FFD249]/30 text-[#202020] rounded-full text-xs">
-                        Company:{" "}
-                        {
-                          companyData.companies.find((c) => c._id === companyId)
-                            ?.name
-                        }
-                      </span>
-                    )}
-                  {branchId !== "all" &&
-                    branches.find((b) => b._id === branchId) && (
-                      <span className="px-2 py-1 bg-[#FFD249]/30 text-[#202020] rounded-full text-xs">
-                        Branch: {branches.find((b) => b._id === branchId)?.name}
-                      </span>
+                  ) : (
+                    <Input
+                      value={user?.branch?.name}
+                      disabled
+                      className="bg-gray-100 cursor-not-allowed dark:bg-gray-800"
+                    />
                     )}
                 </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Drivers Table */}
-        <div className="bg-white/80 dark:bg-gray-900/80 rounded-2xl shadow-lg overflow-x-auto border border-gray-100 dark:border-gray-800 backdrop-blur-md">
-          <table className="min-w-full text-sm">
-            {/* Top thead */}
-            <thead className="bg-[#FFD249]/20 dark:bg-[#FFD249]/10 text-center sticky top-0 z-10">
-              <tr>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  No
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Name
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Mobile
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Driver Type
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Aadhar
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  PAN
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Company
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Branch
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Action
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 text-center">
-              {isLoading ? (
-                <tr>
-                  <td colSpan="10" className="text-center py-6">
-                    <Loader2 className="animate-spin mx-auto text-[#FFD249]" />{" "}
-                    Loading...
-                  </td>
-                </tr>
-              ) : data?.drivers?.length ? (
-                data.drivers.map((driver, i) => (
-                  <tr
-                    key={driver._id}
-                    className={
-                      i % 2 === 0
-                        ? "bg-white/60 dark:bg-gray-900/60"
-                        : "bg-[#FFD249]/10 dark:bg-[#FFD249]/5" +
-                          " hover:bg-[#FFD249]/20 dark:hover:bg-[#FFD249]/10 transition "
+                <div>
+                  <Label>Driver Type *</Label>
+                  <Select
+                    value={formData.driverType}
+                    onValueChange={(val) =>
+                      setFormData((prev) => ({ ...prev, driverType: val, vendor: "" }))
                     }
                   >
-                    <td className="p-3 font-medium text-[#202020] dark:text-[#FFD249] text-center">
-                      {limit * (page - 1) + (i + 1)}
-                    </td>
-                    <td className="p-3 text-[#202020] dark:text-[#FFD249] font-semibold">
-                      {driver.name}
-                    </td>
-                    <td className="p-3 text-[#202020] dark:text-[#FFD249]">
-                      {driver.mobile}
-                    </td>
-                    <td className="p-3 text-[#202020] dark:text-[#FFD249] font-mono text-xs">
-                      {formatDriverType(driver.driverType)}
-                    </td>
-                    <td className="p-3 text-[#202020] dark:text-[#FFD249] font-mono text-xs">
-                      {driver.aadharNumber || (
-                        <span className="text-gray-400">N/A</span>
-                      )}
-                    </td>
-                    <td className="p-3 text-[#202020] dark:text-[#FFD249] font-mono text-xs">
-                      {driver.panNumber || (
-                        <span className="text-gray-400">N/A</span>
-                      )}
-                    </td>
-                    <td className="p-3 text-[#202020] dark:text-[#FFD249]">
-                      {driver.company?.name || (
-                        <span className="text-gray-400">N/A</span>
-                      )}
-                    </td>
-                    <td className="p-3 text-[#202020] dark:text-[#FFD249]">
-                      {driver.branch?.name || (
-                        <span className="text-gray-400">N/A</span>
-                      )}
-                    </td>
-                    <td className="p-3 text-center">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-semibold text-center ${
-                          driver.status
-                            ? "bg-[#FFD249]/80 text-[#202020]"
-                            : "bg-[#828083]/30 text-[#828083]"
-                        }`}
-                      >
-                        {driver.status ? "Active" : "Inactive"}
-                      </span>
-                    </td>
-                    <td className="p-3 flex gap-2 items-center justify-center">
-                      <Button
-                        className="p-2 rounded-full bg-[#FFD249]/30 text-[#202020] hover:bg-[#FFD249]/60"
-                        onClick={() => handleView(driver)}
-                      >
-                        <EyeIcon className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        className="p-2 rounded-full bg-[#FFD249]/30 text-[#202020] hover:bg-[#FFD249]/60"
-                        onClick={() =>
-                          navigate("/admin/update-driver", {
-                            state: { driverId: driver._id },
-                          })
-                        }
-                      >
-                        <MdOutlineEdit className="w-4 h-4" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button className="p-2 rounded-full bg-[#FFD249]/30 text-[#202020] hover:bg-[#FFD249]/60">
-                            <FaRegTrashCan />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Driver?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This action cannot be undone. This will
-                              permanently delete the driver and remove their
-                              data from our servers.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDelete(driver._id)}
-                            >
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </td>
-                  </tr>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Driver Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="dellcube">Dellcube Driver</SelectItem>
+                      <SelectItem value="vendor">Vendor Driver</SelectItem>
+                      <SelectItem value="temporary">Temporary Driver</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {formData.driverType === "vendor" && (
+                  <div>
+                    <Label>Vendor *</Label>
+                    <Select
+                      value={formData.vendor}
+                      onValueChange={(val) =>
+                        setFormData((prev) => ({ ...prev, vendor: val }))
+                      }
+                      disabled={!formData.company || !formData.branch}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Vendor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {vendorsData?.vendors?.length > 0 ? (
+                          vendorsData.vendors.map((v) => (
+                            <SelectItem key={v._id} value={v._id}>
+                              {v.name}
+                            </SelectItem>
                 ))
               ) : (
-                <tr>
-                  <td colSpan="10" className="text-center py-10 text-[#828083]">
-                    <Truck className="w-8 h-8 mx-auto text-[#828083]" />
-                    <p className="text-[#828083] font-medium">
-                      No Drivers Available
-                    </p>
-                    <p className="text-sm text-[#828083]">
-                      Add a new driver to begin
-                    </p>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-            <thead className="bg-[#FFD249]/20 dark:bg-[#FFD249]/10 text-center">
-              <tr>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  No
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Name
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Mobile
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Driver Type
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Aadhar
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  PAN
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Company
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Branch
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Action
-                </th>
-              </tr>
-            </thead>
-          </table>
-          <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800 text-sm text-[#202020] dark:text-[#FFD249] text-center lg:text-left">
-            Showing{" "}
-            {data?.drivers?.length ? (data?.page - 1) * data?.limit + 1 : 0} to{" "}
-            {Math.min(data?.page * data?.limit, data?.total || 0)} of{" "}
-            <span className="font-medium">{data?.total || 0}</span> entries
+                          <SelectItem value="" disabled>
+                            {!formData.company || !formData.branch
+                              ? "Please select company and branch first"
+                              : "No vendors available"}
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <div className="flex items-center gap-3">
+                  <Label htmlFor="status-toggle">Status</Label>
+                  <Switch
+                    id="status-toggle"
+                    checked={formData.status}
+                    onCheckedChange={(checked) =>
+                      setFormData((prev) => ({ ...prev, status: checked }))
+                    }
+                  />
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {formData.status ? "Active" : "Inactive"}
+                  </span>
           </div>
         </div>
+            </CardContent>
+          </Card>
 
-        <Drawer
-          title={
-            <div className="flex items-center gap-4 py-2">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="p-2 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/50 dark:to-purple-900/50 rounded-lg">
-                  <UserRound className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+          <Card className="shadow-sm">
+            <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <FileText className="w-5 h-5 text-[#202020]" />
+                Identity Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Aadhar Card Number *</Label>
+                  <Input
+                    name="aadharNumber"
+                    value={formData.aadharNumber}
+                    onChange={handleInputChange}
+                    placeholder="12-digit Aadhar Number"
+                    maxLength="12"
+                  />
                 </div>
-                <div className="min-w-0">
-                  <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 truncate max-w-[180px]">
-                    Driver Details
-                  </h2>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[180px]">
-                    {selectedDriver?.name}
-                  </p>
+                <div>
+                  <Label>PAN Card Number *</Label>
+                  <Input
+                    name="panNumber"
+                    value={formData.panNumber}
+                    onChange={handleInputChange}
+                    placeholder="ABCDE1234F"
+                    maxLength="10"
+                    style={{ textTransform: "uppercase" }}
+                  />
                 </div>
               </div>
-              <div className="ml-auto">
-                <span
-                  className={`inline-flex items-center gap-2 px-3 py-2 rounded-full font-medium ${
-                    selectedDriver?.status
-                      ? "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400"
-                      : "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400"
-                  }`}
-                >
-                  {selectedDriver?.status ? "Active" : "Inactive"}
-                </span>
-              </div>
-            </div>
-          }
-          placement="right"
-          width={380}
-          onClose={() => {
-            setOpen(false);
-            setSelectedDriver(null);
-          }}
-          open={open}
-          mask={true}
-          maskClosable={true}
-          styles={{
-            body: {
-              padding: 0,
-              background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
-            },
-            header: {
-              background: "rgba(255, 255, 255, 0.95)",
-              backdropFilter: "blur(10px)",
-              borderBottom: "1px solid rgba(0, 0, 0, 0.06)",
-              padding: "20px 24px",
-            },
-            content: {
-              background: "transparent",
-            },
-            wrapper: {
-              background: "rgba(0, 0, 0, 0.25)",
-              backdropFilter: "blur(4px)",
-            },
-          }}
-        >
-          {!selectedDriver ? (
-            <div className="flex justify-center items-center h-40">
-              <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
-            </div>
-          ) : (
-            <div className="p-6 space-y-6 overflow-x-hidden">
-              <InfoCard icon={UserRound} title="Driver Information">
-                <InfoRow
-                  label="Name"
-                  value={selectedDriver.name}
-                  icon={UserRound}
-                />
-                <InfoRow
-                  label="Status"
-                  value={selectedDriver.status ? "Active" : "Inactive"}
-                  icon={UserRound}
-                />
-                <InfoRow
-                  label="Driver Type"
-                  value={
-                    selectedDriver.driverType
-                      ? selectedDriver.driverType.charAt(0).toUpperCase() +
-                        selectedDriver.driverType.slice(1)
-                      : "N/A"
-                  }
-                  icon={Truck}
-                />
-                <InfoRow
-                  label="Company"
-                  value={selectedDriver.company?.name}
-                  icon={Building2}
-                />
-                <InfoRow
-                  label="Branch"
-                  value={selectedDriver.branch?.name}
-                  icon={MapPin}
-                />
-                <InfoRow
-                  label="License Number"
-                  value={selectedDriver.licenseNumber}
-                  icon={Truck}
-                />
-                <InfoRow
-                  label="Experience"
-                  value={
-                    selectedDriver.experienceYears
-                      ? `${selectedDriver.experienceYears} Years`
-                      : ""
-                  }
-                  icon={Truck}
-                />
-              </InfoCard>
+            </CardContent>
+          </Card>
 
-              <InfoCard icon={UserRound} title="Identity Documents">
-                <InfoRow
-                  label="Aadhar Number"
-                  value={selectedDriver.aadharNumber}
-                  icon={UserRound}
-                />
-                <InfoRow
-                  label="PAN Number"
-                  value={selectedDriver.panNumber}
-                  icon={UserRound}
-                />
-              </InfoCard>
-
-              <InfoCard icon={Box} title="Bank Account Details">
-                <InfoRow
-                  label="Account Holder"
-                  value={selectedDriver.bankDetails?.accountHolderName}
-                  icon={UserRound}
-                />
-                <InfoRow
-                  label="Bank Name"
-                  value={selectedDriver.bankDetails?.bankName}
-                  icon={Building2}
-                />
-                <InfoRow
-                  label="Account Number"
-                  value={selectedDriver.bankDetails?.accountNumber}
-                  icon={UserRound}
-                />
-                <InfoRow
-                  label="IFSC Code"
-                  value={selectedDriver.bankDetails?.ifscCode}
-                  icon={UserRound}
-                />
-              </InfoCard>
+          <Card className="shadow-sm">
+            <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Banknote className="w-5 h-5 text-[#202020]" />
+                Bank Account Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Account Holder Name *</Label>
+                  <Input
+                    name="bank.accountHolderName"
+                    value={formData.bankDetails.accountHolderName}
+                    onChange={handleInputChange}
+                    placeholder="Account Holder Name"
+                  />
+                </div>
+                <div>
+                  <Label>Bank Name *</Label>
+                  <Input
+                    name="bank.bankName"
+                    value={formData.bankDetails.bankName}
+                    onChange={handleInputChange}
+                    placeholder="Bank Name"
+                  />
+                </div>
+                <div>
+                  <Label>Account Number *</Label>
+                  <Input
+                    name="bank.accountNumber"
+                    value={formData.bankDetails.accountNumber}
+                    onChange={handleInputChange}
+                    placeholder="Account Number"
+                  />
+                </div>
+                <div>
+                  <Label>IFSC Code *</Label>
+                  <Input
+                    name="bank.ifscCode"
+                    value={formData.bankDetails.ifscCode}
+                    onChange={handleInputChange}
+                    placeholder="ABCD0123456"
+                    style={{ textTransform: "uppercase" }}
+                    maxLength="11"
+                  />
+                </div>
             </div>
-          )}
-        </Drawer>
-        {data?.totalPage > 1 && (
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  onClick={() => handlePageChange(page - 1)}
-                  className={
-                    page === 1
-                      ? "pointer-events-none opacity-50"
-                      : "cursor-pointer"
-                  }
-                />
-              </PaginationItem>
-              {getPageNumbers().map((num) => (
-                <PaginationItem key={num}>
-                  <PaginationLink
-                    onClick={() => handlePageChange(num)}
-                    isActive={num === page}
-                    className="cursor-pointer"
-                  >
-                    {num}
-                  </PaginationLink>
-                </PaginationItem>
-              ))}
-              <PaginationItem>
-                <PaginationNext
-                  onClick={() => handlePageChange(page + 1)}
-                  className={
-                    page === data.totalPage
-                      ? "pointer-events-none opacity-50"
-                      : "cursor-pointer"
-                  }
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-        )}
+            </CardContent>
+          </Card>
+
+          <div className="flex gap-3 justify-end sticky bottom-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg border">
+            <Button
+              variant="outline"
+              onClick={() => navigate("/admin/drivers")}
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={isLoading}
+              onClick={handleSubmit}
+              className="min-w-[150px] bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020] border border-[#FFD249]"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                "Update Driver"
+              )}
+            </Button>
+          </div>
+        </div>
       </div>
-    </section>
+    </div>
   );
 };
 
-export default Drivers;
+export default UpdateDriver;

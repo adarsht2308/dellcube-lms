@@ -529,7 +529,7 @@ const CreateInvoice = () => {
   const { data: companies } = useGetAllCompaniesQuery({});
   const [getBranchesByCompany] = useGetBranchesByCompanyMutation();
   const { data: customersData } = useGetAllCustomersQuery(
-    { companyId, branchId },
+    { companyId, branchId, status: "true" },
     { skip: !companyId || !branchId }
   );
   // console.log(customersData)
@@ -624,11 +624,12 @@ const CreateInvoice = () => {
   const [createDriver, { isLoading: isCreatingDriver }] =
     useCreateDriverMutation();
 
-  // If vendor, auto-select assigned customer and lock the field
+  // If vendor, auto-select assigned customer if only one is assigned
   useEffect(() => {
     // If vendor has only one assigned client, auto-select it
     if (isVendor && user?.assignedClients?.length === 1) {
-      setCustomerId(user.assignedClients[0]._id || user.assignedClients[0]);
+      const clientId = user.assignedClients[0]._id || user.assignedClients[0];
+      setCustomerId(clientId);
     }
   }, [isVendor, user?.assignedClients]);
 
@@ -952,7 +953,7 @@ const CreateInvoice = () => {
       const res = await createInvoice(payload).unwrap();
       if (res?.success) {
         toast.success("Invoice created successfully");
-        navigate("/admin/invoices");
+        navigate(isVendor ? "/admin/vendor-invoices" : "/admin/invoices");
       } else {
         toast.error(res?.message || "Failed to create invoice");
       }
@@ -1207,7 +1208,7 @@ const CreateInvoice = () => {
           <div className="flex items-center gap-2 md:gap-3 mb-2">
             <Button
               variant="ghost"
-              onClick={() => navigate("/admin/invoices")}
+              onClick={() => navigate(isVendor ? "/admin/vendor-invoices" : "/admin/invoices")}
               className="text-gray-600 hover:text-gray-900 p-2 md:p-3"
             >
               <ArrowRight className="w-4 h-4 rotate-180 mr-1 md:mr-2" />
@@ -1295,7 +1296,7 @@ const CreateInvoice = () => {
                     <Select
                       value={customerId}
                       onValueChange={setCustomerId}
-                      disabled={isVendor}
+                      disabled={false}
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select Customer" />
@@ -1303,14 +1304,20 @@ const CreateInvoice = () => {
                       <SelectContent>
                         {customersData?.customers?.length ? (
                           customersData.customers
-                            .filter((cust) =>
-                              isVendor && user?.assignedClients?.length > 0
-                                ? user.assignedClients.some(
-                                    (client) =>
-                                      (client._id || client) === cust._id
-                                  )
-                                : true
-                            )
+                            .filter((cust) => {
+                              // Filter by active status
+                              if (cust.status !== true && cust.status !== "true") {
+                                return false;
+                              }
+                              // For vendors, only show assigned clients
+                              if (isVendor && user?.assignedClients?.length > 0) {
+                                return user.assignedClients.some(
+                                  (client) =>
+                                    (client._id || client) === cust._id
+                                );
+                              }
+                              return true;
+                            })
                             .map((cust) => (
                               <SelectItem key={cust._id} value={cust._id}>
                                 {cust.name}
@@ -1318,7 +1325,9 @@ const CreateInvoice = () => {
                             ))
                         ) : (
                           <SelectItem value="no-customers" disabled>
-                            No customers found for this branch/company
+                            {isVendor 
+                              ? "No active assigned customers found" 
+                              : "No customers found for this branch/company"}
                           </SelectItem>
                         )}
                       </SelectContent>
@@ -1386,6 +1395,29 @@ const CreateInvoice = () => {
                     selectPostOffice={selectPostOffice}
                   />
                 </div>
+                  {/* Site Type */}
+                  <div className="space-y-2 mt-4">
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      <Building2 className="w-4 h-4" />
+                      Site Type
+                    </Label>
+                    <Select
+                      value={selectedSiteType}
+                      onValueChange={setSelectedSiteType}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select Site Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {siteTypesData?.siteTypes?.map((siteType) => (
+                          <SelectItem key={siteType._id} value={siteType._id}>
+                            {siteType.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                 {/* Consignor/Sender Section */}
                 <div className="mt-4 space-y-4">
                   <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
@@ -1532,28 +1564,7 @@ const CreateInvoice = () => {
                     </div>
                   </div>
 
-                  {/* Site Type */}
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium flex items-center gap-2">
-                      <Building2 className="w-4 h-4" />
-                      Site Type
-                    </Label>
-                    <Select
-                      value={selectedSiteType}
-                      onValueChange={setSelectedSiteType}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select Site Type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {siteTypesData?.siteTypes?.map((siteType) => (
-                          <SelectItem key={siteType._id} value={siteType._id}>
-                            {siteType.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                 
                 </div>
               </CardContent>
             </Card>
@@ -1942,10 +1953,19 @@ const CreateInvoice = () => {
                 </div>
                 <MultiValueInput
                   label="E-Way Bill No"
-                  placeholder="Enter e-way bill number and press Enter"
+                  placeholder="Enter 12-digit e-way bill number"
                   values={ewayBillNumbers}
                   onChange={setEwayBillNumbers}
-                  helperText="Add multiple e-way bill numbers; press Enter or click Add after each value."
+                  helperText="Add multiple e-way bill numbers (must be exactly 12 digits each); press Enter or click Add after each value."
+                  validateValue={(value) => {
+                    if (!/^\d{12}$/.test(value)) {
+                      return "E-way bill number must be exactly 12 digits";
+                    }
+                    return null;
+                  }}
+                  maxLength={12}
+                  inputType="tel"
+                  inputMode="numeric"
                 />
                 <MultiValueInput
                   label="Invoice No"

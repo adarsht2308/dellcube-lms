@@ -156,6 +156,7 @@ export const createVehicle = async (req, res) => {
     const {
       vehicleNumber,
       type,
+      cargoType,
       brand,
       model,
       yearOfManufacture,
@@ -191,6 +192,7 @@ export const createVehicle = async (req, res) => {
     const vehicle = await Vehicle.create({
       vehicleNumber,
       type,
+      cargoType,
       brand,
       model,
       yearOfManufacture,

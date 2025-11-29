@@ -180,6 +180,18 @@ export const createInvoice = async (req, res) => {
       req.body.invoiceNumber
     );
     const ewayBillNumberValues = normalizeMultiValueField(req.body.ewayBillNo);
+    
+    // Validate e-way bill numbers (must be exactly 12 digits each)
+    if (ewayBillNumberValues.length > 0) {
+      for (const ewayBill of ewayBillNumberValues) {
+        if (!/^\d{12}$/.test(ewayBill)) {
+          return res.status(400).json({
+            success: false,
+            message: `E-way bill number "${ewayBill}" must be exactly 12 digits.`,
+          });
+        }
+      }
+    }
 
     const { vehicleNumber } = req.body;
     const consignorSiteId =
@@ -577,6 +589,18 @@ export const createReservedInvoices = async (req, res) => {
       requestedInvoiceNumber
     );
     const ewayBillValues = normalizeMultiValueField(requestedEwayBillNo);
+    
+    // Validate e-way bill numbers (must be exactly 12 digits each)
+    if (ewayBillValues.length > 0) {
+      for (const ewayBill of ewayBillValues) {
+        if (!/^\d{12}$/.test(ewayBill)) {
+          return res.status(400).json({
+            success: false,
+            message: `E-way bill number "${ewayBill}" must be exactly 12 digits.`,
+          });
+        }
+      }
+    }
 
     const reservedInvoices = [];
     for (let i = 1; i <= quantity; i++) {
@@ -750,17 +774,48 @@ export const getInvoiceById = async (req, res) => {
         "toAddress.country toAddress.state toAddress.city toAddress.locality"
       );
 
-    if (
-      req.user?.role === "vendor" &&
-      String(invoice.vendor) !== String(req.user.userId)
-    ) {
-      return res.status(403).json({ success: false, message: "Forbidden" });
-    }
-
     if (!invoice) {
       return res
         .status(404)
         .json({ success: false, message: "Invoice not found" });
+    }
+
+    // Permission check for vendors:
+    // - Allow if this invoice belongs to the vendor (invoice.vendor matches logged-in vendor)
+    // - OR if the invoice's customer is one of the vendor's assignedClients
+    if (req.user?.role === "vendor") {
+      const loggedInVendorId = String(req.user.userId);
+
+      const isVendorOwner =
+        invoice.vendor && String(invoice.vendor._id || invoice.vendor) === loggedInVendorId;
+
+      let isAssignedClient = false;
+      if (invoice.customer) {
+        try {
+          const vendorDoc = await User.findById(loggedInVendorId).select(
+            "assignedClients"
+          );
+          if (vendorDoc?.assignedClients?.length) {
+            const customerId = String(
+              invoice.customer._id || invoice.customer
+            );
+            isAssignedClient = vendorDoc.assignedClients.some(
+              (id) => String(id) === customerId
+            );
+          }
+        } catch (permErr) {
+          console.error(
+            "Error checking vendor permissions for invoice:",
+            permErr
+          );
+        }
+      }
+
+      if (!isVendorOwner && !isAssignedClient) {
+        return res
+          .status(403)
+          .json({ success: false, message: "Forbidden" });
+      }
     }
 
     return res.status(200).json({
@@ -806,7 +861,21 @@ export const updateInvoice = async (req, res) => {
     }
 
     if (updates.ewayBillNo !== undefined) {
-      invoice.ewayBillNo = normalizeMultiValueField(updates.ewayBillNo);
+      const ewayBillValues = normalizeMultiValueField(updates.ewayBillNo);
+      
+      // Validate e-way bill numbers (must be exactly 12 digits each)
+      if (ewayBillValues.length > 0) {
+        for (const ewayBill of ewayBillValues) {
+          if (!/^\d{12}$/.test(ewayBill)) {
+            return res.status(400).json({
+              success: false,
+              message: `E-way bill number "${ewayBill}" must be exactly 12 digits.`,
+            });
+          }
+        }
+      }
+      
+      invoice.ewayBillNo = ewayBillValues;
       delete updates.ewayBillNo;
     }
 

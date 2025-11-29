@@ -446,7 +446,7 @@ const Goods = () => {
             </div>
           }
           placement="right"
-          width={380}
+          width={480}
           onClose={() => {
             setOpen(false);
             setSelectedGood(null);

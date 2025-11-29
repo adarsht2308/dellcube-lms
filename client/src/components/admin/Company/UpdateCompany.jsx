@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import { Loader2, ArrowLeft, Building2, FileText, CreditCard, Phone } from "lucide-react";
+import { Loader2, ArrowLeft, Building2, FileText, CreditCard, Phone, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,9 +59,7 @@ const UpdateCompany = () => {
     companyType: "",
     contactPhone: "",
     address: "",
-    bankName: "",
-    accountNumber: "",
-    ifsc: "",
+    bankDetails: [{ bankName: "", accountNumber: "", ifsc: "" }],
     emergencyContactName: "",
     emergencyContactMobile: "",
     status: true,
@@ -89,6 +87,12 @@ const UpdateCompany = () => {
         locality: c.region?.locality?._id || "",
         pincode: c.region?.pincode?._id || "",
       };
+      
+      // Handle bankDetails as array
+      const bankDetailsArray = Array.isArray(c.bankDetails) && c.bankDetails.length > 0
+        ? c.bankDetails
+        : [{ bankName: "", accountNumber: "", ifsc: "" }];
+      
       setFormData({
         name: c.name || "",
         companyCode: c.companyCode || "",
@@ -102,9 +106,7 @@ const UpdateCompany = () => {
         companyType: c.companyType || "",
         contactPhone: c.contactPhone || "",
         address: c.address || "",
-        bankName: c.bankDetails?.bankName || "",
-        accountNumber: c.bankDetails?.accountNumber || "",
-        ifsc: c.bankDetails?.ifsc || "",
+        bankDetails: bankDetailsArray,
         emergencyContactName: c.emergencyContact?.name || "",
         emergencyContactMobile: c.emergencyContact?.mobile || "",
         status: c.status === true,
@@ -177,9 +179,17 @@ const UpdateCompany = () => {
     payload.append("companyType", companyType);
     payload.append("contactPhone", contactPhone);
     payload.append("address", address);
-    payload.append("bankName", formData.bankName);
-    payload.append("accountNumber", formData.accountNumber);
-    payload.append("ifsc", formData.ifsc);
+    payload.append(
+      "bankDetails",
+      JSON.stringify(
+        (formData.bankDetails || []).filter(
+          (b) =>
+            (b.bankName || "").trim() ||
+            (b.accountNumber || "").trim() ||
+            (b.ifsc || "").trim()
+        )
+      )
+    );
     payload.append("emergencyContactName", formData.emergencyContactName);
     payload.append("emergencyContactMobile", formData.emergencyContactMobile);
     payload.append("status", formData.status);
@@ -295,6 +305,24 @@ const UpdateCompany = () => {
                       <SelectItem value="logistic company">Logistic Company</SelectItem>
                       <SelectItem value="transport company">Transport Company</SelectItem>
                       <SelectItem value="warehouse company">Warehouse Company</SelectItem>
+                      <SelectItem value="freight forwarder">Freight Forwarder</SelectItem>
+                      <SelectItem value="courier service">Courier Service</SelectItem>
+                      <SelectItem value="express delivery">Express Delivery</SelectItem>
+                      <SelectItem value="third party logistics">Third-Party Logistics (3PL)</SelectItem>
+                      <SelectItem value="supply chain management">Supply Chain Management</SelectItem>
+                      <SelectItem value="distribution company">Distribution Company</SelectItem>
+                      <SelectItem value="e-commerce logistics">E-commerce Logistics</SelectItem>
+                      <SelectItem value="cold chain logistics">Cold Chain Logistics</SelectItem>
+                      <SelectItem value="customs broker">Customs Broker</SelectItem>
+                      <SelectItem value="shipping company">Shipping Company</SelectItem>
+                      <SelectItem value="packaging company">Packaging Company</SelectItem>
+                      <SelectItem value="fulfillment center">Fulfillment Center</SelectItem>
+                      <SelectItem value="last mile delivery">Last Mile Delivery</SelectItem>
+                      <SelectItem value="cargo handling">Cargo Handling</SelectItem>
+                      <SelectItem value="port operator">Port Operator</SelectItem>
+                      <SelectItem value="railway logistics">Railway Logistics</SelectItem>
+                      <SelectItem value="air freight">Air Freight</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -406,43 +434,109 @@ const UpdateCompany = () => {
 
           <Card className="shadow-sm">
             <CardHeader className="border-b bg-gray-50 dark:bg-gray-800/50">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <CreditCard className="w-5 h-5 text-[#202020]" />
-                Bank Details
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <CreditCard className="w-5 h-5 text-[#202020]" />
+                  Bank Details
+                </CardTitle>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      bankDetails: [
+                        ...(prev.bankDetails || []),
+                        { bankName: "", accountNumber: "", ifsc: "" },
+                      ],
+                    }))
+                  }
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Bank
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="pt-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label>Bank Name</Label>
-                  <Input
-                    value={formData.bankName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, bankName: e.target.value })
-                    }
-                    placeholder="Bank Name"
-                  />
-                </div>
-                <div>
-                  <Label>Account Number</Label>
-                  <Input
-                    value={formData.accountNumber}
-                    onChange={(e) =>
-                      setFormData({ ...formData, accountNumber: e.target.value })
-                    }
-                    placeholder="Account Number"
-                  />
-                </div>
-                <div>
-                  <Label>IFSC Code</Label>
-                  <Input
-                    value={formData.ifsc}
-                    onChange={(e) =>
-                      setFormData({ ...formData, ifsc: e.target.value })
-                    }
-                    placeholder="IFSC Code"
-                  />
-                </div>
+              <div className="space-y-4">
+                {(formData.bankDetails || []).map((bank, idx) => (
+                  <div
+                    key={idx}
+                    className="p-4 border rounded-lg bg-gray-50 dark:bg-gray-800/30"
+                  >
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <Label>Bank Name</Label>
+                        <Input
+                          value={bank.bankName}
+                          onChange={(e) =>
+                            setFormData((prev) => {
+                              const next = [...prev.bankDetails];
+                              next[idx] = {
+                                ...next[idx],
+                                bankName: e.target.value,
+                              };
+                              return { ...prev, bankDetails: next };
+                            })
+                          }
+                          placeholder="Bank Name"
+                        />
+                      </div>
+                      <div>
+                        <Label>Account Number</Label>
+                        <Input
+                          value={bank.accountNumber}
+                          onChange={(e) =>
+                            setFormData((prev) => {
+                              const next = [...prev.bankDetails];
+                              next[idx] = {
+                                ...next[idx],
+                                accountNumber: e.target.value,
+                              };
+                              return { ...prev, bankDetails: next };
+                            })
+                          }
+                          placeholder="Account Number"
+                        />
+                      </div>
+                      <div>
+                        <Label>IFSC</Label>
+                        <Input
+                          value={bank.ifsc}
+                          onChange={(e) =>
+                            setFormData((prev) => {
+                              const next = [...prev.bankDetails];
+                              next[idx] = {
+                                ...next[idx],
+                                ifsc: e.target.value.toUpperCase(),
+                              };
+                              return { ...prev, bankDetails: next };
+                            })
+                          }
+                          placeholder="IFSC"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end mt-3">
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            bankDetails: (prev.bankDetails || []).filter(
+                              (_, i) => i !== idx
+                            ),
+                          }))
+                        }
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>

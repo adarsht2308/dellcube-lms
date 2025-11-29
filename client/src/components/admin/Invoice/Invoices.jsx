@@ -580,22 +580,22 @@ const Invoices = () => {
 
     try {
       // First, check if invoice already has a signature
-      if (invoiceObj.dellcubeSignature && invoiceObj.dellcubeSignature.trim() !== "") {
+      if (invoiceObj.dellcubeSignature && typeof invoiceObj.dellcubeSignature === 'string' && invoiceObj.dellcubeSignature.trim() !== "") {
         if (isBase64Signature(invoiceObj.dellcubeSignature)) {
           // Already base64, convert AVIF to PNG if needed
           await applySignatureValue(invoiceObj.dellcubeSignature);
-          console.log("Using existing base64 signature from invoice");
+          console.log("Using existing base64 company signature from invoice");
           return;
         } else {
           // It's a URL, convert to base64
-          console.log("Converting existing signature URL to base64:", invoiceObj.dellcubeSignature);
+          console.log("Converting existing company signature URL to base64:", invoiceObj.dellcubeSignature.substring(0, 100));
           const converted = await imageUrlToBase64(invoiceObj.dellcubeSignature);
-          if (converted && converted !== null) {
+          if (converted && converted !== null && converted.startsWith('data:image/')) {
             await applySignatureValue(converted);
-            console.log("Successfully converted existing signature URL to base64");
+            console.log("Successfully converted existing company signature URL to base64");
             return;
           } else {
-            console.warn("Failed to convert existing signature URL to base64, will try user profile");
+            console.warn("Failed to convert existing company signature URL to base64, will try user profile");
             // Fall through to try user profile
           }
         }
@@ -603,25 +603,24 @@ const Invoices = () => {
 
       // If no signature in invoice, try to get from current user's profile
       const profileSignatureUrl = user?.signature?.url;
-      if (profileSignatureUrl) {
-        console.log("Fetching signature from user profile:", profileSignatureUrl);
+      if (profileSignatureUrl && typeof profileSignatureUrl === 'string' && profileSignatureUrl.trim() !== '') {
+        console.log("Fetching company signature from user profile:", profileSignatureUrl.substring(0, 100));
         try {
           const converted = await imageUrlToBase64(profileSignatureUrl);
-          if (converted && converted !== null) {
+          if (converted && converted !== null && converted.startsWith('data:image/')) {
             await applySignatureValue(converted);
-            console.log("Successfully converted user profile signature to base64");
+            console.log("Successfully converted user profile company signature to base64");
           } else {
-            console.warn("Failed to convert user profile signature to base64 - got null or empty");
+            console.warn("Failed to convert user profile company signature to base64 - got null or invalid result");
           }
         } catch (error) {
-          console.error("Error converting user profile signature:", error);
+          console.error("Error converting user profile company signature:", error);
         }
       } else {
-        console.warn("No signature found in user profile:", {
+        console.warn("No company signature found in user profile:", {
           hasUser: !!user,
           hasSignature: !!user?.signature,
           signatureUrl: user?.signature?.url,
-          fullUser: user,
         });
       }
     } catch (error) {
@@ -692,28 +691,34 @@ const Invoices = () => {
 
     if (processedInvoice.deliveryProof?.signature) {
       try {
+        const signatureValue = processedInvoice.deliveryProof.signature;
+        
         // Check if signature is already a valid base64 string
-        if (processedInvoice.deliveryProof.signature.startsWith('data:image/')) {
+        if (typeof signatureValue === 'string' && signatureValue.startsWith('data:image/')) {
           // Already in base64 format, no conversion needed
-          console.log("Signature is already in base64 format");
-        } else {
+          console.log("Receiver signature is already in base64 format");
+        } else if (typeof signatureValue === 'string' && signatureValue.trim() !== '') {
           // Convert URL to base64
-          const signatureBase64 = await imageUrlToBase64(
-            processedInvoice.deliveryProof.signature
-          );
-          if (signatureBase64) {
+          console.log("Converting receiver signature URL to base64:", signatureValue.substring(0, 100));
+          const signatureBase64 = await imageUrlToBase64(signatureValue);
+          if (signatureBase64 && signatureBase64.startsWith('data:image/')) {
             processedInvoice.deliveryProof.signature = signatureBase64;
-            console.log("Signature converted to base64 successfully");
+            console.log("Receiver signature converted to base64 successfully");
           } else {
-            console.warn("Signature conversion returned empty result");
-            toast.error("Could not convert signature for PDF.");
+            console.warn("Receiver signature conversion returned invalid result");
+            toast.error("Could not convert receiver signature for PDF. PDF will be generated without it.");
+            // Keep the original signature but mark it as invalid
+            processedInvoice.deliveryProof.signature = null;
           }
+        } else {
+          console.warn("Receiver signature is empty or invalid");
+          processedInvoice.deliveryProof.signature = null;
         }
       } catch (error) {
-        console.error("Signature conversion error:", error);
-        toast.error("Failed to process signature image. PDF will be generated without signature.");
+        console.error("Receiver signature conversion error:", error);
+        toast.error("Failed to process receiver signature image. PDF will be generated without signature.");
         // Remove signature to prevent PDF generation error
-        delete processedInvoice.deliveryProof.signature;
+        processedInvoice.deliveryProof.signature = null;
       }
     }
 
@@ -787,32 +792,34 @@ const Invoices = () => {
 
       if (processedInvoice.deliveryProof?.signature) {
         try {
+          const signatureValue = processedInvoice.deliveryProof.signature;
+          
           // Check if signature is already a valid base64 string
-          if (
-            processedInvoice.deliveryProof.signature.startsWith("data:image/")
-          ) {
+          if (typeof signatureValue === 'string' && signatureValue.startsWith("data:image/")) {
             // Already in base64 format, no conversion needed
-            console.log("Signature is already in base64 format for download");
-          } else {
+            console.log("Receiver signature is already in base64 format for download");
+          } else if (typeof signatureValue === 'string' && signatureValue.trim() !== '') {
             // Convert URL to base64
-            const signatureBase64 = await imageUrlToBase64(
-              processedInvoice.deliveryProof.signature
-            );
-            if (signatureBase64) {
+            console.log("Converting receiver signature URL to base64 for download:", signatureValue.substring(0, 100));
+            const signatureBase64 = await imageUrlToBase64(signatureValue);
+            if (signatureBase64 && signatureBase64.startsWith('data:image/')) {
               processedInvoice.deliveryProof.signature = signatureBase64;
-              console.log("Signature converted to base64 successfully for download");
+              console.log("Receiver signature converted to base64 successfully for download");
             } else {
-              console.warn("Signature conversion returned empty result for download");
+              console.warn("Receiver signature conversion returned invalid result for download");
               toast.error(
-                "Could not convert signature image. PDF will be generated without it."
+                "Could not convert receiver signature image. PDF will be generated without it."
               );
-              delete processedInvoice.deliveryProof.signature;
+              processedInvoice.deliveryProof.signature = null;
             }
+          } else {
+            console.warn("Receiver signature is empty or invalid for download");
+            processedInvoice.deliveryProof.signature = null;
           }
         } catch (error) {
-          console.error("Signature conversion error during download:", error);
-          toast.error("Failed to process signature. PDF will be generated without it.");
-          delete processedInvoice.deliveryProof.signature;
+          console.error("Receiver signature conversion error during download:", error);
+          toast.error("Failed to process receiver signature. PDF will be generated without it.");
+          processedInvoice.deliveryProof.signature = null;
         }
       }
 
@@ -2263,67 +2270,7 @@ const Invoices = () => {
                     </div>
                   )}
                 </InfoCard>
-
-                {/* Addresses */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <InfoCard
-                    icon={Navigation}
-                    title="Origin Address"
-                    className="h-fit"
-                  >
-                    <div className="space-y-2">
-                      <InfoRow
-                        label="Country"
-                        value={selectedInvoice?.fromAddress?.country?.name}
-                      />
-                      <InfoRow
-                        label="State"
-                        value={selectedInvoice?.fromAddress?.state?.name}
-                      />
-                      <InfoRow
-                        label="City"
-                        value={selectedInvoice?.fromAddress?.city?.name}
-                      />
-                      <InfoRow
-                        label="Locality"
-                        value={selectedInvoice?.fromAddress?.locality?.name}
-                      />
-                      <InfoRow
-                        label="Pincode"
-                        value={selectedInvoice?.fromAddress?.pincode?.code}
-                      />
-                    </div>
-                  </InfoCard>
-
-                  <InfoCard
-                    icon={Map}
-                    title="Destination Address"
-                    className="h-fit"
-                  >
-                    <div className="space-y-2">
-                      <InfoRow
-                        label="Country"
-                        value={selectedInvoice?.toAddress?.country?.name}
-                      />
-                      <InfoRow
-                        label="State"
-                        value={selectedInvoice?.toAddress?.state?.name}
-                      />
-                      <InfoRow
-                        label="City"
-                        value={selectedInvoice?.toAddress?.city?.name}
-                      />
-                      <InfoRow
-                        label="Locality"
-                        value={selectedInvoice?.toAddress?.locality?.name}
-                      />
-                      <InfoRow
-                        label="Pincode"
-                        value={selectedInvoice?.toAddress?.pincode?.code}
-                      />
-                    </div>
-                  </InfoCard>
-                </div>
+              
 
                 {/* Pickup & Delivery Addresses */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -1119,44 +1119,116 @@ export const createDriverController = async (req, res) => {
       });
     }
 
-    const existing = await User.findOne({ mobile });
-    if (existing) {
+    // Check for existing users with same mobile
+    const existingMobile = await User.findOne({ mobile });
+    if (existingMobile) {
       return res.status(400).json({
         success: false,
-        message: "User with this mobile already exists.",
+        message: "User with this mobile number already exists.",
       });
     }
 
-    // Check for existing users with same Aadhar or PAN if provided
-    if (aadharNumber) {
-      const existingAadhar = await User.findOne({ aadharNumber });
-      if (existingAadhar) {
-        return res.status(400).json({
-          success: false,
-          message: "User with this Aadhar number already exists.",
-        });
-      }
+    // Check for existing users with same license number
+    const existingLicense = await User.findOne({ licenseNumber });
+    if (existingLicense) {
+      return res.status(400).json({
+        success: false,
+        message: "User with this license number already exists.",
+      });
     }
 
-    if (panNumber) {
-      const existingPAN = await User.findOne({ panNumber });
-      if (existingPAN) {
-        return res.status(400).json({
-          success: false,
-          message: "User with this PAN number already exists.",
-        });
-      }
+    // Aadhar and PAN validation (required)
+    if (!aadharNumber || !aadharNumber.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Aadhar Card Number is required.",
+      });
+    }
+
+    if (aadharNumber.length !== 12 || !/^\d{12}$/.test(aadharNumber)) {
+      return res.status(400).json({
+        success: false,
+        message: "Aadhar Card Number must be exactly 12 digits.",
+      });
+    }
+
+    if (!panNumber || !panNumber.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "PAN Card Number is required.",
+      });
+    }
+
+    if (panNumber.length !== 10 || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(panNumber)) {
+      return res.status(400).json({
+        success: false,
+        message: "PAN Card Number must be in valid format (e.g., ABCDE1234F).",
+      });
+    }
+
+    // Check for existing users with same Aadhar or PAN
+    const existingAadhar = await User.findOne({ aadharNumber });
+    if (existingAadhar) {
+      return res.status(400).json({
+        success: false,
+        message: "User with this Aadhar number already exists.",
+      });
+    }
+
+    const existingPAN = await User.findOne({ panNumber });
+    if (existingPAN) {
+      return res.status(400).json({
+        success: false,
+        message: "User with this PAN number already exists.",
+      });
+    }
+
+    // Bank Details validation (required)
+    if (!bankDetails) {
+      return res.status(400).json({
+        success: false,
+        message: "Bank details are required.",
+      });
+    }
+
+    const { accountHolderName, bankName, accountNumber, ifscCode } = bankDetails;
+
+    if (!accountHolderName || !accountHolderName.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Account Holder Name is required.",
+      });
+    }
+
+    if (!bankName || !bankName.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Bank Name is required.",
+      });
+    }
+
+    if (!accountNumber || !accountNumber.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Account Number is required.",
+      });
+    }
+
+    if (!ifscCode || !ifscCode.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "IFSC Code is required.",
+      });
+    }
+
+    if (ifscCode.length !== 11 || !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)) {
+      return res.status(400).json({
+        success: false,
+        message: "IFSC Code must be in valid format (e.g., ABCD0123456).",
+      });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Only include bankDetails if it has at least one non-empty field
-    const hasBankDetails = bankDetails && (
-      (bankDetails.accountNumber && bankDetails.accountNumber.trim() !== "") ||
-      (bankDetails.ifscCode && bankDetails.ifscCode.trim() !== "") ||
-      (bankDetails.bankName && bankDetails.bankName.trim() !== "") ||
-      (bankDetails.accountHolderName && bankDetails.accountHolderName.trim() !== "")
-    );
 
     const newDriver = await User.create({
       name,
@@ -1169,9 +1241,9 @@ export const createDriverController = async (req, res) => {
       experienceYears,
       driverType,
       ...(driverType === "vendor" && vendor && { vendor }),
-      ...(aadharNumber && { aadharNumber }),
-      ...(panNumber && { panNumber }),
-      ...(hasBankDetails && { bankDetails }),
+      aadharNumber,
+      panNumber,
+      bankDetails,
       status: true,
     });
 
@@ -1369,6 +1441,34 @@ export const updateDriverController = async (req, res) => {
       });
     }
 
+    // Check for existing users with same mobile (excluding current user)
+    if (mobile && mobile !== user.mobile) {
+      const existingMobile = await User.findOne({
+        mobile,
+        _id: { $ne: userId },
+      });
+      if (existingMobile) {
+        return res.status(400).json({
+          success: false,
+          message: "User with this mobile number already exists.",
+        });
+      }
+    }
+
+    // Check for existing users with same license number (excluding current user)
+    if (licenseNumber && licenseNumber !== user.licenseNumber) {
+      const existingLicense = await User.findOne({
+        licenseNumber,
+        _id: { $ne: userId },
+      });
+      if (existingLicense) {
+        return res.status(400).json({
+          success: false,
+          message: "User with this license number already exists.",
+        });
+      }
+    }
+
     // Check for existing users with same Aadhar or PAN (excluding current user)
     if (aadharNumber && aadharNumber !== user.aadharNumber) {
       const existingAadhar = await User.findOne({
@@ -1406,6 +1506,35 @@ export const updateDriverController = async (req, res) => {
       photoUrlPublicId = req.files.profilePhoto[0].filename;
     }
 
+    // Aadhar and PAN validation (required)
+    if (!aadharNumber || !aadharNumber.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Aadhar Card Number is required.",
+      });
+    }
+
+    if (aadharNumber.length !== 12 || !/^\d{12}$/.test(aadharNumber)) {
+      return res.status(400).json({
+        success: false,
+        message: "Aadhar Card Number must be exactly 12 digits.",
+      });
+    }
+
+    if (!panNumber || !panNumber.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "PAN Card Number is required.",
+      });
+    }
+
+    if (panNumber.length !== 10 || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(panNumber)) {
+      return res.status(400).json({
+        success: false,
+        message: "PAN Card Number must be in valid format (e.g., ABCDE1234F).",
+      });
+    }
+
     // Parse bankDetails if it's a JSON string
     let parsedBankDetails = bankDetails;
     if (typeof bankDetails === "string") {
@@ -1419,13 +1548,50 @@ export const updateDriverController = async (req, res) => {
       }
     }
 
-    // Only include bankDetails if it has at least one non-empty field
-    const hasBankDetails = parsedBankDetails && (
-      (parsedBankDetails.accountNumber && parsedBankDetails.accountNumber.trim() !== "") ||
-      (parsedBankDetails.ifscCode && parsedBankDetails.ifscCode.trim() !== "") ||
-      (parsedBankDetails.bankName && parsedBankDetails.bankName.trim() !== "") ||
-      (parsedBankDetails.accountHolderName && parsedBankDetails.accountHolderName.trim() !== "")
-    );
+    // Bank Details validation (required)
+    if (!parsedBankDetails) {
+      return res.status(400).json({
+        success: false,
+        message: "Bank details are required.",
+      });
+    }
+
+    const { accountHolderName, bankName, accountNumber, ifscCode } = parsedBankDetails;
+
+    if (!accountHolderName || !accountHolderName.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Account Holder Name is required.",
+      });
+    }
+
+    if (!bankName || !bankName.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Bank Name is required.",
+      });
+    }
+
+    if (!accountNumber || !accountNumber.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Account Number is required.",
+      });
+    }
+
+    if (!ifscCode || !ifscCode.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "IFSC Code is required.",
+      });
+    }
+
+    if (ifscCode.length !== 11 || !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)) {
+      return res.status(400).json({
+        success: false,
+        message: "IFSC Code must be in valid format (e.g., ABCD0123456).",
+      });
+    }
 
     // Determine effective driver type for vendor field handling
     const effectiveDriverTypeForUpdate = driverType || user.driverType;
@@ -1445,9 +1611,9 @@ export const updateDriverController = async (req, res) => {
         : effectiveDriverTypeForUpdate !== "vendor"
         ? { vendor: null }
         : {}),
-      ...(aadharNumber && { aadharNumber }),
-      ...(panNumber && { panNumber }),
-      ...(hasBankDetails && { bankDetails: parsedBankDetails }),
+      aadharNumber,
+      panNumber,
+      bankDetails: parsedBankDetails,
       ...(photoUrl && {
         photoUrl,
         photoUrlPublicId,

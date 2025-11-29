@@ -8,11 +8,23 @@ const vehicleSchema = new mongoose.Schema(
       required: true,
       unique: true,
       trim: true,
+      set: (value) => {
+        // Replace spaces with hyphens and convert to uppercase
+        if (typeof value === "string") {
+          return value.replace(/\s+/g, "-").toUpperCase();
+        }
+        return value;
+      },
     },
     type: {
       type: String,
       required: true,
       enum: ["6ft", "7ft", "8ft", "9ft", "10ft", "12ft", "14ft", "16ft", "17ft", "18ft", "19ft", "20ft", "22ft", "24ft", "28ft", "32ft"],
+    },
+    cargoType: {
+      type: String,
+      enum: ["Dry", "Refrigerated", "Container", "Open", "Closed", "Flatbed", "Tanker", "Other"],
+      trim: true,
     },
     brand: {
       type: String,

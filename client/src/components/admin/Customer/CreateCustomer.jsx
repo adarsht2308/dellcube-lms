@@ -212,29 +212,6 @@ const CreateCustomer = () => {
                   className="mt-1.5"
                 />
               </div>
-            </div>
-          </Card>
-
-          {/* Company Information Card */}
-          <Card className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-[#202020] dark:text-[#FFD249] mb-4 flex items-center gap-2">
-              <Building2 className="w-5 h-5" />
-              Company Information
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Company Name
-                </Label>
-                <Input
-                  placeholder="e.g., ABC Corporation"
-                  value={formData.companyName}
-                  onChange={(e) =>
-                    setFormData({ ...formData, companyName: e.target.value })
-                  }
-                  className="mt-1.5"
-                />
-              </div>
 
               <div>
                 <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -250,7 +227,7 @@ const CreateCustomer = () => {
                 />
               </div>
 
-              <div className="md:col-span-2">
+              <div>
                 <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Company Contact Info
                 </Label>
@@ -263,8 +240,11 @@ const CreateCustomer = () => {
                   className="mt-1.5"
                 />
               </div>
+
             </div>
           </Card>
+
+         
 
           {/* Tax Information Card */}
           <Card className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
@@ -371,145 +351,11 @@ const CreateCustomer = () => {
             </Card>
           )}
 
-          {/* Consignees Card */}
-          <Card className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-[#202020] dark:text-[#FFD249] mb-4 flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              Consignees
-            </h3>
-            <div className="space-y-3">
-              {formData.consignees.map((consignee, index) => (
-                <div key={index} className="p-4 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-xs font-medium text-gray-600 dark:text-gray-400">Site ID</Label>
-                      <Input
-                        placeholder="Enter site ID"
-                        value={consignee.siteId}
-                        onChange={(e) => {
-                          const newConsignees = [...formData.consignees];
-                          newConsignees[index].siteId = e.target.value;
-                          setFormData({ ...formData, consignees: newConsignees });
-                        }}
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs font-medium text-gray-600 dark:text-gray-400">Consignee</Label>
-                      <Input
-                        placeholder="Enter consignee name"
-                        value={consignee.consignee}
-                        onChange={(e) => {
-                          const newConsignees = [...formData.consignees];
-                          newConsignees[index].consignee = e.target.value;
-                          setFormData({ ...formData, consignees: newConsignees });
-                        }}
-                        className="mt-1"
-                      />
-                    </div>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="mt-3 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
-                    onClick={() => {
-                      const newConsignees = formData.consignees.filter((_, i) => i !== index);
-                      setFormData({ ...formData, consignees: newConsignees });
-                    }}
-                  >
-                    <FaRegTrashCan className="w-4 h-4 mr-2" />
-                    Remove Consignee
-                  </Button>
-                </div>
-              ))}
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setFormData({
-                    ...formData,
-                    consignees: [
-                      ...formData.consignees,
-                      {
-                        siteId: "",
-                        consignee: "",
-                      },
-                    ],
-                  });
-                }}
-                className="bg-[#FFD249]/10 hover:bg-[#FFD249]/20 text-[#202020] border-[#FFD249]/30"
-              >
-                <PlusCircle className="w-4 h-4 mr-2" />
-                Add Consignee
-              </Button>
-            </div>
-          </Card>
-
-          {/* Consignors Card */}
-          <Card className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-[#202020] dark:text-[#FFD249] mb-4 flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              Consignors
-            </h3>
-            <div className="space-y-3">
-              {formData.consignors.map((consignor, index) => (
-                <div key={index} className="p-4 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700">
-                  <div className="grid grid-cols-1 gap-3">
-                    <div>
-                      <Label className="text-xs font-medium text-gray-600 dark:text-gray-400">Consignor</Label>
-                      <Input
-                        placeholder="Enter consignor name"
-                        value={consignor.consignor}
-                        onChange={(e) => {
-                          const newConsignors = [...formData.consignors];
-                          newConsignors[index].consignor = e.target.value;
-                          setFormData({ ...formData, consignors: newConsignors });
-                        }}
-                        className="mt-1"
-                      />
-                    </div>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="mt-3 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
-                    onClick={() => {
-                      const newConsignors = formData.consignors.filter((_, i) => i !== index);
-                      setFormData({ ...formData, consignors: newConsignors });
-                    }}
-                  >
-                    <FaRegTrashCan className="w-4 h-4 mr-2" />
-                    Remove Consignor
-                  </Button>
-                </div>
-              ))}
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setFormData({
-                    ...formData,
-                    consignors: [
-                      ...formData.consignors,
-                      {
-                        consignor: "",
-                      },
-                    ],
-                  });
-                }}
-                className="bg-[#FFD249]/10 hover:bg-[#FFD249]/20 text-[#202020] border-[#FFD249]/30"
-              >
-                <PlusCircle className="w-4 h-4 mr-2" />
-                Add Consignor
-              </Button>
-            </div>
-          </Card>
+        
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-3 justify-end sticky bottom-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg border">
+        <div className="flex gap-3 justify-end sticky bottom-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg border mt-10">
           <Button 
             variant="outline" 
             onClick={() => navigate("/admin/customers")}
