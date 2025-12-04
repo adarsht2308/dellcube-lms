@@ -48,25 +48,25 @@ const styles = StyleSheet.create({
   page: {
     backgroundColor: "#fff",
     fontFamily: "Helvetica",
-    paddingTop: 24,
-    paddingBottom: 24,
-    paddingLeft: 24,
-    paddingRight: 24,
+    paddingTop: 2,
+    paddingBottom: 2,
+    paddingLeft: 2,
+    paddingRight: 2,
   },
   pageContainer: {
     width: "100%",
     minHeight: "100%",
     flexDirection: "column",
     alignItems: "center",
-    padding: "1mm",
-    gap: "1mm",
+    padding: 0,
+    gap: "3mm",
   },
   docketCopy: {
     backgroundColor: "#fff",
     border: "2px solid #000",
     width: "100%",
-    margin: "auto",
-    padding: "3mm",
+    margin: 0,
+    padding: "1mm",
     boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
   headerSection: {
     flexDirection: "row",
     alignItems: "stretch",
-    marginBottom: "1mm",
+    marginBottom: "2mm",
     paddingBottom: "0.5mm",
   },
   logoSection: {
@@ -99,19 +99,19 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "bold",
     textAlign: "center",
-    marginBottom: "0.3mm",
+    marginBottom: "0.4mm",
     textTransform: "uppercase",
   },
   companyAddress: {
+    fontSize: 7,
+    textAlign: "center",
+    lineHeight: 1.2,
+    marginBottom: "0.3mm",
+  },
+  companyContact: {
     fontSize: 6,
     textAlign: "center",
     lineHeight: 1.1,
-    marginBottom: "0.2mm",
-  },
-  companyContact: {
-    fontSize: 5,
-    textAlign: "center",
-    lineHeight: 1.0,
   },
  
   copyTypeSection: {
@@ -122,18 +122,18 @@ const styles = StyleSheet.create({
     paddingLeft: "1mm",
   },
   copyType: {
-    fontSize: 7,
+    fontSize: 8,
     fontWeight: "bold",
     border: "1px solid #000",
-    padding: "0.5mm",
+    padding: "0.6mm",
     textAlign: "center",
     backgroundColor: "#f0f0f0",
   },
   docketNumber: {
-    fontSize: 8,
+    fontSize: 14,
     fontWeight: "bold",
     border: "2px solid #000",
-    paddingVertical: "1.5mm",
+    paddingVertical: "2mm",
     paddingHorizontal: "2mm",
     textAlign: "center",
     marginTop: "0.7mm",
@@ -150,12 +150,14 @@ const styles = StyleSheet.create({
   companyDetailsRow: {
     flexDirection: "row",
     marginBottom: "0.5mm",
+    marginTop: "0.5mm",
   },
   leftDetails: {
     width: "15%",
-    flexDirection: "column",
+    flexDirection: "row",
     alignItems: "center",
-    gap: "0.3mm",
+    gap: "1mm",
+    justifyContent: "flex-start",
   },
   centerDetails: {
     width: "70%",
@@ -165,12 +167,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   panGstText: {
-    fontSize: 6,
+    fontSize: 7,
     fontWeight: "bold",
     textAlign: "left",
   },
   dateText: {
-    fontSize: 6,
+    fontSize: 7,
     fontWeight: "bold",
     textAlign: "left",
   },
@@ -179,21 +181,21 @@ const styles = StyleSheet.create({
   riskContainer: {
     backgroundColor: "#f0f0f0",
     border: "1px solid #000",
-    padding: "0.5mm",
-    fontSize: 6,
+    padding: "0.6mm",
+    fontSize: 7,
     textAlign: "center",
     fontWeight: "bold",
     marginBottom: "1mm",
   },
   riskTitle: {
-    fontSize: 7,
+    fontSize: 8,
     fontWeight: "bold",
-    marginBottom: "0.3mm",
+    marginBottom: "0.4mm",
   },
   riskNote: {
-    fontSize: 5,
+    fontSize: 6,
     fontWeight: "normal",
-    lineHeight: 1.1,
+    lineHeight: 1.2,
   },
 
   // Delivery Container - New separate container
@@ -213,38 +215,38 @@ const styles = StyleSheet.create({
     gap: "0.3mm",
   },
   deliveryLabel: {
-    fontSize: 6,
+    fontSize: 7,
     fontWeight: "bold",
-    marginBottom: "0.1mm",
+    marginBottom: "0.2mm",
   },
   deliveryInput: {
     border: "1px solid #000",
-    padding: "0.5mm",
-    fontSize: 6,
-    minHeight: "3mm",
+    padding: "0.6mm",
+    fontSize: 7,
+    minHeight: "4mm",
     backgroundColor: "#fff",
   },
 
   // Main Content Area
   contentArea: {
     flexDirection: "row",
-    gap: "0.5mm",
+    gap: "1mm",
     marginBottom: "0.5mm",
   },
   leftColumn: {
-    width: "75%",
+    width: "82%",
     flexDirection: "column",
     gap: "0.5mm",
   },
   rightColumn: {
-    width: "25%",
+    width: "18%",
     flexDirection: "column",
   },
 
   // Vehicle and Goods Table - Updated structure
   mainTable: {
     border: "1px solid #000",
-    fontSize: 6,
+    fontSize: 7,
   },
   tableHeader: {
     flexDirection: "row",
@@ -252,8 +254,8 @@ const styles = StyleSheet.create({
     borderBottom: "1px solid #000",
   },
   tableHeaderCell: {
-    padding: "0.5mm",
-    fontSize: 6,
+    padding: "0.8mm",
+    fontSize: 7,
     fontWeight: "bold",
     textAlign: "center",
     borderRight: "1px solid #000",
@@ -263,13 +265,13 @@ const styles = StyleSheet.create({
     borderBottom: "1px solid #000",
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 20,
+    minHeight: 22,
   },
   tableCell: {
-    padding: "0.5mm",
-    fontSize: 6,
+    padding: "0.8mm",
+    fontSize: 7,
     borderRight: "1px solid #000",
-    minHeight: "3mm",
+    minHeight: "4mm",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -277,14 +279,14 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   fieldLabel: {
-    fontSize: 5,
+    fontSize: 6,
     fontWeight: "bold",
-    marginBottom: "0.1mm",
+    marginBottom: "0.2mm",
     textAlign: "center",
     width: "100%",
   },
   fieldValue: {
-    fontSize: 6,
+    fontSize: 7,
   },
 
   // Freight Chart Section (Right Column)
@@ -294,8 +296,8 @@ const styles = StyleSheet.create({
   },
   freightHeader: {
     backgroundColor: "#e8e8e8",
-    padding: "0.5mm",
-    fontSize: 6,
+    padding: "0.6mm",
+    fontSize: 7,
     fontWeight: "bold",
     textAlign: "center",
     borderBottom: "1px solid #000",
@@ -306,16 +308,16 @@ const styles = StyleSheet.create({
   },
   freightLabel: {
     width: "60%",
-    padding: "0.3mm",
-    fontSize: 5,
+    padding: "0.5mm",
+    fontSize: 6,
     borderRight: "1px solid #000",
     fontWeight: "bold",
     backgroundColor: "#f8f8f8",
   },
   freightValue: {
     width: "40%",
-    padding: "0.3mm",
-    fontSize: 5,
+    padding: "0.5mm",
+    fontSize: 6,
     textAlign: "right",
   },
   freightTotal: {
@@ -331,30 +333,30 @@ const styles = StyleSheet.create({
     gap: "1mm",
   },
   receiverSection: {
-    width: "75%",
+    width: "82%",
     border: "1px solid #000",
-    padding: "0.5mm",
-    fontSize: 6,
+    padding: "0.6mm",
+    fontSize: 7,
   },
   receiverHeader: {
-    fontSize: 7,
+    fontSize: 8,
     fontWeight: "bold",
-    marginBottom: "0.5mm",
+    marginBottom: "0.6mm",
     textAlign: "center",
     backgroundColor: "#f0f0f0",
-    padding: "0.3mm",
+    padding: "0.4mm",
   },
   receiverRow: {
     flexDirection: "row",
     marginBottom: "0.3mm",
   },
   receiverLabel: {
-    fontSize: 6,
+    fontSize: 7,
     fontWeight: "bold",
     width: "30%",
   },
   receiverValue: {
-    fontSize: 6,
+    fontSize: 7,
     width: "70%",
   },
   signatureBox: {
@@ -390,20 +392,20 @@ const styles = StyleSheet.create({
     height: "auto",
   },
   authSection: {
-    width: "25%",
+    width: "18%",
     border: "1px solid #000",
-    padding: "0.5mm",
+    padding: "0.6mm",
     textAlign: "center",
-    fontSize: 6,
+    fontSize: 7,
     justifyContent: "space-between",
   },
   authHeader: {
-    fontSize: 6,
+    fontSize: 7,
     fontWeight: "bold",
     marginBottom: "1mm",
   },
   authSignatory: {
-    fontSize: 6,
+    fontSize: 7,
     marginTop: "auto",
     paddingTop: "3mm",
   },
@@ -480,7 +482,10 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
     (signature.startsWith("data:image/png;base64,") ||
       signature.startsWith("data:image/jpeg;base64,") ||
       signature.startsWith("data:image/jpg;base64,") ||
-      signature.startsWith("data:image/webp;base64,"));
+      signature.startsWith("data:image/webp;base64,") ||
+      signature.startsWith("data:image/") ||
+      signature.startsWith("http://") ||
+      signature.startsWith("https://"));
 
   // Debug logging for signature
   console.log("=== PDF Signature Debug ===");
@@ -572,10 +577,7 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
       <View style={styles.companyDetailsRow}>
         <View style={styles.leftDetails}>
           <Text style={styles.panGstText}>
-            GSTIN: {invoice?.company?.gstNumber || "-"}
-          </Text>
-          <Text style={styles.panGstText}>
-            PAN: {invoice?.company?.pan || "-"}
+            GSTIN: {invoice?.company?.gstNumber || "-"} | PAN: {invoice?.company?.pan || "-"}
           </Text>
         </View>
         <View style={styles.centerDetails}></View>
@@ -860,7 +862,11 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
           </Text>
           <View style={styles.signatureBox}>
             {isValidSignature ? (
-              <Image src={signature} style={styles.signatureImg} />
+              <Image 
+                src={signature} 
+                style={styles.signatureImg}
+                cache={false}
+              />
             ) : (
               <Text style={{ color: "#666" }}>Signature Required</Text>
             )}
@@ -878,6 +884,7 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
               <Image
                 src={companySignatureSource}
                 style={styles.companySignatureImg}
+                cache={false}
               />
             ) : (
               <Text style={{ fontSize: 6, color: "#555" }}>

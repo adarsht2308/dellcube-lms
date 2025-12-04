@@ -248,6 +248,11 @@ const TrackOrder = () => {
                     <h2 className="text-3xl font-bold text-[#202020] dark:text-white mb-2 tracking-wide">
                       {invoice.docketNumber}
                     </h2>
+                    {invoice.docketPrefix && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                        Prefix: {invoice.docketPrefix}
+                      </p>
+                    )}
                     <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
                       <FileText className="w-4 h-4" />
                       Invoice:{" "}

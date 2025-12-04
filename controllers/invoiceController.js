@@ -155,26 +155,28 @@ export const createInvoice = async (req, res) => {
     const dd = String(now.getDate()).padStart(2, "0");
     const dateStr = `${dd}${mm}${yyyy}`;
 
-    // Fetch latest docket for this company + branch to keep counters continuous
-    const latestInvoice = await Invoice.findOne({
-      company: companyId,
-      branch: branchId,
-    })
-      .sort({ createdAt: -1 })
+    // Generate docketPrefix (CompanyCode-BranchCode-Date)
+    const docketPrefix = `${companyCode}-${branchCode}-${dateStr}`;
+
+    // Find the highest numeric docket number starting from 10000
+    // Get all invoices and find the max numeric docket number
+    const invoices = await Invoice.find()
       .select("docketNumber")
       .lean();
 
-    let lastCounter = 0;
-    if (latestInvoice?.docketNumber) {
-      const counterStr = latestInvoice.docketNumber.split("-").pop();
-      const parsedCounter = parseInt(counterStr, 10);
-      if (!isNaN(parsedCounter)) {
-        lastCounter = parsedCounter;
+    let maxDocketNumber = 9999; // Start from 9999 so next will be 10000
+    for (const invoice of invoices) {
+      if (invoice?.docketNumber) {
+        // Try to parse the docket number as a numeric value (must be pure number, no dashes)
+        const parsedNumber = parseInt(invoice.docketNumber, 10);
+        if (!isNaN(parsedNumber) && parsedNumber >= 10000 && parsedNumber > maxDocketNumber) {
+          maxDocketNumber = parsedNumber;
+        }
       }
     }
 
-    const runningCounter = String(lastCounter + 1).padStart(4, "0");
-    const docketNumber = `${companyCode}-${branchCode}-${dateStr}-${runningCounter}`;
+    const nextDocketNumber = maxDocketNumber + 1;
+    const docketNumber = String(nextDocketNumber);
 
     const invoiceNumberValues = normalizeMultiValueField(
       req.body.invoiceNumber
@@ -354,6 +356,7 @@ export const createInvoice = async (req, res) => {
       company: companyId,
       branch: branchId,
       docketNumber,
+      docketPrefix,
       invoiceNumber: invoiceNumberValues,
       ewayBillNo: ewayBillNumberValues,
       orderNumber: req.body.orderNumber || "",
@@ -564,23 +567,27 @@ export const createReservedInvoices = async (req, res) => {
     const dd = String(now.getDate()).padStart(2, "0");
     const dateStr = `${dd}${mm}${yyyy}`;
 
-    // Get latest docket number for branch/company
-    const latestInvoice = await Invoice.findOne({
-      company: companyId,
-      branch: branchId,
-    })
-      .sort({ createdAt: -1 })
+    // Generate docketPrefix (CompanyCode-BranchCode-Date)
+    const docketPrefix = `${companyCode}-${branchCode}-${dateStr}`;
+
+    // Find the highest numeric docket number starting from 10000
+    // Get all invoices and find the max numeric docket number
+    const invoices = await Invoice.find()
       .select("docketNumber")
       .lean();
 
-    let runningCounter = 0;
-    if (latestInvoice?.docketNumber) {
-      const counterStr = latestInvoice.docketNumber.split("-").pop();
-      const parsedCounter = parseInt(counterStr, 10);
-      if (!isNaN(parsedCounter)) {
-        runningCounter = parsedCounter;
+    let maxDocketNumber = 9999; // Start from 9999 so next will be 10000
+    for (const invoice of invoices) {
+      if (invoice?.docketNumber) {
+        // Try to parse the docket number as a numeric value (must be pure number, no dashes)
+        const parsedNumber = parseInt(invoice.docketNumber, 10);
+        if (!isNaN(parsedNumber) && parsedNumber >= 10000 && parsedNumber > maxDocketNumber) {
+          maxDocketNumber = parsedNumber;
+        }
       }
     }
+
+    let nextDocketNumber = maxDocketNumber + 1;
     const creatorSignatureBase64 = await getUserSignatureBase64(
       req.user?.userId
     );
@@ -604,9 +611,7 @@ export const createReservedInvoices = async (req, res) => {
 
     const reservedInvoices = [];
     for (let i = 1; i <= quantity; i++) {
-      runningCounter++;
-      const counterStr = String(runningCounter).padStart(4, "0");
-      const docketNumber = `${companyCode}-${branchCode}-${dateStr}-${counterStr}`;
+      const docketNumber = String(nextDocketNumber);
       reservedInvoices.push({
         company: companyId,
         branch: branchId,
@@ -614,6 +619,7 @@ export const createReservedInvoices = async (req, res) => {
         fromAddress,
         toAddress,
         docketNumber,
+        docketPrefix,
         invoiceNumber: invoiceNumberValues,
         ewayBillNo: ewayBillValues,
         status: "Reserved",
@@ -622,6 +628,7 @@ export const createReservedInvoices = async (req, res) => {
           dellcubeSignature: creatorSignatureBase64,
         }),
       });
+      nextDocketNumber++;
     }
 
     const created = await Invoice.insertMany(reservedInvoices);
@@ -1150,6 +1157,8 @@ export const exportInvoicesCSV = async (req, res) => {
       .populate("vehicle", "vehicleNumber")
       .populate("vendor", "name availableVehicles")
       .populate("driver", "name mobile")
+      .populate("siteType", "name desc")
+      .populate("transportMode", "name desc")
       .populate(
         "fromAddress.country fromAddress.state fromAddress.city fromAddress.locality"
       )
@@ -1157,17 +1166,59 @@ export const exportInvoicesCSV = async (req, res) => {
         "toAddress.country toAddress.state toAddress.city toAddress.locality"
       );
 
-    // Collect all unique MIS field names across all invoices
-    const allMisFieldNames = new Set();
+    // Collect all unique MIS field names and labels across all invoices
+    const allMisFields = new Map(); // Map of fieldName -> fieldLabel
+    
+    // First pass: Collect from customer misFields configuration (to get proper labels)
+    // This ensures we have the correct fieldLabel for each fieldName
     invoices.forEach((inv) => {
       if (inv.customer?.misFields && Array.isArray(inv.customer.misFields)) {
         inv.customer.misFields.forEach((field) => {
           if (field.fieldName) {
-            allMisFieldNames.add(field.fieldName);
+            const fieldLabel = field.fieldLabel || field.fieldName;
+            // Store with fieldName as key and fieldLabel as value
+            allMisFields.set(field.fieldName, fieldLabel);
           }
         });
       }
     });
+    
+    // Second pass: Collect from actual misData in invoices (ensures we get all fields that have data)
+    // This catches any fields that exist in misData but might not be in customer misFields config
+    invoices.forEach((inv) => {
+      if (inv.misData && typeof inv.misData === 'object') {
+        Object.keys(inv.misData).forEach((fieldName) => {
+          if (!allMisFields.has(fieldName)) {
+            // Try to find the field label from customer misFields config
+            const customer = inv.customer;
+            if (customer?.misFields && Array.isArray(customer.misFields)) {
+              const field = customer.misFields.find(f => f.fieldName === fieldName);
+              if (field && field.fieldLabel) {
+                allMisFields.set(fieldName, field.fieldLabel);
+              } else {
+                // Use fieldName as label if not found in misFields config
+                // Convert camelCase to Title Case for better readability
+                const formattedLabel = fieldName
+                  .replace(/([A-Z])/g, ' $1')
+                  .replace(/^./, str => str.toUpperCase())
+                  .trim();
+                allMisFields.set(fieldName, formattedLabel);
+              }
+            } else {
+              // Use fieldName as label if customer misFields not available
+              // Convert camelCase to Title Case for better readability
+              const formattedLabel = fieldName
+                .replace(/([A-Z])/g, ' $1')
+                .replace(/^./, str => str.toUpperCase())
+                .trim();
+              allMisFields.set(fieldName, formattedLabel);
+            }
+          }
+        });
+      }
+    });
+    
+    
 
     const attemptStatuses = ["Undelivered", "Delivered"];
 
@@ -1175,8 +1226,15 @@ export const exportInvoicesCSV = async (req, res) => {
     const rows = [];
 
     const buildBaseRow = (inv, attempt) => ({
-        DocketNumber: inv.docketNumber,
+        DocketNumber: inv.docketNumber || "",
+        DocketPrefix: inv.docketPrefix || "",
+        OrderNumber: inv.orderNumber || "",
+        SiteId: inv.siteId || "",
+        SealNo: inv.sealNo || "",
+        SiteType: inv.siteType?.name || "",
+        TransportMode: inv.transportMode?.name || "",
         InvoiceNumbers: formatMultiValueField(inv.invoiceNumber),
+        InvoiceBill: inv.invoiceBill || "",
         EwayBillNumbers: formatMultiValueField(inv.ewayBillNo),
         AttemptStatus: attempt?.status || inv.status,
         AttemptReason: attempt?.reason || "",
@@ -1193,13 +1251,17 @@ export const exportInvoicesCSV = async (req, res) => {
         CustomerEmail: inv.customer?.email || "",
         GoodsType: inv.goodsType?.name || "",
         GoodsItems: inv.goodsType?.items?.join("; ") || "",
-        VehicleType: inv.vehicleType,
+        GoodItems: inv.goodItems?.map(item => item.name).join("; ") || "",
+        VehicleType: inv.vehicleType || "",
         VehicleNumber:
           inv.vehicle?.vehicleNumber || inv.vendorVehicle?.vehicleNumber || "",
+        VehicleSize: inv.vehicleSize || "",
         Vendor: inv.vendor?.name || "",
+        VendorVehicle: inv.vendorVehicle?.vehicleNumber || "",
         Driver: inv.driver?.name || "",
         DriverPhone: inv.driver?.mobile || "",
-        Status: inv.status,
+        DriverContactNumber: inv.driverContactNumber || "",
+        Status: inv.status || "",
         InvoiceDate: inv.invoiceDate
           ? new Date(inv.invoiceDate).toLocaleString()
           : "",
@@ -1222,41 +1284,113 @@ export const exportInvoicesCSV = async (req, res) => {
         ToPostOffice: inv.toAddress?.postOfficeName || "",
         ToDistrict: inv.toAddress?.district || "",
         ToTaluk: inv.toAddress?.taluk || "",
-        TotalWeight: inv?.totalWeight,
-        NumberOfPackages: inv?.numberOfPackages,
-        FreightCharges: inv?.freightCharges,
-        PaymentType: inv?.paymentType,
-        Remarks: inv?.remarks,
+        TotalWeight: inv?.totalWeight || "",
+        NumberOfPackages: inv?.numberOfPackages || "",
+        FreightCharges: inv?.freightCharges || "",
+        PaymentType: inv?.paymentType || "",
+        Remarks: inv?.remarks || "",
+        PickupAddress: inv.pickupAddress || "",
+        DeliveryAddress: inv.deliveryAddress || "",
+        Consignor: inv.consignor || "",
+        Consignee: inv.consignee || "",
+        Address: inv.address || "",
+        LoadingContactName: inv.loadingContact?.name || "",
+        LoadingContactMobile: inv.loadingContact?.mobile || "",
+        UnloadingContactName: inv.unloadingContact?.name || "",
+        UnloadingContactMobile: inv.unloadingContact?.mobile || "",
+        UndeliveredReason: inv.undeliveredReason || "",
         DeliveredAt: inv.deliveredAt
           ? new Date(inv.deliveredAt).toLocaleString()
           : "",
         DeliveryProofReceiverName: inv.deliveryProof?.receiverName || "",
         DeliveryProofReceiverMobile: inv.deliveryProof?.receiverMobile || "",
+        DeliveryProofFloor: inv.deliveryProof?.floor || "",
         DeliveryProofRemarks: inv.deliveryProof?.remarks || "",
+        DeliveryAttempts: JSON.stringify(inv.deliveryAttempts || []),
+        DriverUpdates: JSON.stringify(inv.driverUpdates || []),
         CreatedAt: inv.createdAt ? new Date(inv.createdAt).toLocaleString() : "",
         UpdatedAt: inv.updatedAt ? new Date(inv.updatedAt).toLocaleString() : "",
       });
 
     invoices.forEach((inv) => {
       const misDataRow = {};
-      if (inv.customer?.misFields && Array.isArray(inv.customer.misFields)) {
-        inv.customer.misFields.forEach((field) => {
-          const fieldLabel = field.fieldLabel || field.fieldName;
-          const fieldValue = inv.misData?.[field.fieldName] || "";
-          misDataRow[`MIS_${fieldLabel}`] = fieldValue;
+      
+      console.log(`\n=== Processing Invoice ${inv.docketNumber} ===`);
+      console.log("Invoice misData:", JSON.stringify(inv.misData, null, 2));
+      console.log("Customer misFields:", inv.customer?.misFields ? JSON.stringify(inv.customer.misFields, null, 2) : "No misFields");
+      console.log("All MIS Fields Map:", Array.from(allMisFields.entries()));
+      
+      // First, initialize ALL MIS fields from allMisFields map with empty strings
+      // This ensures all columns are present in CSV for all invoices
+      allMisFields.forEach((fieldLabel, fieldName) => {
+        misDataRow[fieldLabel] = "";
+      });
+      
+      console.log("Initialized misDataRow:", Object.keys(misDataRow));
+      
+      // Now populate with actual MIS data from this invoice
+      if (inv.misData && typeof inv.misData === 'object') {
+        Object.keys(inv.misData).forEach((fieldName) => {
+          // Get the field label from allMisFields map
+          let fieldLabel = allMisFields.get(fieldName);
+          
+          console.log(`Processing fieldName: ${fieldName}, found label: ${fieldLabel}`);
+          
+          // If not found in map, try to get from customer misFields config
+          if (!fieldLabel && inv.customer?.misFields && Array.isArray(inv.customer.misFields)) {
+            const field = inv.customer.misFields.find(f => f.fieldName === fieldName);
+            if (field && field.fieldLabel) {
+              fieldLabel = field.fieldLabel;
+              // Also add to map for future use
+              allMisFields.set(fieldName, fieldLabel);
+              console.log(`Found label from customer config: ${fieldLabel}`);
+            }
+          }
+          
+          // Fallback to formatted fieldName if still not found
+          if (!fieldLabel) {
+            fieldLabel = fieldName
+              .replace(/([A-Z])/g, ' $1')
+              .replace(/^./, str => str.toUpperCase())
+              .trim();
+            allMisFields.set(fieldName, fieldLabel);
+            // Initialize this field in misDataRow if not already there
+            if (!misDataRow.hasOwnProperty(fieldLabel)) {
+              misDataRow[fieldLabel] = "";
+            }
+            console.log(`Using formatted label: ${fieldLabel}`);
+          }
+          
+          const fieldValue = inv.misData[fieldName];
+          
+          // Set the value (convert to string, handle null/undefined)
+          if (fieldValue !== null && fieldValue !== undefined) {
+            misDataRow[fieldLabel] = String(fieldValue);
+            console.log(`Set ${fieldLabel} = ${fieldValue}`);
+          }
         });
       }
-
-      allMisFieldNames.forEach((fieldName) => {
-        if (misDataRow[`MIS_${fieldName}`]) return;
-        const field = inv.customer?.misFields?.find((f) => f.fieldName === fieldName);
-        if (field) {
-          misDataRow[`MIS_${field.fieldLabel || fieldName}`] =
-            inv.misData?.[fieldName] || "";
-        } else {
-          misDataRow[`MIS_${fieldName}`] = "";
-        }
-      });
+      
+      // Also ensure we're using the correct field labels from customer misFields config
+      // This handles cases where customer has misFields configured but no data yet
+      if (inv.customer?.misFields && Array.isArray(inv.customer.misFields)) {
+        inv.customer.misFields.forEach((field) => {
+          if (field.fieldName) {
+            const fieldLabel = field.fieldLabel || field.fieldName;
+            // Initialize if not already there
+            if (!misDataRow.hasOwnProperty(fieldLabel)) {
+              misDataRow[fieldLabel] = "";
+            }
+            // Set value if it exists in misData
+            if (inv.misData && inv.misData[field.fieldName] !== null && inv.misData[field.fieldName] !== undefined) {
+              misDataRow[fieldLabel] = String(inv.misData[field.fieldName]);
+              console.log(`Set from customer config: ${fieldLabel} = ${inv.misData[field.fieldName]}`);
+            }
+          }
+        });
+      }
+      
+      console.log("Final misDataRow:", JSON.stringify(misDataRow, null, 2));
 
       const attempts = inv.deliveryAttempts?.filter((attempt) =>
         attemptStatuses.includes(attempt.status)
@@ -1273,7 +1407,64 @@ export const exportInvoicesCSV = async (req, res) => {
 
     const data = rows;
 
-    const fields = Object.keys(data[0] || {});
+    console.log("\n=== Building CSV Field List ===");
+    console.log("Number of rows:", data.length);
+    console.log("All MIS Fields Map:", Array.from(allMisFields.entries()));
+    
+    // Build complete field list to ensure all MIS fields are included
+    const allFieldsSet = new Set();
+    
+    // Collect all field labels from allMisFields map
+    const allMisFieldLabels = new Set();
+    allMisFields.forEach((fieldLabel, fieldName) => {
+      allMisFieldLabels.add(fieldLabel);
+    });
+    
+    console.log("All MIS Field Labels:", Array.from(allMisFieldLabels));
+    
+    // Add all fields from all rows (to catch any fields that might be missing)
+    data.forEach((row, index) => {
+      const rowKeys = Object.keys(row);
+      console.log(`Row ${index} keys:`, rowKeys);
+      rowKeys.forEach(key => allFieldsSet.add(key));
+    });
+    
+    // Also explicitly add all MIS field labels (even if they don't appear in any row)
+    allMisFieldLabels.forEach(label => allFieldsSet.add(label));
+    
+    console.log("All fields set:", Array.from(allFieldsSet));
+    
+    // Convert to array and sort for consistent column order
+    // Base fields first, then MIS fields
+    const baseFields = [];
+    const misFields = [];
+    
+    allFieldsSet.forEach(field => {
+      if (allMisFieldLabels.has(field)) {
+        misFields.push(field);
+      } else {
+        baseFields.push(field);
+      }
+    });
+    
+    console.log("Base fields:", baseFields.sort());
+    console.log("MIS fields:", misFields.sort());
+    
+    // Ensure all MIS fields are included even if no data exists
+    const fields = [...baseFields.sort(), ...misFields.sort()];
+    
+    console.log("Final CSV fields:", fields);
+    console.log("Total fields count:", fields.length);
+    
+    // If no data rows, create a sample row with all fields to ensure CSV has headers
+    if (data.length === 0 && fields.length > 0) {
+      const emptyRow = {};
+      fields.forEach(field => {
+        emptyRow[field] = "";
+      });
+      data.push(emptyRow);
+    }
+    
     const json2csv = new Json2CsvParser({ fields });
     const csv = json2csv.parse(data);
 

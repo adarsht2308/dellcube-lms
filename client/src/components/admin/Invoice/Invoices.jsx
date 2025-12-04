@@ -32,7 +32,7 @@ import {
   Weight,
   DollarSign,
   Navigation,
-  Map,
+  Map as MapIcon,
 } from "lucide-react";
 import { MdOutlineEdit } from "react-icons/md";
 import { FaRegTrashCan } from "react-icons/fa6";
@@ -127,8 +127,27 @@ const formatMultiValue = (value, fallback = "-") => {
   return fallback;
 };
 
+// Helper function to extract prefix from old format docket numbers
+// Old format: "DISPL-BWD-04122025-0006" -> prefix: "DISPL-BWD-04122025"
+// New format: numeric docket number with separate docketPrefix field
+const getDocketPrefix = (invoice) => {
+  if (invoice.docketPrefix) {
+    return invoice.docketPrefix;
+  }
+  // Fallback: extract prefix from old format docket number
+  if (invoice.docketNumber && typeof invoice.docketNumber === "string") {
+    const parts = invoice.docketNumber.split("-");
+    if (parts.length >= 3) {
+      // Return CompanyCode-BranchCode-Date (first 3 parts)
+      return parts.slice(0, 3).join("-");
+    }
+  }
+  return null;
+};
+
 const CSV_COLUMNS = [
   { key: "DocketNumber", label: "Docket Number" },
+  { key: "DocketPrefix", label: "Docket Prefix" },
   { key: "AttemptStatus", label: "Attempt Status" },
   { key: "AttemptReason", label: "Attempt Reason" },
   { key: "AttemptedAt", label: "Attempted At" },
@@ -559,20 +578,27 @@ const Invoices = () => {
       typeof value === "string" && value.startsWith("data:image/avif");
 
     const applySignatureValue = async (value) => {
-      // Convert AVIF to PNG if needed (PDF library doesn't support AVIF)
-      if (isAVIF(value)) {
-        console.log("Converting AVIF signature to PNG for PDF compatibility");
-        const pngValue = await convertImageToPNG(value);
-        if (pngValue && pngValue.startsWith("data:image/png")) {
-          invoiceObj.dellcubeSignature = pngValue;
-          invoiceObj.profileSignature = pngValue;
-          console.log("Successfully converted AVIF to PNG");
+      try {
+        // Convert AVIF to PNG if needed (PDF library doesn't support AVIF)
+        if (isAVIF(value)) {
+          console.log("Converting AVIF signature to PNG for PDF compatibility");
+          const pngValue = await convertImageToPNG(value);
+          if (pngValue && pngValue.startsWith("data:image/png")) {
+            invoiceObj.dellcubeSignature = pngValue;
+            invoiceObj.profileSignature = pngValue;
+            console.log("Successfully converted AVIF to PNG");
+          } else {
+            console.warn("AVIF to PNG conversion failed, using original");
+            invoiceObj.dellcubeSignature = value;
+            invoiceObj.profileSignature = value;
+          }
         } else {
-          console.warn("AVIF to PNG conversion failed, using original");
           invoiceObj.dellcubeSignature = value;
           invoiceObj.profileSignature = value;
         }
-      } else {
+      } catch (error) {
+        console.error("Error applying signature value:", error);
+        // Fallback: use the value as-is if conversion fails
         invoiceObj.dellcubeSignature = value;
         invoiceObj.profileSignature = value;
       }
@@ -698,17 +724,28 @@ const Invoices = () => {
           // Already in base64 format, no conversion needed
           console.log("Receiver signature is already in base64 format");
         } else if (typeof signatureValue === 'string' && signatureValue.trim() !== '') {
-          // Convert URL to base64
+          // Convert URL to base64 with timeout and error handling
           console.log("Converting receiver signature URL to base64:", signatureValue.substring(0, 100));
-          const signatureBase64 = await imageUrlToBase64(signatureValue);
-          if (signatureBase64 && signatureBase64.startsWith('data:image/')) {
-            processedInvoice.deliveryProof.signature = signatureBase64;
-            console.log("Receiver signature converted to base64 successfully");
-          } else {
-            console.warn("Receiver signature conversion returned invalid result");
-            toast.error("Could not convert receiver signature for PDF. PDF will be generated without it.");
-            // Keep the original signature but mark it as invalid
-            processedInvoice.deliveryProof.signature = null;
+          try {
+            const signatureBase64 = await Promise.race([
+              imageUrlToBase64(signatureValue),
+              new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Signature conversion timeout')), 10000)
+              )
+            ]);
+            
+            if (signatureBase64 && signatureBase64.startsWith('data:image/')) {
+              processedInvoice.deliveryProof.signature = signatureBase64;
+              console.log("Receiver signature converted to base64 successfully");
+            } else {
+              console.warn("Receiver signature conversion returned invalid result");
+              // Keep original URL, PDF will try to use it or skip if it fails
+              console.log("Keeping original signature URL for PDF");
+            }
+          } catch (conversionError) {
+            console.warn("Receiver signature conversion failed:", conversionError.message);
+            // Keep original URL, don't fail PDF generation
+            console.log("Keeping original signature URL, PDF generation will continue");
           }
         } else {
           console.warn("Receiver signature is empty or invalid");
@@ -716,9 +753,9 @@ const Invoices = () => {
         }
       } catch (error) {
         console.error("Receiver signature conversion error:", error);
-        toast.error("Failed to process receiver signature image. PDF will be generated without signature.");
-        // Remove signature to prevent PDF generation error
-        processedInvoice.deliveryProof.signature = null;
+        // Don't show error toast, just log and continue
+        console.log("Continuing PDF generation without receiver signature");
+        // Keep original signature URL if available
       }
     }
 
@@ -799,18 +836,28 @@ const Invoices = () => {
             // Already in base64 format, no conversion needed
             console.log("Receiver signature is already in base64 format for download");
           } else if (typeof signatureValue === 'string' && signatureValue.trim() !== '') {
-            // Convert URL to base64
+            // Convert URL to base64 with timeout and error handling
             console.log("Converting receiver signature URL to base64 for download:", signatureValue.substring(0, 100));
-            const signatureBase64 = await imageUrlToBase64(signatureValue);
-            if (signatureBase64 && signatureBase64.startsWith('data:image/')) {
-              processedInvoice.deliveryProof.signature = signatureBase64;
-              console.log("Receiver signature converted to base64 successfully for download");
-            } else {
-              console.warn("Receiver signature conversion returned invalid result for download");
-              toast.error(
-                "Could not convert receiver signature image. PDF will be generated without it."
-              );
-              processedInvoice.deliveryProof.signature = null;
+            try {
+              const signatureBase64 = await Promise.race([
+                imageUrlToBase64(signatureValue),
+                new Promise((_, reject) => 
+                  setTimeout(() => reject(new Error('Signature conversion timeout')), 10000)
+                )
+              ]);
+              
+              if (signatureBase64 && signatureBase64.startsWith('data:image/')) {
+                processedInvoice.deliveryProof.signature = signatureBase64;
+                console.log("Receiver signature converted to base64 successfully for download");
+              } else {
+                console.warn("Receiver signature conversion returned invalid result for download");
+                // Keep original URL, PDF will try to use it or skip if it fails
+                console.log("Keeping original signature URL for PDF download");
+              }
+            } catch (conversionError) {
+              console.warn("Receiver signature conversion failed for download:", conversionError.message);
+              // Keep original URL, don't fail PDF generation
+              console.log("Keeping original signature URL, PDF generation will continue");
             }
           } else {
             console.warn("Receiver signature is empty or invalid for download");
@@ -818,8 +865,9 @@ const Invoices = () => {
           }
         } catch (error) {
           console.error("Receiver signature conversion error during download:", error);
-          toast.error("Failed to process receiver signature. PDF will be generated without it.");
-          processedInvoice.deliveryProof.signature = null;
+          // Don't show error toast, just log and continue
+          console.log("Continuing PDF download without receiver signature conversion");
+          // Keep original signature URL if available
         }
       }
 
@@ -901,67 +949,106 @@ const Invoices = () => {
     }
   };
 
-  const buildExportRow = (inv, attemptMeta = null) => ({
-    DocketNumber: inv.docketNumber || "",
-    InvoiceNumbers: formatArrayField(inv.invoiceNumber),
-    EwayBillNumbers: formatArrayField(inv.ewayBillNo),
-    AttemptStatus: attemptMeta?.status || inv.status || "",
-    AttemptReason: attemptMeta?.reason || "",
-    AttemptedAt: attemptMeta?.attemptedAt
-      ? formatDateField(attemptMeta.attemptedAt)
-      : "",
-    Company: inv.company?.name || "",
-    CompanyAddress: inv.company?.address || "",
-    CompanyGST: inv.company?.gstNumber || "",
-    CompanyPAN: inv.company?.pan || "",
-    Branch: inv.branch?.name || "",
-    Customer: inv.customer?.name || "",
-    CustomerPhone: inv.customer?.phone || "",
-    CustomerEmail: inv.customer?.email || "",
-    GoodsType: inv.goodsType?.name || "",
-    GoodsItems: Array.isArray(inv.goodsType?.items)
-      ? inv.goodsType.items.join("; ")
-      : "",
-    VehicleType: inv.vehicleType || "",
-    VehicleNumber:
-      inv.vehicle?.vehicleNumber || inv.vendorVehicle?.vehicleNumber || "",
-    Vendor: inv.vendor?.name || "",
-    Driver: inv.driver?.name || "",
-    DriverPhone: inv.driver?.mobile || inv.driver?.phone || "",
-    Status: inv.status || "",
-    InvoiceDate: formatDateField(inv.invoiceDate),
-    DispatchDateTime: formatDateField(inv.dispatchDateTime),
-    FromCountry:
-      inv.fromAddress?.country?.name || inv.fromAddress?.countryName || "",
-    FromState:
-      inv.fromAddress?.state?.name || inv.fromAddress?.stateName || "",
-    FromCity: inv.fromAddress?.city?.name || "",
-    FromLocality: inv.fromAddress?.locality?.name || "",
-    FromPincode: inv.fromAddress?.pincode || "",
-    FromPostOffice: inv.fromAddress?.postOfficeName || "",
-    FromDistrict: inv.fromAddress?.district || "",
-    FromTaluk: inv.fromAddress?.taluk || "",
-    ToCountry:
-      inv.toAddress?.country?.name || inv.toAddress?.countryName || "",
-    ToState: inv.toAddress?.state?.name || inv.toAddress?.stateName || "",
-    ToCity: inv.toAddress?.city?.name || "",
-    ToLocality: inv.toAddress?.locality?.name || "",
-    ToPincode: inv.toAddress?.pincode || "",
-    ToPostOffice: inv.toAddress?.postOfficeName || "",
-    ToDistrict: inv.toAddress?.district || "",
-    ToTaluk: inv.toAddress?.taluk || "",
-    TotalWeight: inv.totalWeight ?? "",
-    NumberOfPackages: inv.numberOfPackages ?? "",
-    FreightCharges: inv.freightCharges ?? "",
-    PaymentType: inv.paymentType || "",
-    Remarks: inv.remarks || "",
-    DeliveredAt: formatDateField(inv.deliveredAt),
-    DeliveryProofReceiverName: inv.deliveryProof?.receiverName || "",
-    DeliveryProofReceiverMobile: inv.deliveryProof?.receiverMobile || "",
-    DeliveryProofRemarks: inv.deliveryProof?.remarks || "",
-    CreatedAt: formatDateField(inv.createdAt),
-    UpdatedAt: formatDateField(inv.updatedAt),
-  });
+  const buildExportRow = (inv, attemptMeta = null) => {
+    const baseRow = {
+      DocketNumber: inv.docketNumber || "",
+      DocketPrefix: inv.docketPrefix || "",
+      InvoiceNumbers: formatArrayField(inv.invoiceNumber),
+      EwayBillNumbers: formatArrayField(inv.ewayBillNo),
+      AttemptStatus: attemptMeta?.status || inv.status || "",
+      AttemptReason: attemptMeta?.reason || "",
+      AttemptedAt: attemptMeta?.attemptedAt
+        ? formatDateField(attemptMeta.attemptedAt)
+        : "",
+      Company: inv.company?.name || "",
+      CompanyAddress: inv.company?.address || "",
+      CompanyGST: inv.company?.gstNumber || "",
+      CompanyPAN: inv.company?.pan || "",
+      Branch: inv.branch?.name || "",
+      Customer: inv.customer?.name || "",
+      CustomerPhone: inv.customer?.phone || "",
+      CustomerEmail: inv.customer?.email || "",
+      GoodsType: inv.goodsType?.name || "",
+      GoodsItems: Array.isArray(inv.goodsType?.items)
+        ? inv.goodsType.items.join("; ")
+        : "",
+      VehicleType: inv.vehicleType || "",
+      VehicleNumber:
+        inv.vehicle?.vehicleNumber || inv.vendorVehicle?.vehicleNumber || "",
+      Vendor: inv.vendor?.name || "",
+      Driver: inv.driver?.name || "",
+      DriverPhone: inv.driver?.mobile || inv.driver?.phone || "",
+      Status: inv.status || "",
+      InvoiceDate: formatDateField(inv.invoiceDate),
+      DispatchDateTime: formatDateField(inv.dispatchDateTime),
+      FromCountry:
+        inv.fromAddress?.country?.name || inv.fromAddress?.countryName || "",
+      FromState:
+        inv.fromAddress?.state?.name || inv.fromAddress?.stateName || "",
+      FromCity: inv.fromAddress?.city?.name || "",
+      FromLocality: inv.fromAddress?.locality?.name || "",
+      FromPincode: inv.fromAddress?.pincode || "",
+      FromPostOffice: inv.fromAddress?.postOfficeName || "",
+      FromDistrict: inv.fromAddress?.district || "",
+      FromTaluk: inv.fromAddress?.taluk || "",
+      ToCountry:
+        inv.toAddress?.country?.name || inv.toAddress?.countryName || "",
+      ToState: inv.toAddress?.state?.name || inv.toAddress?.stateName || "",
+      ToCity: inv.toAddress?.city?.name || "",
+      ToLocality: inv.toAddress?.locality?.name || "",
+      ToPincode: inv.toAddress?.pincode || "",
+      ToPostOffice: inv.toAddress?.postOfficeName || "",
+      ToDistrict: inv.toAddress?.district || "",
+      ToTaluk: inv.toAddress?.taluk || "",
+      TotalWeight: inv.totalWeight ?? "",
+      NumberOfPackages: inv.numberOfPackages ?? "",
+      FreightCharges: inv.freightCharges ?? "",
+      PaymentType: inv.paymentType || "",
+      Remarks: inv.remarks || "",
+      DeliveredAt: formatDateField(inv.deliveredAt),
+      DeliveryProofReceiverName: inv.deliveryProof?.receiverName || "",
+      DeliveryProofReceiverMobile: inv.deliveryProof?.receiverMobile || "",
+      DeliveryProofRemarks: inv.deliveryProof?.remarks || "",
+      CreatedAt: formatDateField(inv.createdAt),
+      UpdatedAt: formatDateField(inv.updatedAt),
+    };
+
+    // Add MIS fields from misData
+    const misDataRow = {};
+    if (inv.misData && typeof inv.misData === 'object') {
+      Object.keys(inv.misData).forEach((fieldName) => {
+        // Get field label from customer misFields config
+        let fieldLabel = fieldName;
+        if (inv.customer?.misFields && Array.isArray(inv.customer.misFields)) {
+          const field = inv.customer.misFields.find(f => f.fieldName === fieldName);
+          if (field && field.fieldLabel) {
+            fieldLabel = field.fieldLabel;
+          }
+        }
+        // Use field label as key (remove MIS_ prefix if present)
+        const value = inv.misData[fieldName];
+        misDataRow[fieldLabel] = value !== null && value !== undefined ? String(value) : "";
+      });
+    }
+
+    // Also ensure all customer misFields are included (even if no data)
+    if (inv.customer?.misFields && Array.isArray(inv.customer.misFields)) {
+      inv.customer.misFields.forEach((field) => {
+        if (field.fieldName) {
+          const fieldLabel = field.fieldLabel || field.fieldName;
+          if (!misDataRow.hasOwnProperty(fieldLabel)) {
+            misDataRow[fieldLabel] = "";
+          }
+          // Set value if it exists in misData
+          if (inv.misData && inv.misData[field.fieldName] !== null && inv.misData[field.fieldName] !== undefined) {
+            misDataRow[fieldLabel] = String(inv.misData[field.fieldName]);
+          }
+        }
+      });
+    }
+
+    return { ...baseRow, ...misDataRow };
+  };
 
   const flattenInvoicesForExport = (invoices) => {
     const rows = [];
@@ -1060,13 +1147,6 @@ const Invoices = () => {
 
   // Handle export
   const handleExportCSV = async () => {
-    const selected = csvColumns.filter((col) => col.checked);
-    if (selected.length === 0) {
-      toast.error("Select at least one column to export.");
-      return;
-    }
-    const columns = selected.map((col) => col.key);
-    const headers = selected.map((col) => col.custom || col.label);
     setIsExporting(true);
     try {
       const invoicesForExport = await fetchInvoicesForExport();
@@ -1074,11 +1154,105 @@ const Invoices = () => {
         toast.error("No invoices found for the selected filters.");
         return;
       }
+
+      // Collect all MIS fields from all invoices
+      const allMisFields = new Map(); // fieldName -> fieldLabel
+      invoicesForExport.forEach((inv) => {
+        // Collect from customer misFields config
+        if (inv.customer?.misFields && Array.isArray(inv.customer.misFields)) {
+          inv.customer.misFields.forEach((field) => {
+            if (field.fieldName) {
+              const fieldLabel = field.fieldLabel || field.fieldName;
+              allMisFields.set(field.fieldName, fieldLabel);
+            }
+          });
+        }
+        // Also collect from actual misData
+        if (inv.misData && typeof inv.misData === 'object') {
+          Object.keys(inv.misData).forEach((fieldName) => {
+            if (!allMisFields.has(fieldName)) {
+              // Try to find label from customer config
+              const customer = inv.customer;
+              if (customer?.misFields && Array.isArray(customer.misFields)) {
+                const field = customer.misFields.find(f => f.fieldName === fieldName);
+                if (field && field.fieldLabel) {
+                  allMisFields.set(fieldName, field.fieldLabel);
+                } else {
+                  // Format fieldName as label
+                  const formattedLabel = fieldName
+                    .replace(/([A-Z])/g, ' $1')
+                    .replace(/^./, str => str.toUpperCase())
+                    .trim();
+                  allMisFields.set(fieldName, formattedLabel);
+                }
+              } else {
+                // Format fieldName as label
+                const formattedLabel = fieldName
+                  .replace(/([A-Z])/g, ' $1')
+                  .replace(/^./, str => str.toUpperCase())
+                  .trim();
+                allMisFields.set(fieldName, formattedLabel);
+              }
+            }
+          });
+        }
+      });
+
+      // Add MIS field columns to csvColumns if not already present
+      const misFieldColumns = Array.from(allMisFields.values()).map((fieldLabel) => ({
+        key: fieldLabel,
+        label: fieldLabel,
+        checked: true,
+        custom: fieldLabel,
+      }));
+
+      // Merge with existing columns, avoiding duplicates
+      const existingKeys = new Set(csvColumns.map(col => col.key));
+      const newMisColumns = misFieldColumns.filter(col => !existingKeys.has(col.key));
+      const updatedColumns = [...csvColumns, ...newMisColumns];
+
+      const selected = updatedColumns.filter((col) => col.checked);
+      if (selected.length === 0) {
+        toast.error("Select at least one column to export.");
+        return;
+      }
+
       const rows = flattenInvoicesForExport(invoicesForExport);
       if (!rows.length) {
         toast.error("No docket attempts found to export.");
         return;
       }
+
+      // Get all unique keys from rows (to include MIS fields that might not be in csvColumns)
+      const allRowKeys = new Set();
+      rows.forEach(row => {
+        Object.keys(row).forEach(key => allRowKeys.add(key));
+      });
+
+      // Build columns and headers from selected columns, but include all row keys
+      const columns = [];
+      const headers = [];
+      
+      selected.forEach(col => {
+        if (allRowKeys.has(col.key)) {
+          columns.push(col.key);
+          headers.push(col.custom || col.label);
+        }
+      });
+
+      // Also include any MIS fields from rows that weren't in selected columns
+      allRowKeys.forEach(key => {
+        if (!columns.includes(key) && !CSV_COLUMNS.find(c => c.key === key)) {
+          // This is likely a MIS field
+          columns.push(key);
+          headers.push(key);
+        }
+      });
+
+      console.log("CSV Export - MIS Fields found:", Array.from(allMisFields.entries()));
+      console.log("CSV Export - Columns:", columns);
+      console.log("CSV Export - Sample row keys:", rows.length > 0 ? Object.keys(rows[0]) : []);
+
       const csvContent = buildCsvContent(rows, columns, headers);
       downloadCsv(csvContent);
       setCsvModalOpen(false);
@@ -1598,19 +1772,16 @@ const Invoices = () => {
                   No
                 </th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  Prefix
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
                   Docket Number
                 </th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Customer
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Company
+                  Customer Company
                 </th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
                   Branch
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Payment
                 </th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
                   Status
@@ -1623,7 +1794,7 @@ const Invoices = () => {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan="8" className="text-center py-12">
+                  <td colSpan="7" className="text-center py-12">
                     <Loader2 className="animate-spin mx-auto text-[#FFD249] w-8 h-8" />
                     <div className="mt-2 text-[#828083]">
                       Loading invoices...
@@ -1648,6 +1819,11 @@ const Invoices = () => {
                     <td className="p-3 font-medium text-[#202020] dark:text-[#FFD249] text-center">
                       {limit * (page - 1) + i + 1}
                     </td>
+                    <td className="p-3 text-center">
+                      {getDocketPrefix(inv) || (
+                        <span className="text-[#828083]">N/A</span>
+                      )}
+                    </td>
                     <td
                       className={`p-3 font-semibold text-center ${
                         displayStatus === "Reserved"
@@ -1655,7 +1831,9 @@ const Invoices = () => {
                           : "text-[#ad8a21] dark:text-[#FFD249]"
                       }`}
                     >
-                      {inv.docketNumber}
+                      {inv.docketNumber || (
+                        <span className="text-[#828083]">N/A</span>
+                      )}
                       {attemptInfo && (
                         <span className="block text-[10px] text-gray-500 mt-1">
                           Attempt #{attemptInfo.sequence} ·{" "}
@@ -1665,14 +1843,8 @@ const Invoices = () => {
                         </span>
                       )}
                     </td>
-
                     <td className="p-3 text-center">
                       {inv.customer?.name || (
-                        <span className="text-[#828083]">N/A</span>
-                      )}
-                    </td>
-                    <td className="p-3 text-center">
-                      {inv.company?.name || (
                         <span className="text-[#828083]">N/A</span>
                       )}
                     </td>
@@ -1680,19 +1852,6 @@ const Invoices = () => {
                       {inv.branch?.name || (
                         <span className="text-[#828083]">N/A</span>
                       )}
-                    </td>
-                    <td className="p-3 text-center">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-semibold text-center ${
-                          inv.paymentType === "Prepaid"
-                            ? "bg-[#FFD249]/80 text-[#202020]"
-                            : inv.paymentType === "To-Pay"
-                            ? "bg-[#828083]/30 text-[#202020]"
-                            : "bg-[#FFD249]/30 text-[#202020]"
-                        }`}
-                      >
-                        {inv.paymentType}
-                      </span>
                     </td>
                     <td className="p-3 text-center">
                       <div className="flex flex-col gap-1">
@@ -1877,7 +2036,7 @@ const Invoices = () => {
                 })
               ) : (
                 <tr>
-                  <td colSpan="8" className="text-center py-16">
+                  <td colSpan="7" className="text-center py-16">
                     <div className="flex flex-col items-center gap-2">
                       <FileText className="w-10 h-10 text-[#FFD249] mb-2" />
                       <span className="text-lg text-[#828083]">
@@ -1894,19 +2053,16 @@ const Invoices = () => {
                   No
                 </th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
+                  Prefix
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
                   Docket Number
                 </th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Customer
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Company
+                  Customer Company
                 </th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
                   Branch
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Payment
                 </th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
                   Status
@@ -2376,6 +2532,25 @@ const Invoices = () => {
                                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                   Address: {address || "Loading..."}
                                 </p>
+                                {/* POD Image */}
+                                {update.orderPhotoUrl && (
+                                  <div className="mt-3">
+                                    <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                                      POD Image:
+                                    </p>
+                                    <div className="relative w-full max-w-md">
+                                      <img
+                                        src={update.orderPhotoUrl}
+                                        alt="POD Image"
+                                        className="w-full h-auto max-h-64 object-contain border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm"
+                                        onError={(e) => {
+                                          console.error("Error loading POD image:", update.orderPhotoUrl);
+                                          e.target.style.display = 'none';
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -2486,7 +2661,7 @@ const Invoices = () => {
             }
           }}
         >
-          <DialogContent className="max-w-4xl w-full h-[90vh] flex flex-col">
+          <DialogContent className="max-w-[210mm] w-full h-[90vh] flex flex-col p-4">
             <DialogHeader>
               <DialogTitle>Invoice PDF Preview</DialogTitle>
             </DialogHeader>
@@ -2496,19 +2671,21 @@ const Invoices = () => {
                 Processing images...
               </div>
             ) : invoiceForPdf && logoBase64 ? (
-              <PDFViewer
-                style={{
-                  flex: 1,
-                  width: "100%",
-                  height: "100%",
-                  border: "none",
-                }}
-              >
-                <InvoicePDFDocument
-                  invoice={invoiceForPdf}
-                  logoBase64={logoBase64}
-                />
-              </PDFViewer>
+              <div className="flex-1 flex justify-center items-start overflow-auto">
+                <PDFViewer
+                  style={{
+                    width: "210mm",
+                    height: "297mm",
+                    border: "none",
+                  }}
+                  className="shadow-lg"
+                >
+                  <InvoicePDFDocument
+                    invoice={invoiceForPdf}
+                    logoBase64={logoBase64}
+                  />
+                </PDFViewer>
+              </div>
             ) : (
               <div className="flex-1 flex items-center justify-center text-lg">
                 <Loader2 className="w-8 h-8 animate-spin text-blue-600 mr-2" />

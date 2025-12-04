@@ -22,6 +22,11 @@ const invoiceSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
+    docketPrefix: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     orderNumber: {
       type: String,
       trim: true,

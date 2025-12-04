@@ -17,7 +17,8 @@ export const trackInvoiceByDocketNumber = async (req, res) => {
       });
     }
 
-    // Find invoice by docket number and populate necessary fields
+    // Find invoice by docket number (supports both numeric format: 10000, 10001, etc. and old format)
+    // New invoices use numeric docket numbers starting from 10000
     const invoice = await Invoice.findOne({ docketNumber })
       .populate("company", "name email contactPhone address website")
       .populate("branch", "name address contactPhone")
@@ -35,7 +36,8 @@ export const trackInvoiceByDocketNumber = async (req, res) => {
 
     // Return simplified tracking information
     const trackingInfo = {
-      docketNumber: invoice.docketNumber,
+      docketNumber: invoice.docketNumber, // Numeric format for new invoices (10000, 10001, etc.)
+      docketPrefix: invoice.docketPrefix || null, // CompanyCode-BranchCode-Date format
       invoiceNumber: invoice.invoiceNumber,
       status: invoice.status,
       invoiceDate: invoice.invoiceDate,
