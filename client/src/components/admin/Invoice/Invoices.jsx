@@ -2450,7 +2450,7 @@ const Invoices = () => {
                   </InfoCard>
 
                   <InfoCard
-                    icon={Map}
+                    icon={MapIcon}
                     title="Delivery Address"
                     className="!p-3 bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/10 border border-green-100 dark:border-green-800 rounded-lg shadow-sm"
                   >
