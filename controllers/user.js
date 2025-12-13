@@ -3,6 +3,7 @@ import { generateOTP, sendOTPEmail, sendPasswordResetOTPEmail } from "../utils/c
 import bcrypt from "bcryptjs";
 import { generateToken } from "../utils/common/generateToken.js";
 import { v2 as cloudinary } from "cloudinary";
+import mongoose from "mongoose";
 
 const pendingUsers = new Map();
 const passwordResetOTPs = new Map(); // Store OTPs for password reset: email -> { otp, expiry, userId }
@@ -233,10 +234,13 @@ export const loginController = async (req, res) => {
       });
     }
 
+    // Support login with both email and mobile for all roles
     let user;
     if (mobile) {
-      user = await User.findOne({ mobile, role: "driver" });
-    } else {
+      // Try to find user by mobile (all roles can have mobile)
+      user = await User.findOne({ mobile });
+    } else if (email) {
+      // Try to find user by email (all roles can have email)
       user = await User.findOne({ email });
     }
 
@@ -1634,6 +1638,447 @@ export const updateDriverController = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error while updating driver",
+    });
+  }
+};
+
+// Helper function to parse CSV
+const parseCSV = (csvText) => {
+  // Split lines and filter out empty lines and comment lines (starting with #)
+  const allLines = csvText.split('\n');
+  const lines = allLines
+    .map(line => line.trim())
+    .filter(line => line.length > 0 && !line.startsWith('#'));
+  
+  if (lines.length < 2) return { headers: [], rows: [] };
+  
+  // First non-comment line should be headers
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+  const rows = [];
+  
+  // Process data rows (skip header row)
+  for (let i = 1; i < lines.length; i++) {
+    const values = [];
+    let currentValue = '';
+    let inQuotes = false;
+    
+    for (let j = 0; j < lines[i].length; j++) {
+      const char = lines[i][j];
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        values.push(currentValue.trim());
+        currentValue = '';
+      } else {
+        currentValue += char;
+      }
+    }
+    values.push(currentValue.trim());
+    
+    if (values.length === headers.length) {
+      const row = {};
+      headers.forEach((header, index) => {
+        row[header] = values[index] || '';
+      });
+      rows.push(row);
+    }
+  }
+  
+  return { headers, rows };
+};
+
+export const bulkUploadDriversController = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "CSV file is required",
+      });
+    }
+
+    const csvText = req.file.buffer.toString('utf-8');
+    const { headers, rows } = parseCSV(csvText);
+
+    if (rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "CSV file is empty or has no data rows",
+      });
+    }
+
+    // Required fields (company and branch are optional if user has defaults)
+    const requiredFields = [
+      'name', 'mobile', 'password', 'licenseNumber', 'experienceYears',
+      'driverType', 'aadharNumber', 'panNumber',
+      'accountHolderName', 'bankName', 'accountNumber', 'ifscCode'
+    ];
+
+    // Optional fields that can use defaults
+    const optionalFields = ['company', 'branch', 'vendor', 'status'];
+
+    // Check if all required headers are present
+    const missingHeaders = requiredFields.filter(field => !headers.includes(field));
+    if (missingHeaders.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Missing required columns: ${missingHeaders.join(', ')}. Note: Company and Branch are optional if you have defaults set.`,
+      });
+    }
+
+    const results = {
+      success: [],
+      errors: [],
+      total: rows.length,
+      successCount: 0,
+      errorCount: 0,
+    };
+
+    // Get user context for role-based company/branch assignment
+    const userToken = req.user;
+    const actingUser = await User.findById(userToken?.userId).select("role company branch");
+    
+    let defaultCompany = req.body.company;
+    let defaultBranch = req.body.branch;
+
+    // Role-based control
+    if (actingUser && (actingUser.role === "branchAdmin" || actingUser.role === "operation")) {
+      defaultCompany = actingUser.company?.toString();
+      defaultBranch = actingUser.branch?.toString();
+    }
+
+    // Process each row
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const rowNumber = i + 2; // +2 because row 1 is header, and arrays are 0-indexed
+      
+      try {
+        // Extract and validate data
+        const name = (row.name || '').trim();
+        const mobile = (row.mobile || '').trim().replace(/\D/g, '');
+        const password = (row.password || '').trim();
+        const licenseNumber = (row.licenseNumber || '').trim();
+        const experienceYears = parseInt(row.experienceYears) || 0;
+        const driverType = (row.driverType || '').trim().toLowerCase();
+        
+        // Helper function to filter out placeholder values
+        const filterPlaceholder = (value) => {
+          if (!value) return '';
+          const trimmed = String(value).trim();
+          // Filter out common placeholder patterns
+          if (trimmed.includes('_ID_HERE') || 
+              trimmed.includes('_HERE') || 
+              trimmed.toLowerCase().includes('placeholder') ||
+              trimmed.toLowerCase().includes('example') ||
+              trimmed === 'COMPANY_ID_HERE' ||
+              trimmed === 'BRANCH_ID_HERE' ||
+              trimmed === 'VENDOR_ID_HERE') {
+            return '';
+          }
+          return trimmed;
+        };
+
+        // Use CSV value if provided and valid, otherwise use default from user context
+        let company = filterPlaceholder(row.company) || defaultCompany || '';
+        let branch = filterPlaceholder(row.branch) || defaultBranch || '';
+        const vendor = filterPlaceholder(row.vendor);
+        const aadharNumber = (row.aadharNumber || '').trim().replace(/\D/g, '');
+        const panNumber = (row.panNumber || '').trim().toUpperCase();
+        const accountHolderName = (row.accountHolderName || '').trim();
+        const bankName = (row.bankName || '').trim();
+        const accountNumber = (row.accountNumber || '').trim();
+        const ifscCode = (row.ifscCode || '').trim().toUpperCase();
+        const status = row.status !== undefined ? normalizeBoolean(row.status, true) : true;
+
+        // Validation - company and branch can be empty if defaults are available
+        if (!name || !mobile || !password || !licenseNumber || !driverType) {
+          results.errors.push({
+            row: rowNumber,
+            name: name || 'N/A',
+            error: "Missing required fields (name, mobile, password, licenseNumber, driverType)",
+          });
+          results.errorCount++;
+          continue;
+        }
+
+        // Validate company and branch (must have either from CSV or defaults)
+        if (!company) {
+          results.errors.push({
+            row: rowNumber,
+            name: name || 'N/A',
+            error: "Company is required. Please provide company ID in CSV or ensure you have a default company.",
+          });
+          results.errorCount++;
+          continue;
+        }
+
+        // Validate company is a valid ObjectId
+        if (!mongoose.Types.ObjectId.isValid(company)) {
+          results.errors.push({
+            row: rowNumber,
+            name: name || 'N/A',
+            error: `Invalid company ID: "${company}". Please provide a valid company ID or leave empty to use default.`,
+          });
+          results.errorCount++;
+          continue;
+        }
+
+        if (!branch) {
+          results.errors.push({
+            row: rowNumber,
+            name: name || 'N/A',
+            error: "Branch is required. Please provide branch ID in CSV or ensure you have a default branch.",
+          });
+          results.errorCount++;
+          continue;
+        }
+
+        // Validate branch is a valid ObjectId
+        if (!mongoose.Types.ObjectId.isValid(branch)) {
+          results.errors.push({
+            row: rowNumber,
+            name: name || 'N/A',
+            error: `Invalid branch ID: "${branch}". Please provide a valid branch ID or leave empty to use default.`,
+          });
+          results.errorCount++;
+          continue;
+        }
+
+        if (mobile.length !== 10 || !/^\d{10}$/.test(mobile)) {
+          results.errors.push({
+            row: rowNumber,
+            name,
+            error: "Mobile number must be exactly 10 digits",
+          });
+          results.errorCount++;
+          continue;
+        }
+
+        if (licenseNumber.length < 5 || licenseNumber.length > 20) {
+          results.errors.push({
+            row: rowNumber,
+            name,
+            error: "License number must be between 5 and 20 characters",
+          });
+          results.errorCount++;
+          continue;
+        }
+
+        if (!/^[A-Za-z0-9\-\s]+$/.test(licenseNumber)) {
+          results.errors.push({
+            row: rowNumber,
+            name,
+            error: "License number contains invalid characters",
+          });
+          results.errorCount++;
+          continue;
+        }
+
+        if (experienceYears < 0 || experienceYears > 50) {
+          results.errors.push({
+            row: rowNumber,
+            name,
+            error: "Experience years must be between 0 and 50",
+          });
+          results.errorCount++;
+          continue;
+        }
+
+        if (!["dellcube", "vendor", "temporary"].includes(driverType)) {
+          results.errors.push({
+            row: rowNumber,
+            name,
+            error: "Driver type must be dellcube, vendor, or temporary",
+          });
+          results.errorCount++;
+          continue;
+        }
+
+        // Only validate vendor if driver type is exactly "vendor" (already normalized to lowercase)
+        if (driverType === "vendor") {
+          if (!vendor || !vendor.trim()) {
+            results.errors.push({
+              row: rowNumber,
+              name,
+              error: "Vendor is required when driver type is 'vendor'",
+            });
+            results.errorCount++;
+            continue;
+          }
+        }
+
+        if (aadharNumber.length !== 12 || !/^\d{12}$/.test(aadharNumber)) {
+          results.errors.push({
+            row: rowNumber,
+            name,
+            error: "Aadhar number must be exactly 12 digits",
+          });
+          results.errorCount++;
+          continue;
+        }
+
+        if (panNumber.length !== 10 || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(panNumber)) {
+          results.errors.push({
+            row: rowNumber,
+            name,
+            error: "PAN number must be in format ABCDE1234F",
+          });
+          results.errorCount++;
+          continue;
+        }
+
+        if (!accountHolderName || !bankName || !accountNumber || !ifscCode) {
+          results.errors.push({
+            row: rowNumber,
+            name,
+            error: "All bank details are required",
+          });
+          results.errorCount++;
+          continue;
+        }
+
+        if (ifscCode.length !== 11 || !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)) {
+          results.errors.push({
+            row: rowNumber,
+            name,
+            error: "IFSC code must be in format ABCD0123456",
+          });
+          results.errorCount++;
+          continue;
+        }
+
+        // Check for duplicates
+        const existingMobile = await User.findOne({ mobile });
+        if (existingMobile) {
+          results.errors.push({
+            row: rowNumber,
+            name,
+            error: "Mobile number already exists",
+          });
+          results.errorCount++;
+          continue;
+        }
+
+        const existingLicense = await User.findOne({ licenseNumber });
+        if (existingLicense) {
+          results.errors.push({
+            row: rowNumber,
+            name,
+            error: "License number already exists",
+          });
+          results.errorCount++;
+          continue;
+        }
+
+        const existingAadhar = await User.findOne({ aadharNumber });
+        if (existingAadhar) {
+          results.errors.push({
+            row: rowNumber,
+            name,
+            error: "Aadhar number already exists",
+          });
+          results.errorCount++;
+          continue;
+        }
+
+        const existingPAN = await User.findOne({ panNumber });
+        if (existingPAN) {
+          results.errors.push({
+            row: rowNumber,
+            name,
+            error: "PAN number already exists",
+          });
+          results.errorCount++;
+          continue;
+        }
+
+        // Validate vendor if driver type is vendor
+        if (driverType === "vendor") {
+          if (!vendor) {
+            results.errors.push({
+              row: rowNumber,
+              name,
+              error: "Vendor is required when driver type is 'vendor'",
+            });
+            results.errorCount++;
+            continue;
+          }
+          // Validate vendor is a valid ObjectId
+          if (!mongoose.Types.ObjectId.isValid(vendor)) {
+            results.errors.push({
+              row: rowNumber,
+              name,
+              error: `Invalid vendor ID: "${vendor}". Please provide a valid vendor ID.`,
+            });
+            results.errorCount++;
+            continue;
+          }
+          const vendorUser = await User.findOne({ _id: vendor, role: "vendor" });
+          if (!vendorUser) {
+            results.errors.push({
+              row: rowNumber,
+              name,
+              error: "Invalid vendor selected - vendor not found",
+            });
+            results.errorCount++;
+            continue;
+          }
+        }
+
+        // Hash password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Create driver
+        const newDriver = await User.create({
+          name,
+          mobile,
+          password: hashedPassword,
+          role: "driver",
+          company,
+          branch,
+          licenseNumber,
+          experienceYears,
+          driverType,
+          ...(driverType === "vendor" && vendor && { vendor }),
+          aadharNumber,
+          panNumber,
+          bankDetails: {
+            accountHolderName,
+            bankName,
+            accountNumber,
+            ifscCode,
+          },
+          status,
+        });
+
+        results.success.push({
+          row: rowNumber,
+          name,
+          id: newDriver._id,
+        });
+        results.successCount++;
+
+      } catch (error) {
+        results.errors.push({
+          row: rowNumber,
+          name: row.name || 'N/A',
+          error: error.message || "Unknown error",
+        });
+        results.errorCount++;
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Bulk upload completed. ${results.successCount} successful, ${results.errorCount} failed out of ${results.total} total.`,
+      results,
+    });
+
+  } catch (error) {
+    console.error("Error in bulk upload:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while processing bulk upload",
+      error: error.message,
     });
   }
 };

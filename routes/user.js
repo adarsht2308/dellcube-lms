@@ -1,6 +1,7 @@
 import express from "express";
 import isAuthenticated from "../middlewares/isAuthenticated.js";
 import upload from "../utils/common/Uploads.js";
+import multer from "multer";
 import { createBranchAdminController, deleteBranchAdminController, getAllBranchAdmins, getBranchAdminById, getUserProfileController, loginController, logoutController, registerController, updateBranchAdminController, updateProfileController, verifyOTPController, sendPasswordResetOTPController, verifyPasswordResetOTPController } from "../controllers/user.js";
 import { isSuperAdmin } from "../middlewares/isSuperAdmin.js";
 import {
@@ -16,9 +17,25 @@ import {
     getDriverByIdController,
     updateDriverController,
     deleteDriverController,
+    bulkUploadDriversController,
 } from "../controllers/user.js";
 
 const router = express.Router();
+
+// Multer configuration for CSV files (store in memory)
+const csvUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === "text/csv" || file.originalname.endsWith(".csv")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type. Only CSV files are allowed."), false);
+    }
+  },
+});
 
 //User
 router.post("/register", upload, registerController);
@@ -48,6 +65,7 @@ router.put("/update-operations", isAuthenticated, upload, updateOperationUserCon
 
 // Drivers
 router.post("/create-driver", isAuthenticated, createDriverController);
+router.post("/bulk-upload-drivers", isAuthenticated, csvUpload.single('csvFile'), bulkUploadDriversController);
 // router.post("/driver-login", loginDriverWithMobileController);
 // router.post("/driver-verify-otp", verifyDriverOtpController);
 router.get("/all-drivers", isAuthenticated, getAllDriversController);

@@ -12,6 +12,9 @@ import {
   Truck,
   Building2,
   MapPin,
+  Upload,
+  Download,
+  FileSpreadsheet,
 } from "lucide-react";
 import { MdOutlineEdit } from "react-icons/md";
 import { FaRegTrashCan } from "react-icons/fa6";
@@ -22,6 +25,7 @@ import { useSelector } from "react-redux";
 import {
   useDeleteDriverMutation,
   useGetAllDriversQuery,
+  useBulkUploadDriversMutation,
 } from "@/features/api/authApi";
 import { useGetAllCompaniesQuery } from "@/features/api/Company/companyApi";
 import { useGetBranchesByCompanyMutation } from "@/features/api/Branch/branchApi";
@@ -29,6 +33,15 @@ import { useDebounce } from "@/hooks/Debounce";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectTrigger,
@@ -121,8 +134,15 @@ const Drivers = () => {
 
   const [selectedDriver, setSelectedDriver] = useState(null);
   const [open, setOpen] = useState(false);
+  const [csvFile, setCsvFile] = useState(null);
+  const [uploadResults, setUploadResults] = useState(null);
+  const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
+  const [parsedCsvData, setParsedCsvData] = useState([]);
+  const [csvHeaders, setCsvHeaders] = useState([]);
+  const [validationErrors, setValidationErrors] = useState([]);
 
   const [getBranchesByCompany] = useGetBranchesByCompanyMutation();
+  const [bulkUploadDrivers, { isLoading: isBulkUploading }] = useBulkUploadDriversMutation();
   const { data: companyData } = useGetAllCompaniesQuery({});
   const { data, isLoading, refetch } = useGetAllDriversQuery({
     page,
@@ -189,6 +209,399 @@ const Drivers = () => {
     return Array.from({ length: end - start + 1 }, (_, i) => start + i);
   };
 
+  // Download sample CSV
+  const downloadSampleCSV = () => {
+    const headers = [
+      "name",
+      "mobile",
+      "password",
+      "licenseNumber",
+      "experienceYears",
+      "driverType",
+      "company",
+      "branch",
+      "vendor",
+      "aadharNumber",
+      "panNumber",
+      "accountHolderName",
+      "bankName",
+      "accountNumber",
+      "ifscCode",
+      "status"
+    ];
+
+    // Get actual company and branch IDs from user context or current filters
+    const defaultCompany = isBranchAdmin 
+      ? user?.company?._id 
+      : companyId === "all" || !companyId 
+        ? "" 
+        : companyId;
+    const defaultBranch = isBranchAdmin 
+      ? user?.branch?._id 
+      : branchId === "all" || !branchId 
+        ? "" 
+        : branchId;
+
+    // Get company/branch names for display in comments
+    const companyName = isBranchAdmin 
+      ? user?.company?.name 
+      : companyData?.companies?.find(c => c._id === companyId)?.name || "";
+    const branchName = isBranchAdmin 
+      ? user?.branch?.name 
+      : branches.find(b => b._id === branchId)?.name || "";
+
+    // Create CSV with actual IDs if available, or leave empty (will use defaults from backend)
+    // Only include dellcube driver type examples (vendor type requires vendor ID which can be confusing)
+    const sampleData = [
+      [
+        "John Doe",
+        "9876543210",
+        "Password123",
+        "DL-1234567890",
+        "5",
+        "dellcube",
+        defaultCompany || "", // Empty if not available - backend will use user's default
+        defaultBranch || "", // Empty if not available - backend will use user's default
+        "",
+        "123456789012",
+        "ABCDE1234F",
+        "John Doe",
+        "State Bank of India",
+        "1234567890123456",
+        "SBIN0001234",
+        "true"
+      ],
+      [
+        "Jane Smith",
+        "9876543211",
+        "Password123",
+        "DL-0987654321",
+        "3",
+        "dellcube",
+        defaultCompany || "", // Empty if not available - backend will use user's default
+        defaultBranch || "", // Empty if not available - backend will use user's default
+        "",
+        "987654321098",
+        "FGHIJ5678K",
+        "Jane Smith",
+        "HDFC Bank",
+        "9876543210987654",
+        "HDFC0009876",
+        "true"
+      ]
+    ];
+
+    // Add a comment row at the top explaining company/branch fields
+    let csvContent = "";
+    if (defaultCompany || defaultBranch) {
+      csvContent += "# NOTE: Company and Branch fields are auto-filled based on your account.\n";
+      csvContent += "# You can leave them empty or fill with different IDs if needed.\n";
+      if (defaultCompany) {
+        csvContent += `# Default Company: ${companyName || defaultCompany}\n`;
+      }
+      if (defaultBranch) {
+        csvContent += `# Default Branch: ${branchName || defaultBranch}\n`;
+      }
+      csvContent += "\n";
+    } else {
+      csvContent += "# NOTE: Company and Branch fields can be left empty if you have a default company/branch.\n";
+      csvContent += "# Or fill them with the actual company and branch IDs.\n\n";
+    }
+
+    csvContent += [
+      headers.join(","),
+      ...sampleData.map(row => row.map(cell => `"${cell}"`).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "driver_bulk_upload_sample.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  };
+
+  // Parse CSV file
+  const parseCSVFile = (text) => {
+    const lines = text.split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0 && !line.startsWith('#'));
+    
+    if (lines.length < 2) {
+      throw new Error("CSV file must have at least a header row and one data row");
+    }
+
+    // Parse headers
+    const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+    
+    // Parse data rows
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+      const values = [];
+      let currentValue = '';
+      let inQuotes = false;
+      
+      for (let j = 0; j < lines[i].length; j++) {
+        const char = lines[i][j];
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          values.push(currentValue.trim());
+          currentValue = '';
+        } else {
+          currentValue += char;
+        }
+      }
+      values.push(currentValue.trim());
+      
+      if (values.length === headers.length) {
+        const row = {};
+        headers.forEach((header, index) => {
+          row[header] = values[index] || '';
+        });
+        rows.push(row);
+      }
+    }
+    
+    return { headers, rows };
+  };
+
+  // Helper function to filter out placeholder values
+  const filterPlaceholder = (value) => {
+    if (!value) return '';
+    const trimmed = String(value).trim();
+    // Filter out common placeholder patterns
+    if (trimmed.includes('_ID_HERE') || 
+        trimmed.includes('_HERE') || 
+        trimmed.toLowerCase().includes('placeholder') ||
+        trimmed.toLowerCase().includes('example') ||
+        trimmed === 'COMPANY_ID_HERE' ||
+        trimmed === 'BRANCH_ID_HERE' ||
+        trimmed === 'VENDOR_ID_HERE') {
+      return '';
+    }
+    return trimmed;
+  };
+
+  // Validate CSV data
+  const validateCsvData = (data, headers) => {
+    const errors = [];
+    const requiredFields = ['name', 'mobile', 'password', 'licenseNumber', 'experienceYears', 'driverType', 'aadharNumber', 'panNumber', 'accountHolderName', 'bankName', 'accountNumber', 'ifscCode'];
+    
+    // Check for missing headers
+    const missingHeaders = requiredFields.filter(field => !headers.includes(field));
+    if (missingHeaders.length > 0) {
+      errors.push({
+        type: 'header',
+        message: `Missing required columns: ${missingHeaders.join(', ')}`
+      });
+      return errors; // Don't validate rows if headers are missing
+    }
+
+    // Get default company/branch from user context
+    const defaultCompany = isBranchAdmin 
+      ? user?.company?._id 
+      : companyId === "all" || !companyId 
+        ? "" 
+        : companyId;
+    const defaultBranch = isBranchAdmin 
+      ? user?.branch?._id 
+      : branchId === "all" || !branchId 
+        ? "" 
+        : branchId;
+
+    // Validate each row
+    data.forEach((row, index) => {
+      const rowNum = index + 2; // +2 because row 1 is header, arrays are 0-indexed
+      
+      // Required fields validation
+      if (!row.name || !row.name.trim()) {
+        errors.push({ type: 'row', row: rowNum, field: 'name', message: 'Name is required' });
+      }
+      if (!row.mobile || !row.mobile.trim()) {
+        errors.push({ type: 'row', row: rowNum, field: 'mobile', message: 'Mobile is required' });
+      } else if (!/^\d{10}$/.test(row.mobile.replace(/\D/g, ''))) {
+        errors.push({ type: 'row', row: rowNum, field: 'mobile', message: 'Mobile must be exactly 10 digits' });
+      }
+      if (!row.password || !row.password.trim()) {
+        errors.push({ type: 'row', row: rowNum, field: 'password', message: 'Password is required' });
+      }
+      if (!row.licenseNumber || !row.licenseNumber.trim()) {
+        errors.push({ type: 'row', row: rowNum, field: 'licenseNumber', message: 'License number is required' });
+      } else if (row.licenseNumber.length < 5 || row.licenseNumber.length > 20) {
+        errors.push({ type: 'row', row: rowNum, field: 'licenseNumber', message: 'License number must be between 5 and 20 characters' });
+      }
+      if (!row.experienceYears || isNaN(parseInt(row.experienceYears))) {
+        errors.push({ type: 'row', row: rowNum, field: 'experienceYears', message: 'Experience years is required and must be a number' });
+      } else {
+        const expYears = parseInt(row.experienceYears);
+        if (expYears < 0 || expYears > 50) {
+          errors.push({ type: 'row', row: rowNum, field: 'experienceYears', message: 'Experience years must be between 0 and 50' });
+        }
+      }
+      // Normalize driverType early
+      const normalizedDriverType = row.driverType ? row.driverType.trim().toLowerCase() : '';
+      
+      if (!row.driverType || !row.driverType.trim()) {
+        errors.push({ type: 'row', row: rowNum, field: 'driverType', message: 'Driver type is required' });
+      } else if (!['dellcube', 'vendor', 'temporary'].includes(normalizedDriverType)) {
+        errors.push({ type: 'row', row: rowNum, field: 'driverType', message: 'Driver type must be dellcube, vendor, or temporary' });
+      }
+      
+      // Filter placeholder values for company, branch, vendor
+      const companyValue = filterPlaceholder(row.company) || defaultCompany || '';
+      const branchValue = filterPlaceholder(row.branch) || defaultBranch || '';
+      const vendorValue = filterPlaceholder(row.vendor);
+
+      // Validate company and branch (can use defaults)
+      if (!companyValue) {
+        errors.push({ type: 'row', row: rowNum, field: 'company', message: 'Company is required. Please provide a valid company ID or ensure you have a default company set.' });
+      } else if (companyValue && !/^[0-9a-fA-F]{24}$/.test(companyValue)) {
+        errors.push({ type: 'row', row: rowNum, field: 'company', message: `Invalid company ID format: "${row.company}". Please provide a valid MongoDB ObjectId or leave empty to use default.` });
+      }
+
+      if (!branchValue) {
+        errors.push({ type: 'row', row: rowNum, field: 'branch', message: 'Branch is required. Please provide a valid branch ID or ensure you have a default branch set.' });
+      } else if (branchValue && !/^[0-9a-fA-F]{24}$/.test(branchValue)) {
+        errors.push({ type: 'row', row: rowNum, field: 'branch', message: `Invalid branch ID format: "${row.branch}". Please provide a valid MongoDB ObjectId or leave empty to use default.` });
+      }
+
+      // Only validate vendor if driver type is actually "vendor" (case-insensitive)
+      if (normalizedDriverType === 'vendor') {
+        if (!vendorValue || !vendorValue.trim()) {
+          errors.push({ type: 'row', row: rowNum, field: 'vendor', message: 'Vendor is required when driver type is vendor' });
+        } else if (!/^[0-9a-fA-F]{24}$/.test(vendorValue)) {
+          errors.push({ type: 'row', row: rowNum, field: 'vendor', message: `Invalid vendor ID format: "${row.vendor}". Please provide a valid MongoDB ObjectId.` });
+        }
+      }
+      if (!row.aadharNumber || !row.aadharNumber.trim()) {
+        errors.push({ type: 'row', row: rowNum, field: 'aadharNumber', message: 'Aadhar number is required' });
+      } else if (!/^\d{12}$/.test(row.aadharNumber.replace(/\D/g, ''))) {
+        errors.push({ type: 'row', row: rowNum, field: 'aadharNumber', message: 'Aadhar number must be exactly 12 digits' });
+      }
+      if (!row.panNumber || !row.panNumber.trim()) {
+        errors.push({ type: 'row', row: rowNum, field: 'panNumber', message: 'PAN number is required' });
+      } else if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(row.panNumber.toUpperCase())) {
+        errors.push({ type: 'row', row: rowNum, field: 'panNumber', message: 'PAN number must be in format ABCDE1234F' });
+      }
+      if (!row.accountHolderName || !row.accountHolderName.trim()) {
+        errors.push({ type: 'row', row: rowNum, field: 'accountHolderName', message: 'Account holder name is required' });
+      }
+      if (!row.bankName || !row.bankName.trim()) {
+        errors.push({ type: 'row', row: rowNum, field: 'bankName', message: 'Bank name is required' });
+      }
+      if (!row.accountNumber || !row.accountNumber.trim()) {
+        errors.push({ type: 'row', row: rowNum, field: 'accountNumber', message: 'Account number is required' });
+      }
+      if (!row.ifscCode || !row.ifscCode.trim()) {
+        errors.push({ type: 'row', row: rowNum, field: 'ifscCode', message: 'IFSC code is required' });
+      } else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(row.ifscCode.toUpperCase())) {
+        errors.push({ type: 'row', row: rowNum, field: 'ifscCode', message: 'IFSC code must be in format ABCD0123456' });
+      }
+    });
+
+    return errors;
+  };
+
+  // Handle CSV file upload
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.type !== "text/csv" && !file.name.endsWith(".csv")) {
+        toast.error("Please upload a CSV file");
+        return;
+      }
+      
+      setCsvFile(file);
+      setUploadResults(null);
+      setParsedCsvData([]);
+      setCsvHeaders([]);
+      setValidationErrors([]);
+
+      // Read and parse the file
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const text = event.target.result;
+          const { headers, rows } = parseCSVFile(text);
+          
+          setCsvHeaders(headers);
+          setParsedCsvData(rows);
+          
+          // Validate the data
+          const errors = validateCsvData(rows, headers);
+          setValidationErrors(errors);
+          
+          if (errors.length > 0) {
+            const headerErrors = errors.filter(e => e.type === 'header');
+            const rowErrors = errors.filter(e => e.type === 'row');
+            if (headerErrors.length > 0) {
+              toast.error(headerErrors[0].message);
+            } else {
+              toast.error(`Found ${rowErrors.length} validation error(s). Please fix them before uploading.`);
+            }
+          } else {
+            toast.success(`CSV parsed successfully. ${rows.length} row(s) ready to upload.`);
+          }
+        } catch (error) {
+          toast.error(`Failed to parse CSV: ${error.message}`);
+          console.error("CSV parsing error:", error);
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  // Handle bulk upload
+  const handleBulkUpload = async () => {
+    if (!csvFile) {
+      toast.error("Please select a CSV file");
+      return;
+    }
+
+    // Check for validation errors before uploading
+    if (validationErrors.length > 0) {
+      toast.error("Please fix all validation errors before uploading");
+      return;
+    }
+
+    if (parsedCsvData.length === 0) {
+      toast.error("No data to upload");
+      return;
+    }
+
+    try {
+      const formDataToSend = new FormData();
+      formDataToSend.append("csvFile", csvFile);
+      const defaultCompany = isBranchAdmin ? user?.company?._id : companyId === "all" ? "" : companyId;
+      const defaultBranch = isBranchAdmin ? user?.branch?._id : branchId === "all" ? "" : branchId;
+      if (defaultCompany) formDataToSend.append("company", defaultCompany);
+      if (defaultBranch) formDataToSend.append("branch", defaultBranch);
+
+      const result = await bulkUploadDrivers(formDataToSend).unwrap();
+      
+      if (result?.success) {
+        setUploadResults(result.results);
+        toast.success(result.message);
+        setCsvFile(null);
+        setParsedCsvData([]);
+        setCsvHeaders([]);
+        setValidationErrors([]);
+        // Reset file input
+        const fileInput = document.getElementById("csv-upload-drivers");
+        if (fileInput) fileInput.value = "";
+        // Refresh drivers list
+        refetch();
+      }
+    } catch (error) {
+      toast.error(error?.data?.message || "Failed to upload drivers");
+      console.error("Bulk upload error:", error);
+    }
+  };
+
   return (
     <section className=" min-h-[100vh] rounded-md">
       <div className="md:p-6 p-2">
@@ -216,6 +629,248 @@ const Drivers = () => {
                 <ChevronDown className="w-4 h-4" />
               )}
             </Button>
+            <Dialog 
+              open={bulkUploadOpen} 
+              onOpenChange={(open) => {
+                setBulkUploadOpen(open);
+                if (!open) {
+                  // Reset state when dialog closes
+                  setCsvFile(null);
+                  setParsedCsvData([]);
+                  setCsvHeaders([]);
+                  setValidationErrors([]);
+                  setUploadResults(null);
+                  const fileInput = document.getElementById("csv-upload-drivers");
+                  if (fileInput) fileInput.value = "";
+                }
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button
+                  className="rounded-full bg-[#FFD249]/80 text-[#202020] hover:bg-[#FFD249] font-semibold shadow-md px-4 py-2 flex items-center gap-2 border border-[#FFD249]"
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  Bulk Upload
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
+                <DialogHeader className="px-6 pt-6 pb-4 flex-shrink-0">
+                  <DialogTitle className="flex items-center gap-2">
+                    <FileSpreadsheet className="w-5 h-5 text-[#FFD249]" />
+                    Bulk Upload Drivers
+                  </DialogTitle>
+                  <DialogDescription>
+                    Upload a CSV file to create multiple drivers at once. Download the sample CSV to see the required format.
+                    <br />
+                    <span className="text-sm text-gray-600 dark:text-gray-400 mt-2 block">
+                      <strong>Note:</strong> Company and Branch fields in the CSV are optional - they will be auto-filled from your account settings if left empty.
+                    </span>
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="flex-1 overflow-y-auto space-y-4 px-6">
+                  <div className="flex items-center gap-4 flex-shrink-0">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={downloadSampleCSV}
+                      className="flex items-center gap-2"
+                    >
+                      <Download className="w-4 h-4" />
+                      Download Sample CSV
+                    </Button>
+                    <div className="flex-1">
+                      <Label htmlFor="csv-upload-drivers" className="cursor-pointer">
+                        <div className="flex items-center gap-2 p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-[#FFD249] transition-colors">
+                          <Upload className="w-5 h-5" />
+                          <span className="text-sm">
+                            {csvFile ? csvFile.name : "Choose CSV file to upload"}
+                          </span>
+                        </div>
+                      </Label>
+                      <input
+                        id="csv-upload-drivers"
+                        type="file"
+                        accept=".csv"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Validation Errors Display */}
+                  {validationErrors.length > 0 && (
+                    <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-red-600 dark:text-red-400 font-semibold">
+                          Validation Errors ({validationErrors.length})
+                        </span>
+                      </div>
+                      <div className="max-h-60 overflow-y-auto space-y-2">
+                        {validationErrors.map((error, idx) => (
+                          <div key={idx} className="text-sm text-red-600 dark:text-red-400">
+                            {error.type === 'header' ? (
+                              <span className="font-medium">{error.message}</span>
+                            ) : (
+                              <span>
+                                <strong>Row {error.row}</strong> - {error.field}: {error.message}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-red-600 dark:text-red-400 mt-3 font-medium">
+                        Please fix all errors before uploading.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* CSV Data Preview */}
+                  {parsedCsvData.length > 0 && validationErrors.length === 0 && (
+                    <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-green-700 dark:text-green-400 font-semibold">
+                          Preview ({parsedCsvData.length} row(s) ready to upload)
+                        </span>
+                        <span className="text-xs text-green-600 dark:text-green-400">
+                          ✓ All validations passed
+                        </span>
+                      </div>
+                      <div className="overflow-x-auto max-h-[500px] overflow-y-auto border border-green-300 dark:border-green-700 rounded-lg">
+                        <table className="min-w-full text-xs border-collapse">
+                          <thead className="bg-green-100 dark:bg-green-900/40 sticky top-0 z-10">
+                            <tr>
+                              <th className="px-3 py-2 border border-green-300 dark:border-green-700 text-left font-semibold bg-green-100 dark:bg-green-900/40">
+                                Row
+                              </th>
+                              {csvHeaders.map((header, idx) => (
+                                <th 
+                                  key={idx} 
+                                  className="px-3 py-2 border border-green-300 dark:border-green-700 text-left font-semibold bg-green-100 dark:bg-green-900/40 whitespace-nowrap"
+                                >
+                                  {header}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {parsedCsvData.map((row, idx) => (
+                              <tr 
+                                key={idx} 
+                                className={idx % 2 === 0 ? "bg-white dark:bg-gray-800" : "bg-green-50/50 dark:bg-green-900/10"}
+                              >
+                                <td className="px-3 py-2 border border-green-300 dark:border-green-700 font-medium text-center">
+                                  {idx + 2}
+                                </td>
+                                {csvHeaders.map((header, hIdx) => (
+                                  <td 
+                                    key={hIdx} 
+                                    className="px-3 py-2 border border-green-300 dark:border-green-700 whitespace-nowrap"
+                                  >
+                                    {row[header] ? (
+                                      <span className="max-w-[200px] block truncate" title={row[header]}>
+                                        {row[header]}
+                                      </span>
+                                    ) : (
+                                      <span className="text-gray-400 italic">-</span>
+                                    )}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2 text-center">
+                        Showing all {parsedCsvData.length} row(s). Scroll to see all data.
+                      </p>
+                    </div>
+                  )}
+
+                {uploadResults && (
+                  <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg overflow-y-auto max-h-96">
+                      <div className="grid grid-cols-3 gap-4 mb-4">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                            {uploadResults.total}
+                          </div>
+                          <div className="text-sm text-gray-600 dark:text-gray-400">Total</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-green-600">
+                            {uploadResults.successCount}
+                          </div>
+                          <div className="text-sm text-gray-600 dark:text-gray-400">Success</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-red-600">
+                            {uploadResults.errorCount}
+                          </div>
+                          <div className="text-sm text-gray-600 dark:text-gray-400">Errors</div>
+                        </div>
+                      </div>
+
+                      {uploadResults.errors.length > 0 && (
+                        <div className="mt-4">
+                          <h4 className="font-semibold text-red-600 mb-2">Errors:</h4>
+                          <div className="max-h-40 overflow-y-auto space-y-1">
+                            {uploadResults.errors.slice(0, 10).map((err, idx) => (
+                              <div key={idx} className="text-sm text-red-600">
+                                Row {err.row}: {err.name} - {err.error}
+                              </div>
+                            ))}
+                            {uploadResults.errors.length > 10 && (
+                              <div className="text-sm text-gray-500">
+                                ... and {uploadResults.errors.length - 10} more errors
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {uploadResults.success.length > 0 && (
+                        <div className="mt-4">
+                          <h4 className="font-semibold text-green-600 mb-2">Successfully Created:</h4>
+                          <div className="max-h-40 overflow-y-auto space-y-1">
+                            {uploadResults.success.slice(0, 10).map((succ, idx) => (
+                              <div key={idx} className="text-sm text-green-600">
+                                Row {succ.row}: {succ.name}
+                              </div>
+                            ))}
+                            {uploadResults.success.length > 10 && (
+                              <div className="text-sm text-gray-500">
+                                ... and {uploadResults.success.length - 10} more
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Fixed Upload Button at Bottom */}
+                <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 px-6 py-4 bg-white dark:bg-gray-900">
+                  <Button
+                    type="button"
+                    onClick={handleBulkUpload}
+                    disabled={!csvFile || isBulkUploading || validationErrors.length > 0 || parsedCsvData.length === 0}
+                    className="w-full bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020] disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isBulkUploading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="mr-2 h-4 w-4" />
+                        Upload CSV {parsedCsvData.length > 0 && `(${parsedCsvData.length} row${parsedCsvData.length !== 1 ? 's' : ''})`}
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
             <Button
               onClick={() => navigate("/admin/create-driver")}
               className="rounded-full bg-[#FFD249] text-[#202020] hover:bg-[#FFD249]/90 font-semibold shadow-md px-4 py-2"

@@ -232,6 +232,15 @@ export const authApi = createApi({
       invalidatesTags: ["Driver"],
     }),
 
+    bulkUploadDrivers: builder.mutation({
+      query: (formData) => ({
+        url: "/bulk-upload-drivers",
+        method: "POST",
+        body: formData,
+      }),
+      invalidatesTags: ["Driver"],
+    }),
+
     sendPasswordResetOTP: builder.mutation({
       query: ({ email }) => ({
         url: "send-password-reset-otp",
@@ -272,6 +281,7 @@ export const {
   useGetAllDriversQuery,
   useGetDriverByIdMutation,
   useUpdateDriverMutation,
+  useBulkUploadDriversMutation,
   useSendPasswordResetOTPMutation,
   useVerifyPasswordResetOTPMutation
 } = authApi;
