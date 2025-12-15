@@ -31,6 +31,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 
 import { useSelector } from "react-redux";
 import { useGetAllCompaniesQuery } from "@/features/api/Company/companyApi";
@@ -40,6 +41,7 @@ import {
   useUpdateDriverMutation,
 } from "@/features/api/authApi";
 import { useGetAllVendorsQuery } from "@/features/api/Vendor/vendorApi";
+import { getTokenData } from "@/utils/getTokenData";
 
 const UpdateDriver = () => {
   const navigate = useNavigate();
@@ -63,8 +65,8 @@ const UpdateDriver = () => {
     licenseNumber: "",
     experienceYears: "",
     driverType: user?.role === "vendor" ? "vendor" : "dellcube",
-    company: isBranchAdmin ? user?.company?._id : "",
-    branch: isBranchAdmin ? user?.branch?._id : "",
+    companies: isBranchAdmin && user?.company?._id ? [user.company._id] : [],
+    branches: isBranchAdmin && user?.branch?._id ? [user.branch._id] : [],
     vendor: "",
     status: true,
     aadharNumber: "",
@@ -77,11 +79,14 @@ const UpdateDriver = () => {
     },
   });
 
+  // Store branches for each selected company
+  const [branchesByCompany, setBranchesByCompany] = useState({});
+  
   const { data: vendorsData } = useGetAllVendorsQuery({
     page: 1,
     limit: 100,
-    companyId: formData.company || "",
-    branchId: formData.branch || "",
+    companyId: formData.companies.length === 1 ? formData.companies[0] : "",
+    branchId: formData.branches.length === 1 ? formData.branches[0] : "",
   });
 
   useEffect(() => {
@@ -93,14 +98,34 @@ const UpdateDriver = () => {
   useEffect(() => {
     if (driverData?.user) {
       const d = driverData.user;
+      const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+      
+      // Get companies (from companies array or single company)
+      let companyIds = d.companies && d.companies.length > 0 
+        ? d.companies.map(c => c._id || c).filter(id => id && id !== "undefined")
+        : (d.company?._id ? [d.company._id] : []);
+      
+      // Get branches (from branches array or single branch)
+      let branchIds = d.branches && d.branches.length > 0
+        ? d.branches.map(b => b._id || b).filter(id => id && id !== "undefined")
+        : (d.branch?._id ? [d.branch._id] : []);
+      
+      // If no companies/branches found, use token values
+      if (companyIds.length === 0 && tokenCompanyId) {
+        companyIds = [tokenCompanyId];
+      }
+      if (branchIds.length === 0 && tokenBranchId) {
+        branchIds = [tokenBranchId];
+      }
+      
       setFormData({
         name: d.name || "",
         mobile: d.mobile || "",
         licenseNumber: d.licenseNumber || "",
         experienceYears: d.experienceYears || "",
         driverType: d.driverType || "dellcube",
-        company: d.company?._id || "",
-        branch: d.branch?._id || "",
+        companies: companyIds,
+        branches: branchIds,
         vendor: d.vendor?._id || "",
         status: d.status ?? true,
         aadharNumber: d.aadharNumber || "",
@@ -113,17 +138,78 @@ const UpdateDriver = () => {
         },
       });
 
-      if (d.company?._id) {
-        getBranchesByCompany(d.company._id);
+      // Fetch branches for all companies
+      const fetchBranchesForCompanies = async () => {
+        const branchesMap = {};
+        for (const companyId of companyIds) {
+          if (companyId && companyId !== "undefined") {
+            try {
+              const result = await getBranchesByCompany(companyId);
+              branchesMap[companyId] = result?.data?.branches || [];
+            } catch (err) {
+              console.error(`Failed to fetch branches for company ${companyId}`, err);
+            }
+          }
+        }
+        setBranchesByCompany(branchesMap);
+      };
+      
+      if (companyIds.length > 0) {
+        fetchBranchesForCompanies();
       }
     }
   }, [driverData]);
 
-  useEffect(() => {
-    if (!isBranchAdmin && formData.company) {
-      getBranchesByCompany(formData.company);
+  // Handle company selection (multiple)
+  const handleCompanyToggle = async (companyId) => {
+    const isSelected = formData.companies.includes(companyId);
+    let newCompanies = [];
+    
+    if (isSelected) {
+      // Remove company
+      newCompanies = formData.companies.filter(id => id !== companyId);
+      // Remove branches for this company
+      const newBranchesByCompany = { ...branchesByCompany };
+      delete newBranchesByCompany[companyId];
+      setBranchesByCompany(newBranchesByCompany);
+      // Remove branches that belong to this company
+      const companyBranches = branchesByCompany[companyId] || [];
+      const companyBranchIds = companyBranches.map(b => b._id);
+      const newBranches = formData.branches.filter(bId => !companyBranchIds.includes(bId));
+      setFormData(prev => ({ ...prev, companies: newCompanies, branches: newBranches }));
+    } else {
+      // Add company
+      newCompanies = [...formData.companies, companyId];
+      setFormData(prev => ({ ...prev, companies: newCompanies }));
+      // Fetch branches for this company
+      try {
+        const result = await getBranchesByCompany(companyId);
+        const branches = result?.data?.branches || [];
+        setBranchesByCompany(prev => ({
+          ...prev,
+          [companyId]: branches
+        }));
+      } catch (err) {
+        toast.error("Failed to fetch branches for selected company");
+      }
     }
-  }, [formData.company]);
+  };
+
+  // Handle branch selection (multiple)
+  const handleBranchToggle = (branchId) => {
+    const isSelected = formData.branches.includes(branchId);
+    if (isSelected) {
+      setFormData(prev => ({
+        ...prev,
+        branches: prev.branches.filter(id => id !== branchId)
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        branches: [...prev.branches, branchId]
+      }));
+    }
+  };
 
   useEffect(() => {
     if (formData.driverType !== "vendor") {
@@ -176,11 +262,13 @@ const UpdateDriver = () => {
       !mobile ||
       !licenseNumber ||
       experienceYears === "" ||
-      !company ||
-      !branch ||
+      !companies ||
+      companies.length === 0 ||
+      !branches ||
+      branches.length === 0 ||
       !driverType
     ) {
-      toast.error("All required fields are required.");
+      toast.error("All required fields are required including at least one company and branch.");
       return false;
     }
 
@@ -264,21 +352,52 @@ const UpdateDriver = () => {
   const handleSubmit = async () => {
     if (!validateForm()) return;
 
+    // Get companyId and branchId from token if not provided
+    const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+    
+    // Ensure we have valid companies and branches arrays
+    let finalCompanies = formData.companies || [];
+    let finalBranches = formData.branches || [];
+    
+    // If arrays are empty and we have token values, use them
+    if (finalCompanies.length === 0 && tokenCompanyId) {
+      finalCompanies = [tokenCompanyId];
+    }
+    if (finalBranches.length === 0 && tokenBranchId) {
+      finalBranches = [tokenBranchId];
+    }
+    
+    // Filter out any undefined or "undefined" values
+    finalCompanies = finalCompanies.filter(id => id && id !== "undefined");
+    finalBranches = finalBranches.filter(id => id && id !== "undefined");
+
+    // Build clean payload
     const payload = {
       userId: driverId,
       name: formData.name,
       mobile: formData.mobile,
       licenseNumber: formData.licenseNumber,
       experienceYears: formData.experienceYears,
-      company: formData.company,
-      branch: formData.branch,
+      company: finalCompanies, // Backend expects 'company' as array
+      branch: finalBranches,    // Backend expects 'branch' as array
       driverType: formData.driverType,
-      vendor: formData.driverType === "vendor" ? formData.vendor : "",
+      vendor: formData.driverType === "vendor" ? formData.vendor : undefined,
       status: formData.status,
       aadharNumber: formData.aadharNumber,
       panNumber: formData.panNumber,
       bankDetails: formData.bankDetails,
     };
+
+    // Remove undefined values from payload
+    Object.keys(payload).forEach(key => {
+      if (payload[key] === undefined || payload[key] === "undefined" || 
+          (Array.isArray(payload[key]) && payload[key].length === 0)) {
+        // Don't delete company/branch if they're empty arrays - backend needs them
+        if (key !== "company" && key !== "branch") {
+          delete payload[key];
+        }
+      }
+    });
 
     await updateDriver(payload);
   };
@@ -401,67 +520,97 @@ const UpdateDriver = () => {
                     placeholder="Years of Experience"
                   />
                 </div>
-                <div>
-                  <Label>Company *</Label>
-                  {!isBranchAdmin ? (
-                    <Select
-                      value={formData.company}
-                      onValueChange={async (val) => {
-                        setFormData((prev) => ({ ...prev, company: val, branch: "" }));
-                        try {
-                          await getBranchesByCompany(val);
-                        } catch {
-                          toast.error("Failed to fetch branches");
-                        }
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Company" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {companies?.companies?.map((c) => (
-                          <SelectItem key={c._id} value={c._id}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
+                <div className="md:col-span-2">
+                  <Label>Companies *</Label>
+                  {isBranchAdmin ? (
                     <Input
                       value={user?.company?.name}
                       disabled
                       className="bg-gray-100 cursor-not-allowed dark:bg-gray-800"
                     />
-                  )}
-                  </div>
-                <div>
-                  <Label>Branch *</Label>
-                  {!isBranchAdmin ? (
-                    <Select
-                      value={formData.branch}
-                      onValueChange={(val) =>
-                        setFormData((prev) => ({ ...prev, branch: val }))
-                      }
-                      disabled={!formData.company || branchLoading}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Branch" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {branchData?.branches?.map((b) => (
-                          <SelectItem key={b._id} value={b._id}>
-                            {b.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
                   ) : (
+                    <>
+                      <div className="mt-2 space-y-2 max-h-48 overflow-y-auto border rounded-md p-3">
+                        {companies?.companies?.length > 0 ? (
+                          companies.companies.map((c) => (
+                            <div key={c._id} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`company-${c._id}`}
+                                checked={formData.companies.includes(c._id)}
+                                onCheckedChange={() => handleCompanyToggle(c._id)}
+                              />
+                              <label
+                                htmlFor={`company-${c._id}`}
+                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                              >
+                                {c.name} ({c.companyCode})
+                              </label>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm text-gray-500">No companies available</p>
+                        )}
+                      </div>
+                      {formData.companies.length > 0 && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          {formData.companies.length} company(s) selected
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+                <div className="md:col-span-2">
+                  <Label>Branches *</Label>
+                  {isBranchAdmin ? (
                     <Input
                       value={user?.branch?.name}
                       disabled
                       className="bg-gray-100 cursor-not-allowed dark:bg-gray-800"
                     />
-                    )}
+                  ) : (
+                    <>
+                      <div className="mt-2 space-y-2 max-h-48 overflow-y-auto border rounded-md p-3">
+                        {formData.companies.length === 0 ? (
+                          <p className="text-sm text-gray-500">Please select at least one company first</p>
+                        ) : Object.keys(branchesByCompany).length === 0 ? (
+                          <p className="text-sm text-gray-500">Loading branches...</p>
+                        ) : (
+                          Object.entries(branchesByCompany).map(([companyId, branches]) => {
+                            const company = companies?.companies?.find(c => c._id === companyId);
+                            return (
+                              <div key={companyId} className="space-y-2">
+                                {company && (
+                                  <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mt-2 first:mt-0">
+                                    {company.name}:
+                                  </p>
+                                )}
+                                {branches.map((b) => (
+                                  <div key={b._id} className="flex items-center space-x-2 ml-4">
+                                    <Checkbox
+                                      id={`branch-${b._id}`}
+                                      checked={formData.branches.includes(b._id)}
+                                      onCheckedChange={() => handleBranchToggle(b._id)}
+                                    />
+                                    <label
+                                      htmlFor={`branch-${b._id}`}
+                                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                    >
+                                      {b.name} ({b.branchCode})
+                                    </label>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                      {formData.branches.length > 0 && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          {formData.branches.length} branch(es) selected
+                        </p>
+                      )}
+                    </>
+                  )}
                 </div>
                 <div>
                   <Label>Driver Type *</Label>
@@ -489,7 +638,7 @@ const UpdateDriver = () => {
                       onValueChange={(val) =>
                         setFormData((prev) => ({ ...prev, vendor: val }))
                       }
-                      disabled={!formData.company || !formData.branch}
+                      disabled={formData.companies.length === 0 || formData.branches.length === 0}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select Vendor" />
@@ -500,10 +649,10 @@ const UpdateDriver = () => {
                             <SelectItem key={v._id} value={v._id}>
                               {v.name}
                             </SelectItem>
-                ))
-              ) : (
+                          ))
+                        ) : (
                           <SelectItem value="" disabled>
-                            {!formData.company || !formData.branch
+                            {formData.companies.length === 0 || formData.branches.length === 0
                               ? "Please select company and branch first"
                               : "No vendors available"}
                           </SelectItem>

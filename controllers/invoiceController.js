@@ -108,8 +108,9 @@ export const createInvoice = async (req, res) => {
       });
     }
 
-    let companyId = req.body.company;
-    let branchId = req.body.branch;
+    // Use companyId/branchId from token if not provided in body (for non-superAdmin users)
+    let companyId = req.body.company || (req.user?.role !== "superAdmin" ? req.companyId : null);
+    let branchId = req.body.branch || (req.user?.role !== "superAdmin" ? req.branchId : null);
 
     // Role-based control
     if (
@@ -504,8 +505,9 @@ export const createReservedInvoices = async (req, res) => {
       });
     }
 
-    let companyId = req.body.company;
-    let branchId = req.body.branch;
+    // Use companyId/branchId from token if not provided in body (for non-superAdmin users)
+    let companyId = req.body.company || (req.user?.role !== "superAdmin" ? req.companyId : null);
+    let branchId = req.body.branch || (req.user?.role !== "superAdmin" ? req.branchId : null);
 
     // Role-based control
     if (
@@ -668,8 +670,11 @@ export const getAllInvoices = async (req, res) => {
 
     const query = {};
     if (search) query.docketNumber = { $regex: search, $options: "i" };
-    if (companyId) query.company = companyId;
-    if (branchId) query.branch = branchId;
+    // Use companyId/branchId from token if not provided in query (for non-superAdmin users)
+    const finalCompanyId = companyId || (req.user?.role !== "superAdmin" ? req.companyId : null);
+    const finalBranchId = branchId || (req.user?.role !== "superAdmin" ? req.branchId : null);
+    if (finalCompanyId) query.company = finalCompanyId;
+    if (finalBranchId) query.branch = finalBranchId;
     if (customerId) query.customer = customerId;
     if (paymentType) query.paymentType = paymentType;
     if (vehicleType) query.vehicleType = vehicleType;

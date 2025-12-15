@@ -2,7 +2,7 @@ import express from "express";
 import isAuthenticated from "../middlewares/isAuthenticated.js";
 import upload from "../utils/common/Uploads.js";
 import multer from "multer";
-import { createBranchAdminController, deleteBranchAdminController, getAllBranchAdmins, getBranchAdminById, getUserProfileController, loginController, logoutController, registerController, updateBranchAdminController, updateProfileController, verifyOTPController, sendPasswordResetOTPController, verifyPasswordResetOTPController } from "../controllers/user.js";
+import { createBranchAdminController, deleteBranchAdminController, getAllBranchAdmins, getBranchAdminById, getUserProfileController, loginController, logoutController, registerController, updateBranchAdminController, updateProfileController, verifyOTPController, sendPasswordResetOTPController, verifyPasswordResetOTPController, checkUserAssignmentsController } from "../controllers/user.js";
 import { isSuperAdmin } from "../middlewares/isSuperAdmin.js";
 import {
     createOperationUserController,
@@ -40,6 +40,7 @@ const csvUpload = multer({
 //User
 router.post("/register", upload, registerController);
 router.post("/verify-otp", verifyOTPController);
+router.post("/check-assignments", checkUserAssignmentsController);
 router.post("/login", loginController);
 router.get("/logout", logoutController);
 router.get("/profile", isAuthenticated, getUserProfileController);

@@ -19,8 +19,11 @@ const isAuthenticated = async (req, res, next) => {
 
     const decode = jwt.verify(token, process.env.SECRETKEY);
     req.id = decode.userId;
-    req.user = decode
-     next();
+    req.user = decode;
+    // Extract companyId and branchId from token for use in controllers
+    req.companyId = decode.companyId || null;
+    req.branchId = decode.branchId || null;
+    next();
   } catch (error) {
     console.log("JWT Verify Error:", error.message);
     return res.status(401).json({

@@ -28,6 +28,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 
 import { useSelector } from "react-redux";
 import { useGetAllCompaniesQuery } from "@/features/api/Company/companyApi";
@@ -44,8 +45,8 @@ const CreateOperationUser = () => {
     email: "",
     password: "",
     mobile: "",
-    company: isBranchAdmin ? user?.company?._id : "",
-    branch: isBranchAdmin ? user?.branch?._id : "",
+    companies: isBranchAdmin && user?.company?._id ? [user.company._id] : [],
+    branches: isBranchAdmin && user?.branch?._id ? [user.branch._id] : [],
     status: true,
     aadharNumber: "",
     panNumber: "",
@@ -62,15 +63,76 @@ const CreateOperationUser = () => {
   const { data: companies } = useGetAllCompaniesQuery({ page: 1, limit: 100 });
   const [getBranchesByCompany, { data: branchData, isLoading: branchLoading }] =
     useGetBranchesByCompanyMutation();
+  
+  // Store branches for each selected company
+  const [branchesByCompany, setBranchesByCompany] = useState({});
+  
+  // Initialize branches for branchAdmin's company
+  useEffect(() => {
+    if (isBranchAdmin && user?.company?._id) {
+      getBranchesByCompany(user.company._id).then((res) => {
+        if (res?.data?.branches) {
+          setBranchesByCompany({
+            [user.company._id]: res.data.branches
+          });
+        }
+      });
+    }
+  }, [isBranchAdmin, user]);
 
   const [createOperationUser, { isLoading, isSuccess, isError, data, error }] =
     useCreateOperationUserMutation();
 
-  useEffect(() => {
-    if (!isBranchAdmin && formData.company) {
-      getBranchesByCompany(formData.company);
+  // Handle company selection (multiple)
+  const handleCompanyToggle = async (companyId) => {
+    const isSelected = formData.companies.includes(companyId);
+    let newCompanies = [];
+    
+    if (isSelected) {
+      // Remove company
+      newCompanies = formData.companies.filter(id => id !== companyId);
+      // Remove branches for this company
+      const newBranchesByCompany = { ...branchesByCompany };
+      delete newBranchesByCompany[companyId];
+      setBranchesByCompany(newBranchesByCompany);
+      // Remove branches that belong to this company
+      const companyBranches = branchesByCompany[companyId] || [];
+      const companyBranchIds = companyBranches.map(b => b._id);
+      const newBranches = formData.branches.filter(bId => !companyBranchIds.includes(bId));
+      setFormData(prev => ({ ...prev, companies: newCompanies, branches: newBranches }));
+    } else {
+      // Add company
+      newCompanies = [...formData.companies, companyId];
+      setFormData(prev => ({ ...prev, companies: newCompanies }));
+      // Fetch branches for this company
+      try {
+        const result = await getBranchesByCompany(companyId);
+        const branches = result?.data?.branches || [];
+        setBranchesByCompany(prev => ({
+          ...prev,
+          [companyId]: branches
+        }));
+      } catch (err) {
+        toast.error("Failed to fetch branches for selected company");
+      }
     }
-  }, [formData.company]);
+  };
+
+  // Handle branch selection (multiple)
+  const handleBranchToggle = (branchId) => {
+    const isSelected = formData.branches.includes(branchId);
+    if (isSelected) {
+      setFormData(prev => ({
+        ...prev,
+        branches: prev.branches.filter(id => id !== branchId)
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        branches: [...prev.branches, branchId]
+      }));
+    }
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -113,12 +175,14 @@ const CreateOperationUser = () => {
       !name ||
       !email ||
       !password ||
-      !company ||
-      !branch ||
+      !companies ||
+      companies.length === 0 ||
+      !branches ||
+      branches.length === 0 ||
       !aadharNumber ||
       !panNumber
     ) {
-      toast.error("All basic fields are required.");
+      toast.error("All basic fields are required including at least one company and branch.");
       return false;
     }
     if (mobile && mobile.length !== 10) {
@@ -172,8 +236,9 @@ const CreateOperationUser = () => {
     submission.append("email", formData.email);
     submission.append("password", formData.password);
     submission.append("mobile", formData.mobile);
-    submission.append("company", formData.company);
-    submission.append("branch", formData.branch);
+    // Append companies and branches as JSON strings (multer doesn't auto-create arrays for non-file fields)
+    submission.append("company", JSON.stringify(formData.companies));
+    submission.append("branch", JSON.stringify(formData.branches));
     submission.append("status", String(formData.status));
     submission.append("aadharNumber", formData.aadharNumber);
     submission.append("panNumber", formData.panNumber);
@@ -277,66 +342,96 @@ const CreateOperationUser = () => {
                     placeholder="Set Password"
                   />
                 </div>
-                <div>
-                  <Label>Company *</Label>
-                  {!isBranchAdmin ? (
-                    <Select
-                      value={formData.company}
-                      onValueChange={async (val) => {
-                        setFormData((prev) => ({ ...prev, company: val, branch: "" }));
-                        try {
-                          await getBranchesByCompany(val);
-                        } catch {
-                          toast.error("Failed to fetch branches");
-                        }
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Company" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {companies?.companies?.map((c) => (
-                          <SelectItem key={c._id} value={c._id}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
+                <div className="md:col-span-2">
+                  <Label>Companies *</Label>
+                  {isBranchAdmin ? (
                     <Input
                       value={user?.company?.name}
                       disabled
                       className="bg-gray-100 cursor-not-allowed dark:bg-gray-800"
                     />
+                  ) : (
+                    <>
+                      <div className="mt-2 space-y-2 max-h-48 overflow-y-auto border rounded-md p-3">
+                        {companies?.companies?.length > 0 ? (
+                          companies.companies.map((c) => (
+                            <div key={c._id} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`company-${c._id}`}
+                                checked={formData.companies.includes(c._id)}
+                                onCheckedChange={() => handleCompanyToggle(c._id)}
+                              />
+                              <label
+                                htmlFor={`company-${c._id}`}
+                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                              >
+                                {c.name} ({c.companyCode})
+                              </label>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm text-gray-500">No companies available</p>
+                        )}
+                      </div>
+                      {formData.companies.length > 0 && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          {formData.companies.length} company(s) selected
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
-                <div>
-                  <Label>Branch *</Label>
-                  {!isBranchAdmin ? (
-                    <Select
-                      value={formData.branch}
-                      onValueChange={(val) =>
-                        setFormData((prev) => ({ ...prev, branch: val }))
-                      }
-                      disabled={!formData.company || branchLoading}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Branch" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {branchData?.branches?.map((b) => (
-                          <SelectItem key={b._id} value={b._id}>
-                            {b.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
+                <div className="md:col-span-2">
+                  <Label>Branches *</Label>
+                  {isBranchAdmin ? (
                     <Input
                       value={user?.branch?.name}
                       disabled
                       className="bg-gray-100 cursor-not-allowed dark:bg-gray-800"
                     />
+                  ) : (
+                    <>
+                      <div className="mt-2 space-y-2 max-h-48 overflow-y-auto border rounded-md p-3">
+                        {formData.companies.length === 0 ? (
+                          <p className="text-sm text-gray-500">Please select at least one company first</p>
+                        ) : Object.keys(branchesByCompany).length === 0 ? (
+                          <p className="text-sm text-gray-500">Loading branches...</p>
+                        ) : (
+                          Object.entries(branchesByCompany).map(([companyId, branches]) => {
+                            const company = companies?.companies?.find(c => c._id === companyId);
+                            return (
+                              <div key={companyId} className="space-y-2">
+                                {company && (
+                                  <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mt-2 first:mt-0">
+                                    {company.name}:
+                                  </p>
+                                )}
+                                {branches.map((b) => (
+                                  <div key={b._id} className="flex items-center space-x-2 ml-4">
+                                    <Checkbox
+                                      id={`branch-${b._id}`}
+                                      checked={formData.branches.includes(b._id)}
+                                      onCheckedChange={() => handleBranchToggle(b._id)}
+                                    />
+                                    <label
+                                      htmlFor={`branch-${b._id}`}
+                                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                    >
+                                      {b.name} ({b.branchCode})
+                                    </label>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                      {formData.branches.length > 0 && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          {formData.branches.length} branch(es) selected
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
                 <div className="flex items-center gap-3">

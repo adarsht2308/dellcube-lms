@@ -54,6 +54,7 @@ import { Button } from "@/components/ui/button";
 import { useDebounce } from "@/hooks/Debounce";
 import { Drawer } from "antd";
 import { useSelector } from "react-redux";
+import { getTokenData } from "@/utils/getTokenData";
 
 // 1. Add Dellcube color theme variables for easy reuse
 const DELLCUBE_COLORS = {
@@ -142,24 +143,35 @@ const Customers = () => {
     fetchBranches();
   }, [companyId, isSuperAdmin, getBranchesByCompany]);
 
-  const skipQuery = isBranchAdmin
-    ? !(user?.company?._id && user?.branch?._id)
-    : false;
+  // Get companyId and branchId from token (for all users)
+  const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+  
+  // Use token values if available, otherwise fall back to user object or state
+  const finalCompanyId = tokenCompanyId || (isBranchAdmin ? user?.company?._id : companyId) || "";
+  const finalBranchId = tokenBranchId || (isBranchAdmin ? user?.branch?._id : branchId) || "";
+  
+  // Only skip if we don't have companyId and branchId (and user is not superAdmin)
+  const skipQuery = !isSuperAdmin && (!finalCompanyId || !finalBranchId);
+  
   const { data, isLoading, refetch } = useGetAllCustomersQuery(
     {
       page,
       limit,
       search: debouncedSearch,
       status,
-      companyId: isBranchAdmin ? user?.company?._id : companyId,
-      branchId: isBranchAdmin ? user?.branch?._id : branchId,
+      companyId: finalCompanyId,
+      branchId: finalBranchId,
     },
     { skip: skipQuery }
   );
 
   // If vendor is logged in, show only the assigned client's record
   const customers = React.useMemo(() => {
-    const list = data?.customers || [];
+    // Ensure we have data and customers array
+    if (!data || !data.customers) {
+      return [];
+    }
+    const list = Array.isArray(data.customers) ? data.customers : [];
     if (isVendor && user?.assignedClients?.length > 0) {
       const assignedIds = user.assignedClients.map(
         (client) => client._id || client
@@ -167,7 +179,7 @@ const Customers = () => {
       return list.filter((c) => assignedIds.includes(c._id));
     }
     return list;
-  }, [data?.customers, isVendor, user?.assignedClients]);
+  }, [data, data?.customers, isVendor, user?.assignedClients]);
 
   const [deleteCustomer, { isSuccess, isError }] = useDeleteCustomerMutation();
   const [open, setOpen] = useState(false);

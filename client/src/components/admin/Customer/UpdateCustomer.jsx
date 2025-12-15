@@ -23,6 +23,7 @@ import {
   useGetCustomerByIdMutation,
   useUpdateCustomerMutation,
 } from "@/features/api/Customer/customerApi.js";
+import { getTokenData } from "@/utils/getTokenData";
 import ConsigneeConsignorManager from "./ConsigneeConsignorManager";
 import MisFieldsManager from "./MisFieldsManager";
 
@@ -72,14 +73,18 @@ const UpdateCustomer = () => {
   useEffect(() => {
     if (customerData?.customer) {
       const c = customerData.customer;
-      const companyId = c.company._id;
+      // Handle company - could be object or array
+      const companyId = c.company?._id || (Array.isArray(c.company) && c.company.length > 0 ? c.company[0]._id : null) || "";
+      // Handle branch - could be object or array
+      const branchId = c.branch?._id || (Array.isArray(c.branch) && c.branch.length > 0 ? c.branch[0]._id : null) || "";
+      
       setFormData({
         name: c.name || "",
         email: c.email || "",
         phone: c.phone || "",
         gstNumber: c.gstNumber || "",
         address: c.address || "",
-        company: isBranchAdmin ? user?.company : c.company?._id || "",
+        company: isBranchAdmin ? (user?.company?._id || getTokenData().companyId) : companyId,
         branch: "",
         companyName: c.companyName || "",
         companyContactName: c.companyContactName || "",
@@ -93,24 +98,25 @@ const UpdateCustomer = () => {
       });
 
       // Step 2: If not admin, fetch branches & then set branch
-      if (!isBranchAdmin && c.company?._id) {
-        getBranchesByCompany(c.company._id).then((res) => {
+      if (!isBranchAdmin && companyId) {
+        getBranchesByCompany(companyId).then((res) => {
           const br = res?.data?.branches || [];
           setBranches(br);
 
           setFormData((prev) => ({
             ...prev,
-            branch: c.branch?._id || "",
+            branch: branchId || "",
           }));
         });
       }
 
       // Step 3: If admin, populate only their branch
       if (isBranchAdmin) {
-        setBranches([{ _id: user.branch, name: "Your Branch" }]);
+        const tokenBranchId = getTokenData().branchId || user?.branch?._id;
+        setBranches([{ _id: tokenBranchId, name: "Your Branch" }]);
         setFormData((prev) => ({
           ...prev,
-          branch: user.branch,
+          branch: tokenBranchId || "",
         }));
       }
     }
@@ -123,17 +129,51 @@ const UpdateCustomer = () => {
   };
 
   const handleUpdate = async () => {
-    const { name, company, branch } = formData;
-    if (!name || !company || !branch) {
+    // Get companyId and branchId from token if not provided in formData
+    const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+    
+    // Ensure we have valid company and branch IDs (not undefined or empty string)
+    const finalCompany = (formData.company && formData.company !== "undefined") 
+      ? formData.company 
+      : (tokenCompanyId || "");
+    const finalBranch = (formData.branch && formData.branch !== "undefined") 
+      ? formData.branch 
+      : (tokenBranchId || "");
+
+    if (!formData.name || !finalCompany || !finalBranch) {
       toast.error("Name, Company, and Branch are required");
       return;
     }
 
-    await updateCustomer({
+    // Create payload with only valid values, excluding undefined fields
+    const payload = {
       customerId,
-      ...formData,
+      name: formData.name,
+      email: formData.email || undefined,
+      phone: formData.phone || undefined,
+      gstNumber: formData.gstNumber || undefined,
+      address: formData.address || undefined,
+      company: finalCompany,
+      branch: finalBranch,
+      companyName: formData.companyName || undefined,
+      companyContactName: formData.companyContactName || undefined,
+      companyContactInfo: formData.companyContactInfo || undefined,
+      taxType: formData.taxType || undefined,
+      taxValue: formData.taxValue || undefined,
+      consignees: formData.consignees || [],
+      consignors: formData.consignors || [],
+      misFields: formData.misFields || [],
       status: formData.status ? true : false,
+    };
+
+    // Remove undefined values from payload
+    Object.keys(payload).forEach(key => {
+      if (payload[key] === undefined || payload[key] === "undefined") {
+        delete payload[key];
+      }
     });
+
+    await updateCustomer(payload);
   };
 
   useEffect(() => {

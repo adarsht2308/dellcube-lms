@@ -1,4 +1,6 @@
 import { User } from "../models/user.js";
+import { Company } from "../models/company.js";
+import { Branch } from "../models/branch.js";
 import { generateOTP, sendOTPEmail, sendPasswordResetOTPEmail } from "../utils/common/registerOTP.js";
 import bcrypt from "bcryptjs";
 import { generateToken } from "../utils/common/generateToken.js";
@@ -202,17 +204,39 @@ export const getUserProfileController = async (req, res) => {
     const userId = req.id;
     const user = await User.findById(userId)
       .select("-password")
-      .populate("company")
-      .populate("branch");
+      .populate("company", "name companyCode")
+      .populate("branch", "name branchCode");
     if (!user) {
       return res.status(404).json({
         message: "Profile not found",
         success: false,
       });
     }
+
+    // Get selected company and branch from token (current session)
+    const selectedCompanyId = req.companyId;
+    const selectedBranchId = req.branchId;
+
+    // Fetch selected company and branch details if available
+    let selectedCompany = null;
+    let selectedBranch = null;
+
+    if (selectedCompanyId) {
+      selectedCompany = await Company.findById(selectedCompanyId).select("name companyCode");
+    }
+
+    if (selectedBranchId) {
+      selectedBranch = await Branch.findById(selectedBranchId).select("name branchCode");
+    }
+
+    // Return user with selected company/branch for current session
+    const userObject = user.toObject();
+    userObject.selectedCompany = selectedCompany;
+    userObject.selectedBranch = selectedBranch;
+
     return res.status(200).json({
       success: true,
-      user,
+      user: userObject,
     });
   } catch (error) {
     console.log(error);
@@ -223,9 +247,108 @@ export const getUserProfileController = async (req, res) => {
   }
 };
 
+// Check available companies/branches for a user (before login)
+export const checkUserAssignmentsController = async (req, res) => {
+  try {
+    const { email, mobile } = req.body;
+
+    if (!email && !mobile) {
+      return res.status(400).json({
+        success: false,
+        message: "Email or mobile is required",
+      });
+    }
+
+    // Find user by email or mobile
+    let user;
+    if (mobile) {
+      user = await User.findOne({ mobile }).select("company branch role");
+    } else if (email) {
+      user = await User.findOne({ email }).select("company branch role");
+    }
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Get all unique companies from company array
+    let companyIds = [];
+    if (user.company && Array.isArray(user.company) && user.company.length > 0) {
+      companyIds = user.company.map(c => {
+        if (c && typeof c === 'object' && c._id) {
+          return c._id.toString();
+        }
+        return c.toString ? c.toString() : c;
+      });
+    } else if (user.company) {
+      // Handle legacy single company
+      companyIds = [user.company.toString ? user.company.toString() : user.company];
+    }
+
+    // Get all unique branches from branch array
+    let branchIds = [];
+    if (user.branch && Array.isArray(user.branch) && user.branch.length > 0) {
+      branchIds = user.branch.map(b => {
+        if (b && typeof b === 'object' && b._id) {
+          return b._id.toString();
+        }
+        return b.toString ? b.toString() : b;
+      });
+    } else if (user.branch) {
+      // Handle legacy single branch
+      branchIds = [user.branch.toString ? user.branch.toString() : user.branch];
+    }
+
+    // Fetch company details
+    const companies = await Company.find({ _id: { $in: companyIds } }).select("name companyCode");
+    
+    // Fetch branch details with company info
+    const branches = await Branch.find({ _id: { $in: branchIds } })
+      .populate("company", "name companyCode")
+      .select("name branchCode company");
+
+    // Organize branches by company
+    const branchesByCompany = {};
+    branches.forEach(branch => {
+      const companyId = branch.company._id.toString();
+      if (!branchesByCompany[companyId]) {
+        branchesByCompany[companyId] = [];
+      }
+      branchesByCompany[companyId].push({
+        _id: branch._id,
+        name: branch.name,
+        branchCode: branch.branchCode,
+      });
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        companies: companies.map(c => ({
+          _id: c._id,
+          name: c.name,
+          companyCode: c.companyCode,
+        })),
+        branchesByCompany,
+        hasMultipleCompanies: companies.length > 1,
+        hasMultipleBranches: branches.length > 1,
+      },
+    });
+  } catch (error) {
+    console.log("Check User Assignments Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to check user assignments",
+    });
+  }
+};
+
 export const loginController = async (req, res) => {
   try {
-    const { email, mobile, password } = req.body;
+    const { email, mobile, password, companyId, branchId } = req.body;
 
     if ((!email && !mobile) || !password) {
       return res.status(400).json({
@@ -267,7 +390,99 @@ export const loginController = async (req, res) => {
       });
     }
 
-    generateToken(res, user, `Welcome back ${user.name}`);
+    // For superAdmin, no company/branch needed
+    if (user.role === "superAdmin") {
+      return generateToken(res, user, `Welcome back ${user.name}`, null, null);
+    }
+
+    // Get available companies and branches from arrays
+    let companyIds = [];
+    if (user.company && Array.isArray(user.company) && user.company.length > 0) {
+      companyIds = user.company.map(c => {
+        if (c && typeof c === 'object' && c._id) {
+          return c._id.toString();
+        }
+        return c.toString ? c.toString() : c;
+      });
+    } else if (user.company) {
+      // Handle legacy single company
+      companyIds = [user.company.toString ? user.company.toString() : user.company];
+    }
+
+    let branchIds = [];
+    if (user.branch && Array.isArray(user.branch) && user.branch.length > 0) {
+      branchIds = user.branch.map(b => {
+        if (b && typeof b === 'object' && b._id) {
+          return b._id.toString();
+        }
+        return b.toString ? b.toString() : b;
+      });
+    } else if (user.branch) {
+      // Handle legacy single branch
+      branchIds = [user.branch.toString ? user.branch.toString() : user.branch];
+    }
+
+    // Determine selected company and branch
+    let selectedCompanyId = null;
+    let selectedBranchId = null;
+
+    // If companyId and branchId provided, validate them
+    if (companyId && branchId) {
+      // Validate selected company belongs to user
+      if (!companyIds.includes(companyId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid company selection",
+        });
+      }
+
+      // Validate selected branch belongs to user
+      if (!branchIds.includes(branchId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid branch selection",
+        });
+      }
+
+      // Validate branch belongs to selected company
+      const branch = await Branch.findById(branchId);
+      if (!branch) {
+        return res.status(400).json({
+          success: false,
+          message: "Branch not found",
+        });
+      }
+      
+      if (branch.company.toString() !== companyId) {
+        return res.status(400).json({
+          success: false,
+          message: "Branch does not belong to selected company",
+        });
+      }
+
+      selectedCompanyId = companyId;
+      selectedBranchId = branchId;
+    } else {
+      // No selection provided - use defaults if single assignment
+      if (companyIds.length === 1 && branchIds.length === 1) {
+        selectedCompanyId = companyIds[0];
+        selectedBranchId = branchIds[0];
+      } else if (companyIds.length > 1 || branchIds.length > 1) {
+        // Multiple assignments require selection
+        return res.status(400).json({
+          success: false,
+          message: "Please select company and branch",
+          requiresSelection: true,
+        });
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: "Company and branch assignment required",
+        });
+      }
+    }
+
+    return generateToken(res, user, `Welcome back ${user.name}`, selectedCompanyId, selectedBranchId);
   } catch (error) {
     console.log("Login Error:", error);
     return res.status(500).json({
@@ -340,8 +555,10 @@ export const createBranchAdminController = async (req, res) => {
       name,
       email,
       password,
-      company,
-      branch,
+      company, // Single company (backward compatibility)
+      branch, // Single branch (backward compatibility)
+      companies, // Array of companies (new)
+      branches, // Array of branches (new)
       mobile,
       aadharNumber,
       panNumber,
@@ -350,12 +567,96 @@ export const createBranchAdminController = async (req, res) => {
     } = req.body;
 
     const parsedBankDetails = parseJSONField(bankDetails, bankDetails);
+    
+    // Support multiple companies/branches as arrays
+    // Handle FormData - company and branch are sent as JSON strings
+    let companyIds = [];
+    let branchIds = [];
+    
+    // Parse company - could be JSON string, array, or single value
+    // Handle FormData which sends JSON as string
+    const companyValue = req.body.company || company;
+    if (companyValue) {
+      if (typeof companyValue === 'string') {
+        // Try to parse as JSON first
+        let trimmed = companyValue.trim();
+        // Remove outer quotes if present (handles double-encoded strings)
+        if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || 
+            (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+          trimmed = trimmed.slice(1, -1);
+        }
+        // Unescape if needed
+        if (trimmed.includes('\\"')) {
+          trimmed = trimmed.replace(/\\"/g, '"');
+        }
+        
+        if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            companyIds = Array.isArray(parsed) ? parsed : [parsed];
+          } catch (parseError) {
+            console.error("Failed to parse company JSON:", parseError, "Value:", trimmed);
+            // If JSON parse fails, treat as single value
+            companyIds = [trimmed];
+          }
+        } else {
+          // Not JSON format, treat as single value
+          companyIds = [trimmed];
+        }
+      } else if (Array.isArray(companyValue)) {
+        companyIds = companyValue;
+      } else {
+        companyIds = [companyValue];
+      }
+    }
+    
+    // Parse branch - could be JSON string, array, or single value
+    // Handle FormData which sends JSON as string
+    const branchValue = req.body.branch || branch;
+    if (branchValue) {
+      if (typeof branchValue === 'string') {
+        // Try to parse as JSON first
+        let trimmed = branchValue.trim();
+        // Remove outer quotes if present (handles double-encoded strings)
+        if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || 
+            (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+          trimmed = trimmed.slice(1, -1);
+        }
+        // Unescape if needed
+        if (trimmed.includes('\\"')) {
+          trimmed = trimmed.replace(/\\"/g, '"');
+        }
+        
+        if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            branchIds = Array.isArray(parsed) ? parsed : [parsed];
+          } catch (parseError) {
+            console.error("Failed to parse branch JSON:", parseError, "Value:", trimmed);
+            // If JSON parse fails, treat as single value
+            branchIds = [trimmed];
+          }
+        } else {
+          // Not JSON format, treat as single value
+          branchIds = [trimmed];
+        }
+      } else if (Array.isArray(branchValue)) {
+        branchIds = branchValue;
+      } else {
+        branchIds = [branchValue];
+      }
+    }
+    
+    // Filter out empty values
+    companyIds = companyIds.filter(id => id && String(id).trim() !== '');
+    branchIds = branchIds.filter(id => id && String(id).trim() !== '');
+    
     if (
       !name ||
       !email ||
       !password ||
-      !company ||
-      !branch ||
+      companyIds.length === 0 ||
+      branchIds.length === 0 ||
       !aadharNumber ||
       !panNumber ||
       !parsedBankDetails
@@ -363,7 +664,7 @@ export const createBranchAdminController = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          "All fields are required including Aadhar, PAN, and Bank details.",
+          "All fields are required including at least one company, one branch, Aadhar, PAN, and Bank details.",
       });
     }
 
@@ -416,13 +717,27 @@ export const createBranchAdminController = async (req, res) => {
     const normalizedStatus = normalizeBoolean(status, true);
     const signatureData = getSignatureFromRequest(req);
 
+    // Validate that we have at least one company and branch
+    if (companyIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one company is required.",
+      });
+    }
+    if (branchIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one branch is required.",
+      });
+    }
+
     const newUser = await User.create({
       name,
       email,
       password: hashedPassword,
       role: "branchAdmin",
-      company,
-      branch,
+      company: companyIds, // Always set as array
+      branch: branchIds,   // Always set as array
       ...(mobile && { mobile }),
       aadharNumber,
       panNumber,
@@ -431,10 +746,18 @@ export const createBranchAdminController = async (req, res) => {
       ...(signatureData && { signature: signatureData }),
     });
 
+    // Populate companies and branches arrays
+    const populatedUser = await User.findById(newUser._id)
+      .populate("company", "name companyCode")
+      .populate("branch", "name branchCode")
+      .populate("company", "name companyCode")
+      .populate("branch", "name branchCode")
+      .select("-password");
+
     return res.status(201).json({
       success: true,
       message: "Branch Admin created successfully.",
-      user: newUser,
+      user: populatedUser,
     });
   } catch (error) {
     console.error("Error creating branch admin:", error.message);
@@ -457,12 +780,18 @@ export const getAllBranchAdmins = async (req, res) => {
     };
 
     if (search) query.name = { $regex: search, $options: "i" };
-    if (company) query.company = company;
-    if (branch) query.branch = branch;
+    
+    // Use companyId/branchId from token if not provided in query (for non-superAdmin users)
+    const finalCompany = company || (req.user?.role !== "superAdmin" ? req.companyId : null);
+    const finalBranch = branch || (req.user?.role !== "superAdmin" ? req.branchId : null);
+    
+    // Query for array fields - use $in operator to find users with matching company/branch in their arrays
+    if (finalCompany) query.company = { $in: [finalCompany] };
+    if (finalBranch) query.branch = { $in: [finalBranch] };
     if (status !== "") query.status = status === "true";
     const branchAdmins = await User.find(query)
-      .populate("company", "name")
-      .populate("branch", "name")
+      .populate("company", "name companyCode")
+      .populate("branch", "name branchCode")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -493,8 +822,8 @@ export const getBranchAdminById = async (req, res) => {
     const { id } = req.body;
 
     const user = await User.findOne({ _id: id, role: "branchAdmin" })
-      .populate("company", "name")
-      .populate("branch", "name");
+      .populate("company", "name companyCode")
+      .populate("branch", "name branchCode");
 
     if (!user) {
       return res.status(404).json({
@@ -559,8 +888,10 @@ export const updateBranchAdminController = async (req, res) => {
       userId,
       name,
       email,
-      company,
-      branch,
+      company, // Single company (backward compatibility)
+      branch, // Single branch (backward compatibility)
+      companies, // Array of companies (new)
+      branches, // Array of branches (new)
       status,
       mobile,
       aadharNumber,
@@ -653,11 +984,110 @@ export const updateBranchAdminController = async (req, res) => {
     const normalizedStatus =
       status !== undefined ? normalizeBoolean(status, user.status) : undefined;
 
+    // Support multiple companies/branches as arrays
+    // Handle FormData - company and branch are sent as JSON strings
+    let companyIds = [];
+    let branchIds = [];
+    
+    // Helper function to parse JSON string from FormData
+    const parseFormDataArray = (value) => {
+      if (!value) return [];
+      
+      // If already an array, return it
+      if (Array.isArray(value)) {
+        return value;
+      }
+      
+      // If it's a string, try to parse it
+      if (typeof value === 'string') {
+        let trimmed = value.trim();
+        
+        // Remove outer quotes if the entire string is quoted (handles double-encoded)
+        // e.g., "[\"id1\",\"id2\"]" -> ["id1","id2"]
+        if ((trimmed.startsWith('"') && trimmed.endsWith('"')) && trimmed.length > 2) {
+          const inner = trimmed.slice(1, -1);
+          // Check if inner is also a JSON string
+          if (inner.startsWith('[') || inner.startsWith('{')) {
+            trimmed = inner;
+          }
+        }
+        
+        // Unescape escaped quotes
+        trimmed = trimmed.replace(/\\"/g, '"').replace(/\\'/g, "'");
+        
+        // Try to parse as JSON
+        if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            return Array.isArray(parsed) ? parsed : [parsed];
+          } catch (parseError) {
+            console.error("Failed to parse JSON:", parseError, "Original value:", value, "Trimmed:", trimmed);
+            // If parse fails, return empty array (invalid format)
+            return [];
+          }
+        } else {
+          // Single value, return as array
+          return [trimmed];
+        }
+      }
+      
+      // Single non-string value
+      return [value];
+    };
+    
+    // Parse company
+    const companyValue = req.body.company || company;
+    companyIds = parseFormDataArray(companyValue);
+    
+    // Parse branch
+    const branchValue = req.body.branch || branch;
+    branchIds = parseFormDataArray(branchValue);
+    
+    // Filter out empty values and validate ObjectIds
+    companyIds = companyIds
+      .map(id => String(id).trim())
+      .filter(id => {
+        if (!id) return false;
+        // Validate ObjectId format
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+          console.error(`Invalid company ObjectId: ${id}`);
+          return false;
+        }
+        return true;
+      });
+    
+    branchIds = branchIds
+      .map(id => String(id).trim())
+      .filter(id => {
+        if (!id) return false;
+        // Validate ObjectId format
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+          console.error(`Invalid branch ObjectId: ${id}`);
+          return false;
+        }
+        return true;
+      });
+
+    // Validate that we have at least one company and branch
+    if (companyIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one valid company is required.",
+      });
+    }
+    if (branchIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one valid branch is required.",
+      });
+    }
+
+    // Always set company and branch as arrays (required for multi-assignment)
     const updatedData = {
       name,
       email,
-      ...(company && { company }),
-      ...(branch && { branch }),
+      company: companyIds, // Always set as array
+      branch: branchIds,   // Always set as array
       ...(normalizedStatus !== undefined && { status: normalizedStatus }),
       ...(mobile && { mobile }),
       ...(aadharNumber && { aadharNumber }),
@@ -670,9 +1100,25 @@ export const updateBranchAdminController = async (req, res) => {
       ...(signaturePayload && { signature: signaturePayload }),
     };
 
-    const updatedUser = await User.findByIdAndUpdate(userId, updatedData, {
+    // Update the user
+    await User.findByIdAndUpdate(userId, updatedData, {
       new: true,
-    }).select("-password");
+    });
+
+    // Fetch the updated user with populated companies and branches
+    const updatedUser = await User.findById(userId)
+      .populate("company", "name companyCode")
+      .populate("branch", "name branchCode")
+      .populate("company", "name companyCode")
+      .populate("branch", "name branchCode")
+      .select("-password");
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: "Branch Admin not found after update",
+      });
+    }
 
     return res.status(200).json({
       success: true,
@@ -696,8 +1142,10 @@ export const createOperationUserController = async (req, res) => {
       name,
       email,
       password,
-      company,
-      branch,
+      company, // Single company (backward compatibility)
+      branch, // Single branch (backward compatibility)
+      companies, // Array of companies (new)
+      branches, // Array of branches (new)
       mobile,
       aadharNumber,
       panNumber,
@@ -706,13 +1154,96 @@ export const createOperationUserController = async (req, res) => {
     } = req.body;
 
     const parsedBankDetails = parseJSONField(bankDetails, bankDetails);
+    
+    // Support multiple companies/branches as arrays
+    // Handle FormData - company and branch are sent as JSON strings
+    let companyIds = [];
+    let branchIds = [];
+    
+    // Parse company - could be JSON string, array, or single value
+    // Handle FormData which sends JSON as string
+    const companyValue = req.body.company || company;
+    if (companyValue) {
+      if (typeof companyValue === 'string') {
+        // Try to parse as JSON first
+        let trimmed = companyValue.trim();
+        // Remove outer quotes if present (handles double-encoded strings)
+        if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || 
+            (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+          trimmed = trimmed.slice(1, -1);
+        }
+        // Unescape if needed
+        if (trimmed.includes('\\"')) {
+          trimmed = trimmed.replace(/\\"/g, '"');
+        }
+        
+        if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            companyIds = Array.isArray(parsed) ? parsed : [parsed];
+          } catch (parseError) {
+            console.error("Failed to parse company JSON:", parseError, "Value:", trimmed);
+            // If JSON parse fails, treat as single value
+            companyIds = [trimmed];
+          }
+        } else {
+          // Not JSON format, treat as single value
+          companyIds = [trimmed];
+        }
+      } else if (Array.isArray(companyValue)) {
+        companyIds = companyValue;
+      } else {
+        companyIds = [companyValue];
+      }
+    }
+    
+    // Parse branch - could be JSON string, array, or single value
+    // Handle FormData which sends JSON as string
+    const branchValue = req.body.branch || branch;
+    if (branchValue) {
+      if (typeof branchValue === 'string') {
+        // Try to parse as JSON first
+        let trimmed = branchValue.trim();
+        // Remove outer quotes if present (handles double-encoded strings)
+        if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || 
+            (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+          trimmed = trimmed.slice(1, -1);
+        }
+        // Unescape if needed
+        if (trimmed.includes('\\"')) {
+          trimmed = trimmed.replace(/\\"/g, '"');
+        }
+        
+        if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            branchIds = Array.isArray(parsed) ? parsed : [parsed];
+          } catch (parseError) {
+            console.error("Failed to parse branch JSON:", parseError, "Value:", trimmed);
+            // If JSON parse fails, treat as single value
+            branchIds = [trimmed];
+          }
+        } else {
+          // Not JSON format, treat as single value
+          branchIds = [trimmed];
+        }
+      } else if (Array.isArray(branchValue)) {
+        branchIds = branchValue;
+      } else {
+        branchIds = [branchValue];
+      }
+    }
+    
+    // Filter out empty values
+    companyIds = companyIds.filter(id => id && String(id).trim() !== '');
+    branchIds = branchIds.filter(id => id && String(id).trim() !== '');
 
     if (
       !name ||
       !email ||
       !password ||
-      !company ||
-      !branch ||
+      companyIds.length === 0 ||
+      branchIds.length === 0 ||
       !aadharNumber ||
       !panNumber ||
       !parsedBankDetails
@@ -720,7 +1251,7 @@ export const createOperationUserController = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          "All fields are required including Aadhar, PAN, and Bank details.",
+          "All fields are required including at least one company, one branch, Aadhar, PAN, and Bank details.",
       });
     }
 
@@ -781,8 +1312,8 @@ export const createOperationUserController = async (req, res) => {
       email,
       password: hashedPassword,
       role: "operation",
-      company,
-      branch,
+      company: companyIds, // Always set as array
+      branch: branchIds,   // Always set as array
       ...(mobile && { mobile }),
       aadharNumber,
       panNumber,
@@ -790,10 +1321,19 @@ export const createOperationUserController = async (req, res) => {
       status: normalizedStatus,
       ...(signatureData && { signature: signatureData }),
     });
+
+    // Populate companies and branches arrays
+    const populatedUser = await User.findById(newUser._id)
+      .populate("company", "name companyCode")
+      .populate("branch", "name branchCode")
+      .populate("company", "name companyCode")
+      .populate("branch", "name branchCode")
+      .select("-password");
+
     return res.status(201).json({
       success: true,
       message: "Operation User created successfully.",
-      user: newUser,
+      user: populatedUser,
     });
   } catch (error) {
     console.error("Error creating operation user:", error.message);
@@ -812,13 +1352,19 @@ export const getAllOperationUsers = async (req, res) => {
     const skip = (page - 1) * limit;
     const query = { role: "operation" };
     if (search) query.name = { $regex: search, $options: "i" };
-    if (company) query.company = company;
-    if (branch) query.branch = branch;
+    
+    // Use companyId/branchId from token if not provided in query (for non-superAdmin users)
+    const finalCompany = company || (req.user?.role !== "superAdmin" ? req.companyId : null);
+    const finalBranch = branch || (req.user?.role !== "superAdmin" ? req.branchId : null);
+    
+    // Query for array fields - use $in operator to find users with matching company/branch in their arrays
+    if (finalCompany) query.company = { $in: [finalCompany] };
+    if (finalBranch) query.branch = { $in: [finalBranch] };
     if (status !== "") query.status = status === "true";
 
     const operationUsers = await User.find(query)
-      .populate("company", "name")
-      .populate("branch", "name")
+      .populate("company", "name companyCode")
+      .populate("branch", "name branchCode")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -847,8 +1393,10 @@ export const getOperationUserById = async (req, res) => {
     const { id } = req.body;
 
     const user = await User.findOne({ _id: id, role: "operation" })
-      .populate("company", "name")
-      .populate("branch", "name");
+      .populate("company", "name companyCode")
+      .populate("branch", "name branchCode")
+      .populate("company", "name companyCode")
+      .populate("branch", "name branchCode");
     if (!user) {
       return res
         .status(404)
@@ -901,8 +1449,10 @@ export const updateOperationUserController = async (req, res) => {
       userId,
       name,
       email,
-      company,
-      branch,
+      company, // Single company (backward compatibility)
+      branch, // Single branch (backward compatibility)
+      companies, // Array of companies (new)
+      branches, // Array of branches (new)
       status,
       mobile,
       aadharNumber,
@@ -990,11 +1540,110 @@ export const updateOperationUserController = async (req, res) => {
     const normalizedStatus =
       status !== undefined ? normalizeBoolean(status, user.status) : undefined;
 
+    // Support multiple companies/branches as arrays
+    // Handle FormData - company and branch are sent as JSON strings
+    let companyIds = [];
+    let branchIds = [];
+    
+    // Helper function to parse JSON string from FormData
+    const parseFormDataArray = (value) => {
+      if (!value) return [];
+      
+      // If already an array, return it
+      if (Array.isArray(value)) {
+        return value;
+      }
+      
+      // If it's a string, try to parse it
+      if (typeof value === 'string') {
+        let trimmed = value.trim();
+        
+        // Remove outer quotes if the entire string is quoted (handles double-encoded)
+        // e.g., "[\"id1\",\"id2\"]" -> ["id1","id2"]
+        if ((trimmed.startsWith('"') && trimmed.endsWith('"')) && trimmed.length > 2) {
+          const inner = trimmed.slice(1, -1);
+          // Check if inner is also a JSON string
+          if (inner.startsWith('[') || inner.startsWith('{')) {
+            trimmed = inner;
+          }
+        }
+        
+        // Unescape escaped quotes
+        trimmed = trimmed.replace(/\\"/g, '"').replace(/\\'/g, "'");
+        
+        // Try to parse as JSON
+        if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            return Array.isArray(parsed) ? parsed : [parsed];
+          } catch (parseError) {
+            console.error("Failed to parse JSON:", parseError, "Original value:", value, "Trimmed:", trimmed);
+            // If parse fails, return empty array (invalid format)
+            return [];
+          }
+        } else {
+          // Single value, return as array
+          return [trimmed];
+        }
+      }
+      
+      // Single non-string value
+      return [value];
+    };
+    
+    // Parse company
+    const companyValue = req.body.company || company;
+    companyIds = parseFormDataArray(companyValue);
+    
+    // Parse branch
+    const branchValue = req.body.branch || branch;
+    branchIds = parseFormDataArray(branchValue);
+    
+    // Filter out empty values and validate ObjectIds
+    companyIds = companyIds
+      .map(id => String(id).trim())
+      .filter(id => {
+        if (!id) return false;
+        // Validate ObjectId format
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+          console.error(`Invalid company ObjectId: ${id}`);
+          return false;
+        }
+        return true;
+      });
+    
+    branchIds = branchIds
+      .map(id => String(id).trim())
+      .filter(id => {
+        if (!id) return false;
+        // Validate ObjectId format
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+          console.error(`Invalid branch ObjectId: ${id}`);
+          return false;
+        }
+        return true;
+      });
+
+    // Validate that we have at least one company and branch
+    if (companyIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one valid company is required.",
+      });
+    }
+    if (branchIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one valid branch is required.",
+      });
+    }
+
+    // Always set company and branch as arrays (required for multi-assignment)
     const updatedData = {
       name,
       ...(email && { email }),
-      ...(company && { company }),
-      ...(branch && { branch }),
+      company: companyIds, // Always set as array
+      branch: branchIds,   // Always set as array
       ...(normalizedStatus !== undefined && { status: normalizedStatus }),
       ...(mobile && { mobile }),
       ...(aadharNumber && { aadharNumber }),
@@ -1004,9 +1653,26 @@ export const updateOperationUserController = async (req, res) => {
       ...(signaturePayload && { signature: signaturePayload }),
     };
 
-    const updatedUser = await User.findByIdAndUpdate(userId, updatedData, {
+    // Update the user
+    await User.findByIdAndUpdate(userId, updatedData, {
       new: true,
-    }).select("-password");
+    });
+
+    // Fetch the updated user with populated companies and branches
+    const updatedUser = await User.findById(userId)
+      .populate("company", "name companyCode")
+      .populate("branch", "name branchCode")
+      .populate("company", "name companyCode")
+      .populate("branch", "name branchCode")
+      .select("-password");
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: "Operation User not found after update",
+      });
+    }
+
     return res.status(200).json({
       success: true,
       message: "Operation User updated successfully",
@@ -1029,8 +1695,10 @@ export const createDriverController = async (req, res) => {
       name,
       mobile,
       password,
-      company,
-      branch,
+      company, // Single company (backward compatibility)
+      branch, // Single branch (backward compatibility)
+      companies, // Array of companies (new)
+      branches, // Array of branches (new)
       licenseNumber,
       experienceYears,
       driverType,
@@ -1040,19 +1708,35 @@ export const createDriverController = async (req, res) => {
       bankDetails,
     } = req.body;
 
+    // Support both single and multiple companies/branches
+    let companyIds = [];
+    let branchIds = [];
+    
+    if (companies && Array.isArray(companies) && companies.length > 0) {
+      companyIds = companies;
+    } else if (company) {
+      companyIds = [company];
+    }
+    
+    if (branches && Array.isArray(branches) && branches.length > 0) {
+      branchIds = branches;
+    } else if (branch) {
+      branchIds = [branch];
+    }
+
     if (
       !name ||
       !mobile ||
       !password ||
-      !company ||
-      !branch ||
+      companyIds.length === 0 ||
+      branchIds.length === 0 ||
       !licenseNumber ||
       !experienceYears ||
       !driverType
     ) {
       return res.status(400).json({
         success: false,
-        message: "All required fields are required.",
+        message: "All required fields are required including at least one company and branch.",
       });
     }
 
@@ -1234,13 +1918,19 @@ export const createDriverController = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // For backward compatibility, set single company/branch if only one
+    const singleCompany = companyIds.length === 1 ? companyIds[0] : null;
+    const singleBranch = branchIds.length === 1 ? branchIds[0] : null;
+
     const newDriver = await User.create({
       name,
       mobile,
       password: hashedPassword,
       role: "driver",
-      company,
-      branch,
+      ...(singleCompany && { company: singleCompany }),
+      ...(singleBranch && { branch: singleBranch }),
+      companies: companyIds,
+      branches: branchIds,
       licenseNumber,
       experienceYears,
       driverType,
@@ -1276,14 +1966,20 @@ export const getAllDriversController = async (req, res) => {
 
     const query = { role: "driver" };
     if (search) query.name = { $regex: search, $options: "i" };
-    if (company) query.company = company;
-    if (branch) query.branch = branch;
+    
+    // Use companyId/branchId from token if not provided in query (for non-superAdmin users)
+    const finalCompany = company || (req.user?.role !== "superAdmin" ? req.companyId : null);
+    const finalBranch = branch || (req.user?.role !== "superAdmin" ? req.branchId : null);
+    
+    // Query for array fields - use $in operator to find users with matching company/branch in their arrays
+    if (finalCompany) query.company = { $in: [finalCompany] };
+    if (finalBranch) query.branch = { $in: [finalBranch] };
     if (status !== "") query.status = status === "true";
     if (driverType) query.driverType = driverType;
 
     const drivers = await User.find(query)
-      .populate("company", "name")
-      .populate("branch", "name")
+      .populate("company", "name companyCode")
+      .populate("branch", "name branchCode")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -1347,8 +2043,10 @@ export const updateDriverController = async (req, res) => {
       mobile,
       licenseNumber,
       experienceYears,
-      company,
-      branch,
+      company, // Single company (backward compatibility)
+      branch, // Single branch (backward compatibility)
+      companies, // Array of companies (new)
+      branches, // Array of branches (new)
       status,
       driverType,
       vendor,
@@ -1600,13 +2298,35 @@ export const updateDriverController = async (req, res) => {
     // Determine effective driver type for vendor field handling
     const effectiveDriverTypeForUpdate = driverType || user.driverType;
 
+    // Support both single and multiple companies/branches
+    let companyIds = [];
+    let branchIds = [];
+    
+    if (companies && Array.isArray(companies) && companies.length > 0) {
+      companyIds = companies;
+    } else if (company) {
+      companyIds = [company];
+    }
+    
+    if (branches && Array.isArray(branches) && branches.length > 0) {
+      branchIds = branches;
+    } else if (branch) {
+      branchIds = [branch];
+    }
+
+    // For backward compatibility, set single company/branch if only one
+    const singleCompany = companyIds.length === 1 ? companyIds[0] : (companyIds.length > 0 ? null : company);
+    const singleBranch = branchIds.length === 1 ? branchIds[0] : (branchIds.length > 0 ? null : branch);
+
     const updatedData = {
       name,
       mobile,
       licenseNumber,
       experienceYears,
-      ...(company && { company }),
-      ...(branch && { branch }),
+      ...(singleCompany && { company: singleCompany }),
+      ...(singleBranch && { branch: singleBranch }),
+      ...(companyIds.length > 0 && { companies: companyIds }),
+      ...(branchIds.length > 0 && { branches: branchIds }),
       ...(status !== undefined && { status }),
       ...(driverType && { driverType }),
       // Handle vendor field: set if driverType is vendor, clear if not

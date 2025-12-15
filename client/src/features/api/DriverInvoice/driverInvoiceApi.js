@@ -1,5 +1,6 @@
 import { BASE_URL } from "@/utils/BaseUrl";
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { getTokenData } from "@/utils/getTokenData";
 
 const DRIVER_INVOICE_API = `${BASE_URL}/driver`;
 
@@ -19,26 +20,42 @@ export const driverInvoiceApi = createApi({
         driverId,
         fromDate,
         toDate,
-      }) => ({
-        url: "/driver-invoices",
-        method: "POST",
-        params: { page, limit, search },
-        body: {
-          driverId,
-          ...(fromDate && { fromDate }),
-          ...(toDate && { toDate }),
-        },
-      }),
+      }) => {
+        // Get companyId and branchId from token
+        const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+        
+        return {
+          url: "/driver-invoices",
+          method: "POST",
+          params: { page, limit, search },
+          body: {
+            driverId,
+            ...(fromDate && { fromDate }),
+            ...(toDate && { toDate }),
+            ...(tokenCompanyId && { companyId: tokenCompanyId }),
+            ...(tokenBranchId && { branchId: tokenBranchId }),
+          },
+        };
+      },
       providesTags: ["DriverInvoice"],
     }),
 
     getRecentDriverInvoices: builder.mutation({
-      query: ({ page = 1, limit = 50, search = "", driverId }) => ({
-        url: "/recent-invoice",
-        method: "POST",
-        params: { page, limit, search },
-        body: { driverId },
-      }),
+      query: ({ page = 1, limit = 50, search = "", driverId }) => {
+        // Get companyId and branchId from token
+        const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+        
+        return {
+          url: "/recent-invoice",
+          method: "POST",
+          params: { page, limit, search },
+          body: {
+            driverId,
+            ...(tokenCompanyId && { companyId: tokenCompanyId }),
+            ...(tokenBranchId && { branchId: tokenBranchId }),
+          },
+        };
+      },
       providesTags: ["DriverInvoice"],
     }),
 

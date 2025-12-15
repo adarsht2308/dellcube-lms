@@ -57,6 +57,7 @@ import { useGetCitiesByStateMutation } from "@/features/api/Region/cityApi.js";
 import { useGetLocalitiesByCityMutation } from "@/features/api/Region/LocalityApi.js";
 import { useGetPincodesByLocalityMutation } from "@/features/api/Region/pincodeApi.js";
 import { useGetAllGoodsQuery } from "@/features/api/Goods/goodsApi.js";
+import { getTokenData } from "@/utils/getTokenData";
 import { useGetAllVehiclesQuery } from "@/features/api/Vehicle/vehicleApi.js";
 import { useSearchVehiclesMutation } from "@/features/api/Vehicle/vehicleApi.js";
 import { useDebounce } from "@/hooks/Debounce.jsx";
@@ -1260,11 +1261,21 @@ const UpdateInvoice = () => {
       return;
     }
 
+    // Get companyId and branchId from token as fallback
+    const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+    const finalCompanyId = companyId || tokenCompanyId;
+    const finalBranchId = branchId || tokenBranchId;
+
+    if (!finalCompanyId || !finalBranchId) {
+      toast.error("Company and Branch are required");
+      return;
+    }
+
     let payload = {
       invoiceId,
       customer: customerId,
-      company: companyId,
-      branch: branchId,
+      company: finalCompanyId,
+      branch: finalBranchId,
       ...(invoiceDate && { invoiceDate }),
       ...(dispatchDateTime && { dispatchDateTime }),
       ...(paymentType && { paymentType }),

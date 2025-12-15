@@ -99,6 +99,48 @@ const InfoRow = ({ label, value, icon: Icon }) => (
   </div>
 );
 
+// Helper function to format companies - shows all companies
+const formatCompanies = (admin) => {
+  if (!admin) return null;
+  
+  // Check if company is an array
+  if (admin.company && Array.isArray(admin.company) && admin.company.length > 0) {
+    const companyNames = admin.company
+      .map(c => {
+        if (typeof c === 'object' && c !== null) {
+          return c.name || c.companyCode || String(c);
+        }
+        return String(c);
+      })
+      .filter(name => name && name.trim() !== '');
+    
+    return companyNames.length > 0 ? companyNames.join(", ") : null;
+  }
+  
+  return null;
+};
+
+// Helper function to format branches - shows all branches
+const formatBranches = (admin) => {
+  if (!admin) return null;
+  
+  // Check if branch is an array
+  if (admin.branch && Array.isArray(admin.branch) && admin.branch.length > 0) {
+    const branchNames = admin.branch
+      .map(b => {
+        if (typeof b === 'object' && b !== null) {
+          return b.name || b.branchCode || String(b);
+        }
+        return String(b);
+      })
+      .filter(name => name && name.trim() !== '');
+    
+    return branchNames.length > 0 ? branchNames.join(", ") : null;
+  }
+  
+  return null;
+};
+
 const BranchAdmins = () => {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
@@ -298,8 +340,8 @@ const BranchAdmins = () => {
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Email</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Aadhar</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">PAN</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Company</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Branch</th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Companies</th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Branches</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Status</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Action</th>
               </tr>
@@ -327,8 +369,12 @@ const BranchAdmins = () => {
                     <td className="p-3 text-[#202020] dark:text-[#FFD249]">{admin.email}</td>
                     <td className="p-3 text-[#202020] dark:text-[#FFD249] font-mono text-xs">{admin.aadharNumber || <span className="text-gray-400">N/A</span>}</td>
                     <td className="p-3 text-[#202020] dark:text-[#FFD249] font-mono text-xs">{admin.panNumber || <span className="text-gray-400">N/A</span>}</td>
-                    <td className="p-3 text-[#202020] dark:text-[#FFD249]">{admin.company?.name || <span className="text-gray-400">N/A</span>}</td>
-                    <td className="p-3 text-[#202020] dark:text-[#FFD249]">{admin.branch?.name || <span className="text-gray-400">N/A</span>}</td>
+                    <td className="p-3 text-[#202020] dark:text-[#FFD249]">
+                      {formatCompanies(admin) || <span className="text-gray-400">N/A</span>}
+                    </td>
+                    <td className="p-3 text-[#202020] dark:text-[#FFD249]">
+                      {formatBranches(admin) || <span className="text-gray-400">N/A</span>}
+                    </td>
                     <td className="p-3 text-center">
                       <span className={`px-2 py-1 rounded-full text-xs font-semibold text-center ${admin.status ? 'bg-[#FFD249]/80 text-[#202020]' : 'bg-[#828083]/30 text-[#828083]'}`}>{admin.status ? 'Active' : 'Inactive'}</span>
                     </td>
@@ -399,8 +445,8 @@ const BranchAdmins = () => {
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Email</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Aadhar</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">PAN</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Company</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Branch</th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Companies</th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Branches</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Status</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">Action</th>
               </tr>
@@ -501,13 +547,13 @@ const BranchAdmins = () => {
                   icon={User}
                 />
                 <InfoRow
-                  label="Company"
-                  value={selectedAdmin.company?.name}
+                  label="Companies"
+                  value={formatCompanies(selectedAdmin)}
                   icon={Building2}
                 />
                 <InfoRow
-                  label="Branch"
-                  value={selectedAdmin.branch?.name}
+                  label="Branches"
+                  value={formatBranches(selectedAdmin)}
                   icon={MapPin}
                 />
               </InfoCard>

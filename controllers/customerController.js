@@ -24,7 +24,11 @@ export const createCustomer = async (req, res) => {
 
     console.log(req.body);
 
-    if (!name || !company || !branch) {
+    // Use companyId/branchId from token if not provided in body (for non-superAdmin users)
+    const finalCompany = company || (req.user?.role !== "superAdmin" ? req.companyId : null);
+    const finalBranch = branch || (req.user?.role !== "superAdmin" ? req.branchId : null);
+
+    if (!name || !finalCompany || !finalBranch) {
       return res
         .status(400)
         .json({ message: "Name, company, and branch are required" });
@@ -35,8 +39,8 @@ export const createCustomer = async (req, res) => {
       email,
       phone,
       address,
-      company,
-      branch,
+      company: finalCompany,
+      branch: finalBranch,
       gstNumber,
       companyName,
       companyContactName,
@@ -76,8 +80,11 @@ export const getAllCustomers = async (req, res) => {
     if (search) query.name = { $regex: search, $options: "i" };
     if (status === "true") query.status = true;
     if (status === "false") query.status = false;
-    if (companyId) query.company = companyId;
-    if (branchId) query.branch = branchId;
+    // Use companyId/branchId from token if not provided in query (for non-superAdmin users)
+    const finalCompanyId = companyId || (req.user?.role !== "superAdmin" ? req.companyId : null);
+    const finalBranchId = branchId || (req.user?.role !== "superAdmin" ? req.branchId : null);
+    if (finalCompanyId) query.company = finalCompanyId;
+    if (finalBranchId) query.branch = finalBranchId;
 
     // If vendor is logged in, restrict to their assigned clients only
     if (req.user?.role === "vendor") {
@@ -181,13 +188,17 @@ export const updateCustomer = async (req, res) => {
       });
     }
 
+    // Use companyId/branchId from token if not provided in body (for non-superAdmin users)
+    const finalCompany = company || (req.user?.role !== "superAdmin" ? req.companyId : null);
+    const finalBranch = branch || (req.user?.role !== "superAdmin" ? req.branchId : null);
+
     if (name) customer.name = name;
     if (email) customer.email = email;
     if (phone) customer.phone = phone;
     if (address) customer.address = address;
     if (gstNumber !== undefined) customer.gstNumber = gstNumber;
-    if (company) customer.company = company;
-    if (branch) customer.branch = branch;
+    if (finalCompany) customer.company = finalCompany;
+    if (finalBranch) customer.branch = finalBranch;
     if (status !== undefined) customer.status = status;
     if (companyName !== undefined) customer.companyName = companyName;
     if (companyContactName !== undefined)
@@ -330,6 +341,22 @@ export const bulkUploadConsignees = async (req, res) => {
       });
     }
 
+    // Validate customer belongs to user's company/branch (for non-superAdmin users)
+    if (req.user?.role !== "superAdmin") {
+      if (req.companyId && customer.company.toString() !== req.companyId) {
+        return res.status(403).json({
+          success: false,
+          message: "Customer does not belong to your company",
+        });
+      }
+      if (req.branchId && customer.branch.toString() !== req.branchId) {
+        return res.status(403).json({
+          success: false,
+          message: "Customer does not belong to your branch",
+        });
+      }
+    }
+
     let added = 0;
     let updated = 0;
     let errors = [];
@@ -394,6 +421,22 @@ export const bulkUploadConsignors = async (req, res) => {
         success: false,
         message: "Customer not found",
       });
+    }
+
+    // Validate customer belongs to user's company/branch (for non-superAdmin users)
+    if (req.user?.role !== "superAdmin") {
+      if (req.companyId && customer.company.toString() !== req.companyId) {
+        return res.status(403).json({
+          success: false,
+          message: "Customer does not belong to your company",
+        });
+      }
+      if (req.branchId && customer.branch.toString() !== req.branchId) {
+        return res.status(403).json({
+          success: false,
+          message: "Customer does not belong to your branch",
+        });
+      }
     }
 
     let added = 0;
@@ -521,6 +564,22 @@ export const manageMisFields = async (req, res) => {
         success: false,
         message: "Customer not found",
       });
+    }
+
+    // Validate customer belongs to user's company/branch (for non-superAdmin users)
+    if (req.user?.role !== "superAdmin") {
+      if (req.companyId && customer.company.toString() !== req.companyId) {
+        return res.status(403).json({
+          success: false,
+          message: "Customer does not belong to your company",
+        });
+      }
+      if (req.branchId && customer.branch.toString() !== req.branchId) {
+        return res.status(403).json({
+          success: false,
+          message: "Customer does not belong to your branch",
+        });
+      }
     }
 
     if (action === "add") {

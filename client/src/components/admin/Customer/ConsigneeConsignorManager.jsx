@@ -39,6 +39,7 @@ import {
   useLazyExportConsignorsQuery,
   useUpdateCustomerMutation,
 } from "@/features/api/Customer/customerApi";
+import { getTokenData } from "@/utils/getTokenData";
 
 const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [], onUpdate, customerData }) => {
   const [activeTab, setActiveTab] = useState("consignees");
@@ -91,10 +92,20 @@ const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [
 
   const handleDelete = async (index) => {
     try {
+      // Get companyId and branchId from token
+      const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+      
+      // Build payload with only valid values
+      const basePayload = {
+        customerId,
+        ...(tokenCompanyId && { company: tokenCompanyId }),
+        ...(tokenBranchId && { branch: tokenBranchId }),
+      };
+      
       if (activeTab === "consignees") {
         const updated = consignees.filter((_, i) => i !== index);
         await updateCustomer({
-          customerId,
+          ...basePayload,
           consignees: updated,
         }).unwrap();
         onUpdate({ refetch: true });
@@ -102,7 +113,7 @@ const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [
       } else {
         const updated = consignors.filter((_, i) => i !== index);
         await updateCustomer({
-          customerId,
+          ...basePayload,
           consignors: updated,
         }).unwrap();
         onUpdate({ refetch: true });
@@ -116,6 +127,16 @@ const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [
 
   const handleSaveAdd = async () => {
     try {
+      // Get companyId and branchId from token
+      const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+      
+      // Build payload with only valid values
+      const basePayload = {
+        customerId,
+        ...(tokenCompanyId && { company: tokenCompanyId }),
+        ...(tokenBranchId && { branch: tokenBranchId }),
+      };
+      
       if (activeTab === "consignees") {
         if (!formData.siteId || !formData.name) {
           toast.error("Site ID and Consignee name are required");
@@ -130,7 +151,7 @@ const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [
           },
         ];
         await updateCustomer({
-          customerId,
+          ...basePayload,
           consignees: updated,
         }).unwrap();
         onUpdate({ refetch: true });
@@ -149,7 +170,7 @@ const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [
           },
         ];
         await updateCustomer({
-          customerId,
+          ...basePayload,
           consignors: updated,
         }).unwrap();
         onUpdate({ refetch: true });
@@ -165,6 +186,16 @@ const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [
 
   const handleSaveEdit = async () => {
     try {
+      // Get companyId and branchId from token
+      const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+      
+      // Build payload with only valid values
+      const basePayload = {
+        customerId,
+        ...(tokenCompanyId && { company: tokenCompanyId }),
+        ...(tokenBranchId && { branch: tokenBranchId }),
+      };
+      
       if (activeTab === "consignees") {
         if (!formData.siteId || !formData.name) {
           toast.error("Site ID and Consignee name are required");
@@ -177,7 +208,7 @@ const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [
           address: formData.address,
         };
         await updateCustomer({
-          customerId,
+          ...basePayload,
           consignees: updated,
         }).unwrap();
         onUpdate({ refetch: true });
@@ -194,7 +225,7 @@ const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [
           address: formData.address,
         };
         await updateCustomer({
-          customerId,
+          ...basePayload,
           consignors: updated,
         }).unwrap();
         onUpdate({ refetch: true });

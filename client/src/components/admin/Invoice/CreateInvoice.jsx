@@ -70,6 +70,7 @@ import {
 import { useGetAllSiteTypesQuery } from "@/features/api/SiteType/siteTypeApi.js";
 import { useGetAllTransportModesQuery } from "@/features/api/TransportMode/transportModeApi.js";
 import { useDebounce } from "@/hooks/Debounce.jsx";
+import { getTokenData } from "@/utils/getTokenData";
 
 // AddressFields Component (extracted to prevent re-creation on every render)
 const AddressFields = ({
@@ -887,10 +888,20 @@ const CreateInvoice = () => {
       return;
     }
 
+    // Get companyId and branchId from token as fallback
+    const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+    const finalCompanyId = companyId || tokenCompanyId;
+    const finalBranchId = branchId || tokenBranchId;
+
+    if (!finalCompanyId || !finalBranchId) {
+      toast.error("Company and Branch are required");
+      return;
+    }
+
     let payload = {
       customer: customerId,
-      company: companyId,
-      branch: branchId,
+      company: finalCompanyId,
+      branch: finalBranchId,
       ...(invoiceDate && { invoiceDate }),
       ...(dispatchDateTime && { dispatchDateTime }),
       ...(paymentType && { paymentType }),

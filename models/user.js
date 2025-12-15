@@ -22,18 +22,33 @@ const user = new mongoose.Schema(
       enum: ["superAdmin", "branchAdmin", "operation", "driver", "vendor"],
       default: "superAdmin",
     },
+    // Support multiple companies and branches (arrays)
     company: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Company",
+      type: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Company",
+      }],
+      default: [],
       required: function () {
-        return this.role !== "superAdmin";
+        // Check if company exists and is an array before checking length
+        // During updates, company might be undefined if not provided
+        if (this.role === "superAdmin") return false;
+        if (!this.company || !Array.isArray(this.company)) return false;
+        return this.company.length === 0;
       },
     },
     branch: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Branch",
+      type: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Branch",
+      }],
+      default: [],
       required: function () {
-        return this.role !== "superAdmin";
+        // Check if branch exists and is an array before checking length
+        // During updates, branch might be undefined if not provided
+        if (this.role === "superAdmin") return false;
+        if (!this.branch || !Array.isArray(this.branch)) return false;
+        return this.branch.length === 0;
       },
     },
     mobile: {
@@ -311,7 +326,8 @@ const user = new mongoose.Schema(
   { timestamps: true }
 );
 
-user.index({ company: 1, branch: 1 });
+// Removed compound index on company and branch - MongoDB doesn't allow compound indexes on multiple array fields
+// If needed, create separate indexes: user.index({ company: 1 }); user.index({ branch: 1 });
 user.index({ aadharNumber: 1 }, { unique: true, sparse: true });
 user.index({ panNumber: 1 }, { unique: true, sparse: true });
 // user.index({ email: 1 }, { unique: true });

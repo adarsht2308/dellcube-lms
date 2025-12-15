@@ -353,30 +353,6 @@ const Profile = () => {
                     <p className="text-sm sm:text-base text-gray-900 dark:text-white font-medium">{user?.mobile}</p>
                   </div>
                 </div>
-              </div>
-
-              {/* Organization Information Card */}
-              <div className="bg-gradient-to-br from-[#FFD249]/10 to-[#FFB800]/10 dark:from-gray-700 dark:to-gray-750 rounded-xl p-6 space-y-4 border border-[#FFD249]/20">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                  <Building2 className="w-5 h-5 text-[#FFD249]" />
-                  Organization Details
-                </h2>
-                
-                <div className="flex items-start gap-3 group">
-                  <Building2 className="w-5 h-5 text-gray-400 mt-0.5 group-hover:text-[#FFD249] transition-colors" />
-                  <div className="flex-1">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Company</p>
-                    <p className="text-sm sm:text-base text-gray-900 dark:text-white font-medium">{user?.company?.name}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 group">
-                  <MapPin className="w-5 h-5 text-gray-400 mt-0.5 group-hover:text-[#FFD249] transition-colors" />
-                  <div className="flex-1">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Branch</p>
-                    <p className="text-sm sm:text-base text-gray-900 dark:text-white font-medium">{user?.branch?.name}</p>
-                  </div>
-                </div>
 
                 <div className="flex items-start gap-3 group">
                   <Shield className="w-5 h-5 text-gray-400 mt-0.5 group-hover:text-[#FFD249] transition-colors" />
@@ -390,6 +366,73 @@ const Profile = () => {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              {/* Organization Information Card */}
+              <div className="bg-gradient-to-br from-[#FFD249]/10 to-[#FFB800]/10 dark:from-gray-700 dark:to-gray-750 rounded-xl p-6 space-y-4 border border-[#FFD249]/20">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                  <Building2 className="w-5 h-5 text-[#FFD249]" />
+                  Organization Details
+                </h2>
+                
+                {/* Current Session Company/Branch */}
+                <div className="mb-4 p-3 bg-[#FFD249]/20 dark:bg-[#FFD249]/10 rounded-lg border border-[#FFD249]/30">
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 font-semibold">Current Session</p>
+                  <div className="flex items-start gap-3 group">
+                    <Building2 className="w-5 h-5 text-[#FFD249] mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Company</p>
+                      <p className="text-sm sm:text-base text-gray-900 dark:text-white font-medium">
+                        {user?.selectedCompany?.name || user?.company?.name || "N/A"}
+                        {user?.selectedCompany?.companyCode && ` (${user.selectedCompany.companyCode})`}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 group mt-3">
+                    <MapPin className="w-5 h-5 text-[#FFD249] mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Branch</p>
+                      <p className="text-sm sm:text-base text-gray-900 dark:text-white font-medium">
+                        {user?.selectedBranch?.name || user?.branch?.name || "N/A"}
+                        {user?.selectedBranch?.branchCode && ` (${user.selectedBranch.branchCode})`}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* All Assigned Companies/Branches (if multiple) */}
+                {((user?.company && Array.isArray(user.company) && user.company.length > 1) || 
+                  (user?.branch && Array.isArray(user.branch) && user.branch.length > 1)) && (
+                  <div className="pt-4 border-t border-[#FFD249]/20">
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 font-semibold">All Assignments</p>
+                    <div className="flex items-start gap-3 group">
+                      <Building2 className="w-5 h-5 text-gray-400 mt-0.5 group-hover:text-[#FFD249] transition-colors" />
+                      <div className="flex-1">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Companies</p>
+                        <p className="text-sm sm:text-base text-gray-900 dark:text-white font-medium">
+                          {user?.company && Array.isArray(user.company) 
+                            ? user.company.map(c => typeof c === 'object' ? c.name : c).join(", ")
+                            : user?.company?.name || "N/A"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-3 group mt-3">
+                      <MapPin className="w-5 h-5 text-gray-400 mt-0.5 group-hover:text-[#FFD249] transition-colors" />
+                      <div className="flex-1">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Branches</p>
+                        <p className="text-sm sm:text-base text-gray-900 dark:text-white font-medium">
+                          {user?.branch && Array.isArray(user.branch) 
+                            ? user.branch.map(b => typeof b === 'object' ? b.name : b).join(", ")
+                            : user?.branch?.name || "N/A"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                 
               </div>
             </div>
 

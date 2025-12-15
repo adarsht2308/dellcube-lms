@@ -9,9 +9,16 @@ import {
 } from "@/components/ui/card";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useEffect, useState } from "react";
-import { useLoginUserMutation } from "@/features/api/authApi";
-import { Loader2, Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { useLoginUserMutation, useCheckUserAssignmentsMutation } from "@/features/api/authApi";
+import { Loader2, Mail, Lock, Eye, EyeOff, Building2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { jwtDecode } from "jwt-decode";
@@ -23,6 +30,10 @@ function Login() {
     password: "",
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [selectedCompany, setSelectedCompany] = useState("");
+  const [selectedBranch, setSelectedBranch] = useState("");
+  const [assignments, setAssignments] = useState(null);
+  const [checkingAssignments, setCheckingAssignments] = useState(false);
 
   const [
     loginUser,
@@ -33,11 +44,62 @@ function Login() {
       isSuccess: loginIsSucess,
     },
   ] = useLoginUserMutation();
+  const [checkAssignments, { isLoading: isCheckingAssignments }] = useCheckUserAssignmentsMutation();
   const navigate = useNavigate();
 
   const inputHandler = (e) => {
     const { name, value } = e.target;
     setLoginInput({ ...loginInput, [name]: value });
+    
+    // Reset selections when identifier changes
+    if (name === "identifier") {
+      setSelectedCompany("");
+      setSelectedBranch("");
+      setAssignments(null);
+    }
+  };
+
+  // Check assignments when identifier is entered (on blur)
+  const handleIdentifierBlur = async () => {
+    if (!loginInput.identifier.trim()) return;
+
+    setCheckingAssignments(true);
+    try {
+      const checkData = {
+        email: loginInput.identifier.includes("@")
+          ? loginInput.identifier
+          : undefined,
+        mobile: !loginInput.identifier.includes("@")
+          ? loginInput.identifier
+          : undefined,
+      };
+
+      const result = await checkAssignments(checkData).unwrap();
+      if (result.success) {
+        setAssignments(result.data);
+        // Auto-select if only one company
+        if (result.data.companies.length === 1) {
+          const companyId = result.data.companies[0]._id;
+          setSelectedCompany(companyId);
+          // Auto-select branch if only one branch for this company
+          const branches = result.data.branchesByCompany[companyId] || [];
+          if (branches.length === 1) {
+            setSelectedBranch(branches[0]._id);
+          }
+        }
+      }
+    } catch (error) {
+      // User not found or error - will be handled during login
+      setAssignments(null);
+    } finally {
+      setCheckingAssignments(false);
+    }
+  };
+
+  // Reset branch when company changes
+  const handleCompanyChange = (companyId) => {
+    setSelectedCompany(companyId);
+    setSelectedBranch(""); // Reset branch selection
   };
 
   const handleFormSubmit = async () => {
@@ -50,6 +112,21 @@ function Login() {
         : undefined,
       password: loginInput.password,
     };
+
+    // Always require company and branch selection if assignments exist
+    if (assignments && assignments.companies.length > 0) {
+      // Use selected values or default to first company/branch
+      const companyId = selectedCompany || assignments.companies[0]._id;
+      const branchId = selectedBranch || (assignments.branchesByCompany[companyId]?.[0]?._id);
+      
+      if (!companyId || !branchId) {
+        toast.error("Please select company and branch");
+        return;
+      }
+      
+      inputData.companyId = companyId;
+      inputData.branchId = branchId;
+    }
 
     await loginUser(inputData);
   };
@@ -153,13 +230,69 @@ function Login() {
                     name="identifier"
                     value={loginInput.identifier}
                     onChange={inputHandler}
+                    onBlur={handleIdentifierBlur}
                     onKeyPress={handleKeyPress}
                     placeholder="Enter your email or mobile"
                     className="pl-10 h-12 border-[#FFD249]/20 focus:border-[#FFD249] focus:ring-[#FFD249]/20 transition-all duration-200 bg-white/50"
                     required
                   />
+                  {checkingAssignments && (
+                    <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 animate-spin text-[#828083]" />
+                  )}
                 </div>
               </div>
+
+              {/* Company Selection - Always show if assignments exist */}
+              {assignments && assignments.companies.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-[#202020]">
+                    Select Company
+                  </Label>
+                  <div className="relative">
+                    <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#828083] w-4 h-4 z-10" />
+                    <Select value={selectedCompany || assignments.companies[0]._id} onValueChange={handleCompanyChange}>
+                      <SelectTrigger className="pl-10 h-12 border-[#FFD249]/20 focus:border-[#FFD249] focus:ring-[#FFD249]/20 transition-all duration-200 bg-white/50">
+                        <SelectValue placeholder="Select a company" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {assignments.companies.map((company) => (
+                          <SelectItem key={company._id} value={company._id}>
+                            {company.name} ({company.companyCode})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+
+              {/* Branch Selection - Always show if assignments exist */}
+              {assignments && assignments.companies.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-[#202020]">
+                    Select Branch
+                  </Label>
+                  <div className="relative">
+                    <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#828083] w-4 h-4 z-10" />
+                    <Select 
+                      value={selectedBranch || (assignments.branchesByCompany[selectedCompany || assignments.companies[0]._id]?.[0]?._id || "")} 
+                      onValueChange={setSelectedBranch}
+                      disabled={!selectedCompany && assignments.companies.length > 1}
+                    >
+                      <SelectTrigger className="pl-10 h-12 border-[#FFD249]/20 focus:border-[#FFD249] focus:ring-[#FFD249]/20 transition-all duration-200 bg-white/50">
+                        <SelectValue placeholder={!selectedCompany && assignments.companies.length > 1 ? "Select company first" : "Select a branch"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {assignments.branchesByCompany[selectedCompany || assignments.companies[0]._id]?.map((branch) => (
+                          <SelectItem key={branch._id} value={branch._id}>
+                            {branch.name} ({branch.branchCode})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
 
               {/* Password Input */}
               <div className="space-y-2">
@@ -213,7 +346,8 @@ function Login() {
                 disabled={
                   loginIsLoading ||
                   !loginInput.identifier ||
-                  !loginInput.password
+                  !loginInput.password ||
+                  (assignments && assignments.companies.length > 0 && (!selectedCompany && !assignments.companies[0]?._id))
                 }
                 className="w-full h-12 bg-[#FFD249] hover:bg-[#202020] text-[#202020] hover:text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl"
               >

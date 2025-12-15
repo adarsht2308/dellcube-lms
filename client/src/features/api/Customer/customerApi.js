@@ -1,5 +1,6 @@
 import { BASE_URL } from "@/utils/BaseUrl";
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { getTokenData } from "@/utils/getTokenData";
 
 const CUSTOMER_API = `${BASE_URL}/customers`;
 
@@ -28,11 +29,18 @@ export const customerApi = createApi({
         status = "",
         companyId = "",
         branchId = "",
-      }) => ({
-        url: "/all",
-        method: "GET",
-        params: { page, limit, search, status, companyId, branchId },
-      }),
+      }) => {
+        // Get companyId and branchId from token if not provided
+        const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+        const finalCompanyId = companyId || tokenCompanyId || "";
+        const finalBranchId = branchId || tokenBranchId || "";
+        
+        return {
+          url: "/all",
+          method: "GET",
+          params: { page, limit, search, status, companyId: finalCompanyId, branchId: finalBranchId },
+        };
+      },
       providesTags: ["Customer"],
     }),
 

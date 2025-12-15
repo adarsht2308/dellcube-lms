@@ -123,12 +123,18 @@ export const getAllVendors = async (req, res) => {
     }
     if (search) query.name = { $regex: search, $options: "i" }; // Search by vendor name
     if (status) query.vendorStatus = status;
-    if (companyId) query.company = companyId;
-    if (branchId) query.branch = branchId;
+    
+    // Use companyId/branchId from token if not provided in query (for non-superAdmin users)
+    const finalCompanyId = companyId || (req.user?.role !== "superAdmin" ? req.companyId : null);
+    const finalBranchId = branchId || (req.user?.role !== "superAdmin" ? req.branchId : null);
+    
+    // Query for array fields - use $in operator to find vendors with matching company/branch in their arrays
+    if (finalCompanyId) query.company = { $in: [finalCompanyId] };
+    if (finalBranchId) query.branch = { $in: [finalBranchId] };
 
     const vendors = await User.find(query)
-      .populate("company", "name")
-      .populate("branch", "name")
+      .populate("company", "name companyCode")
+      .populate("branch", "name branchCode")
       .populate("assignedClients", "name email")
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -265,6 +271,55 @@ export const updateVendor = async (req, res) => {
     if (mapped.password) {
       mapped.password = await bcrypt.hash(mapped.password, 10);
     }
+    
+    // Handle company field - ensure it's an array or omit if not provided
+    if (mapped.company !== undefined) {
+      if (Array.isArray(mapped.company)) {
+        // Filter out any empty strings and validate ObjectIds
+        mapped.company = mapped.company
+          .filter(Boolean)
+          .filter(id => mongoose.Types.ObjectId.isValid(id));
+      } else if (mapped.company) {
+        // Single value case - convert to array
+        const companyId = String(mapped.company).trim();
+        if (mongoose.Types.ObjectId.isValid(companyId)) {
+          mapped.company = [companyId];
+        } else {
+          delete mapped.company; // Invalid, don't update
+        }
+      } else {
+        // Empty or undefined - don't update (keep existing value)
+        delete mapped.company;
+      }
+    } else {
+      // Not provided - don't update (keep existing value)
+      delete mapped.company;
+    }
+    
+    // Handle branch field - ensure it's an array or omit if not provided
+    if (mapped.branch !== undefined) {
+      if (Array.isArray(mapped.branch)) {
+        // Filter out any empty strings and validate ObjectIds
+        mapped.branch = mapped.branch
+          .filter(Boolean)
+          .filter(id => mongoose.Types.ObjectId.isValid(id));
+      } else if (mapped.branch) {
+        // Single value case - convert to array
+        const branchId = String(mapped.branch).trim();
+        if (mongoose.Types.ObjectId.isValid(branchId)) {
+          mapped.branch = [branchId];
+        } else {
+          delete mapped.branch; // Invalid, don't update
+        }
+      } else {
+        // Empty or undefined - don't update (keep existing value)
+        delete mapped.branch;
+      }
+    } else {
+      // Not provided - don't update (keep existing value)
+      delete mapped.branch;
+    }
+    
     // Handle assignedClients - FormData sends multiple values with same key as array
     // Multer parses FormData arrays correctly, but we need to handle both cases
     if (mapped.assignedClients !== undefined) {
@@ -281,6 +336,8 @@ export const updateVendor = async (req, res) => {
     }
     
     console.log("Update Vendor - assignedClients:", mapped.assignedClients);
+    console.log("Update Vendor - company:", mapped.company);
+    console.log("Update Vendor - branch:", mapped.branch);
 
     if (signatureFile) {
       if (vendorDoc.signature?.public_id) {

@@ -39,6 +39,7 @@ import {
   useUpdateDriverInvoiceMutation,
 } from "@/features/api/DriverInvoice/driverInvoiceApi.js";
 import { useGetInvoiceByIdMutation } from "@/features/api/Invoice/invoiceApi.js";
+import { getTokenData } from "@/utils/getTokenData";
 const statusOptions = [
   "Created",
   "Delivered",
@@ -276,9 +277,16 @@ const UpdateInvoice = () => {
       finalDeliveredAt = `${year}-${month}-${day}T${hours}:${minutes}`;
     }
 
+    // Get companyId and branchId from token
+    const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+
     const formData = new FormData();
     formData.append("driverId", driverId);
     formData.append("invoiceId", invoiceId);
+    
+    // Add companyId and branchId from token
+    if (tokenCompanyId) formData.append("companyId", tokenCompanyId);
+    if (tokenBranchId) formData.append("branchId", tokenBranchId);
 
     if (status) formData.append("status", status);
     if (status === "Undelivered" && undeliveredReason.trim()) {

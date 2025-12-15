@@ -1,5 +1,6 @@
 import { BASE_URL } from "@/utils/BaseUrl";
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { getTokenData } from "@/utils/getTokenData";
 
 const VEHICLE_API = `${BASE_URL}/vehicles`;
 
@@ -18,11 +19,33 @@ export const vehicleApi = createApi({
   tagTypes: ["Vehicle"],
   endpoints: (builder) => ({
     createVehicle: builder.mutation({
-      query: (payload) => ({
-        url: "create",
-        method: "POST",
-        body: payload,
-      }),
+      query: (payload) => {
+        // Get companyId and branchId from token
+        const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+        
+        // If payload is FormData, append companyId and branchId if not already present
+        if (payload instanceof FormData) {
+          if (tokenCompanyId && !payload.has("company")) {
+            payload.append("company", tokenCompanyId);
+          }
+          if (tokenBranchId && !payload.has("branch")) {
+            payload.append("branch", tokenBranchId);
+          }
+        } else {
+          // If payload is an object, add companyId and branchId if not already present
+          payload = {
+            ...payload,
+            ...(tokenCompanyId && !payload.company && { company: tokenCompanyId }),
+            ...(tokenBranchId && !payload.branch && { branch: tokenBranchId }),
+          };
+        }
+        
+        return {
+          url: "create",
+          method: "POST",
+          body: payload,
+        };
+      },
       invalidatesTags: ["Vehicle"],
     }),
 
@@ -34,11 +57,18 @@ export const vehicleApi = createApi({
         status = "",
         companyId = "",
         branchId = "",
-      }) => ({
-        url: "all",
-        method: "GET",
-        params: { page, limit, search, status, companyId, branchId },
-      }),
+      }) => {
+        // Get companyId and branchId from token if not provided
+        const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+        const finalCompanyId = companyId || tokenCompanyId || "";
+        const finalBranchId = branchId || tokenBranchId || "";
+        
+        return {
+          url: "all",
+          method: "GET",
+          params: { page, limit, search, status, companyId: finalCompanyId, branchId: finalBranchId },
+        };
+      },
       providesTags: ["Vehicle"],
     }),
 
@@ -52,11 +82,33 @@ export const vehicleApi = createApi({
     }),
 
     updateVehicle: builder.mutation({
-      query: (payload) => ({
-        url: "update",
-        method: "PUT",
-        body: payload,
-      }),
+      query: (payload) => {
+        // Get companyId and branchId from token
+        const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+        
+        // If payload is FormData, append companyId and branchId if not already present
+        if (payload instanceof FormData) {
+          if (tokenCompanyId && !payload.has("company")) {
+            payload.append("company", tokenCompanyId);
+          }
+          if (tokenBranchId && !payload.has("branch")) {
+            payload.append("branch", tokenBranchId);
+          }
+        } else {
+          // If payload is an object, add companyId and branchId if not already present
+          payload = {
+            ...payload,
+            ...(tokenCompanyId && !payload.company && { company: tokenCompanyId }),
+            ...(tokenBranchId && !payload.branch && { branch: tokenBranchId }),
+          };
+        }
+        
+        return {
+          url: "update",
+          method: "PUT",
+          body: payload,
+        };
+      },
       invalidatesTags: ["Vehicle"],
     }),
 
@@ -87,10 +139,17 @@ export const vehicleApi = createApi({
         query: (branchId) => `branch/${branchId}`,
     }),
     searchVehicles: builder.mutation({
-        query: ({ vehicleNumber, companyId, branchId }) => ({
-          url: `search?vehicleNumber=${vehicleNumber}&companyId=${companyId}&branchId=${branchId}`,
-          method: 'GET',
-        }),
+        query: ({ vehicleNumber, companyId, branchId }) => {
+          // Get companyId and branchId from token if not provided
+          const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+          const finalCompanyId = companyId || tokenCompanyId || "";
+          const finalBranchId = branchId || tokenBranchId || "";
+          
+          return {
+            url: `search?vehicleNumber=${vehicleNumber}&companyId=${finalCompanyId}&branchId=${finalBranchId}`,
+            method: 'GET',
+          };
+        },
       }),
   }),
 });

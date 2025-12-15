@@ -1,6 +1,7 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { userLoggedIn, userLoggedOut } from "../authSlice";
 import { BASE_URL } from "@/utils/BaseUrl";
+import { getTokenData } from "@/utils/getTokenData";
 
 const USER_API = `${BASE_URL}/user`;
 
@@ -25,6 +26,13 @@ export const authApi = createApi({
         url: "verify-otp",
         method: "POST",
         body: { email, otp },
+      }),
+    }),
+    checkUserAssignments: builder.mutation({
+      query: (inputData) => ({
+        url: "check-assignments",
+        method: "POST",
+        body: inputData,
       }),
     }),
     loginUser: builder.mutation({
@@ -94,11 +102,18 @@ export const authApi = createApi({
         status = "",
         company = "",
         branch = "",
-      }) => ({
-        url: "all/branch-admins",
-        method: "GET",
-        params: { page, limit, search, status, company, branch },
-      }),
+      }) => {
+        // Get companyId and branchId from token if not provided
+        const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+        const finalCompany = company || tokenCompanyId || "";
+        const finalBranch = branch || tokenBranchId || "";
+        
+        return {
+          url: "all/branch-admins",
+          method: "GET",
+          params: { page, limit, search, status, company: finalCompany, branch: finalBranch },
+        };
+      },
       providesTags: ["BranchAdmin"],
     }),
 
@@ -144,11 +159,18 @@ export const authApi = createApi({
         status = "",
         company = "",
         branch = "",
-      }) => ({
-        url: "/all-operations",
-        method: "GET",
-        params: { page, limit, search, status, company, branch },
-      }),
+      }) => {
+        // Get companyId and branchId from token if not provided
+        const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+        const finalCompany = company || tokenCompanyId || "";
+        const finalBranch = branch || tokenBranchId || "";
+        
+        return {
+          url: "/all-operations",
+          method: "GET",
+          params: { page, limit, search, status, company: finalCompany, branch: finalBranch },
+        };
+      },
       providesTags: ["OperationUser"],
     }),
 
@@ -197,11 +219,18 @@ export const authApi = createApi({
         company = "",
         branch = "",
         driverType = "",
-      }) => ({
-        url: "/all-drivers",
-        method: "GET",
-        params: { page, limit, search, status, company, branch, driverType },
-      }),
+      }) => {
+        // Get companyId and branchId from token if not provided
+        const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+        const finalCompany = company || tokenCompanyId || "";
+        const finalBranch = branch || tokenBranchId || "";
+        
+        return {
+          url: "/all-drivers",
+          method: "GET",
+          params: { page, limit, search, status, company: finalCompany, branch: finalBranch, driverType },
+        };
+      },
       providesTags: ["Driver"],
     }),
 
@@ -262,6 +291,7 @@ export const authApi = createApi({
 export const {
   useRegisterUserMutation,
   useVerifyOTPMutation,
+  useCheckUserAssignmentsMutation,
   useLoginUserMutation,
   useLogoutUserMutation,
   useLoadUserQuery,

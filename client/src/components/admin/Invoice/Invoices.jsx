@@ -98,6 +98,7 @@ import logoUrl from "/images/dellcube_logo-og.png";
 import { imageUrlToBase64 } from "@/utils/imageUrlToBase64.js";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { getTokenData } from "@/utils/getTokenData";
 
 // Adjust path as needed
 
@@ -1416,19 +1417,25 @@ const Invoices = () => {
       return;
     }
     try {
+      // Get companyId and branchId from token as fallback
+      const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+      
+      const finalCompany = 
+        user?.role === "superAdmin" || user?.role === "operation"
+          ? reservedForm.company
+          : (user?.company?._id || tokenCompanyId);
+      const finalBranch =
+        user?.role === "superAdmin" || user?.role === "operation"
+          ? reservedForm.branch
+          : (user?.branch?._id || tokenBranchId);
+
       await createReservedDockets({
         customer: reservedForm.customer,
         quantity: reservedForm.count, // Backend expects 'quantity'
         fromAddress: reservedForm.fromAddress,
         toAddress: reservedForm.toAddress,
-        company:
-          user?.role === "superAdmin" || user?.role === "operation"
-            ? reservedForm.company
-            : user?.company?._id,
-        branch:
-          user?.role === "superAdmin" || user?.role === "operation"
-            ? reservedForm.branch
-            : user?.branch?._id,
+        company: finalCompany,
+        branch: finalBranch,
       }).unwrap();
       toast.success("Reserved dockets created successfully!");
       setReservedDialogOpen(false);

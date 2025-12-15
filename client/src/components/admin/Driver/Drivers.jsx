@@ -110,6 +110,48 @@ const InfoRow = ({ label, value, icon: Icon }) => (
   </div>
 );
 
+// Helper function to format companies - shows all companies
+const formatCompanies = (driver) => {
+  if (!driver) return null;
+  
+  // Check if company is an array
+  if (driver.company && Array.isArray(driver.company) && driver.company.length > 0) {
+    const companyNames = driver.company
+      .map(c => {
+        if (typeof c === 'object' && c !== null) {
+          return c.name || c.companyCode || String(c);
+        }
+        return String(c);
+      })
+      .filter(name => name && name.trim() !== '');
+    
+    return companyNames.length > 0 ? companyNames.join(", ") : null;
+  }
+  
+  return null;
+};
+
+// Helper function to format branches - shows all branches
+const formatBranches = (driver) => {
+  if (!driver) return null;
+  
+  // Check if branch is an array
+  if (driver.branch && Array.isArray(driver.branch) && driver.branch.length > 0) {
+    const branchNames = driver.branch
+      .map(b => {
+        if (typeof b === 'object' && b !== null) {
+          return b.name || b.branchCode || String(b);
+        }
+        return String(b);
+      })
+      .filter(name => name && name.trim() !== '');
+    
+    return branchNames.length > 0 ? branchNames.join(", ") : null;
+  }
+  
+  return null;
+};
+
 const Drivers = () => {
   const navigate = useNavigate();
   const user = useSelector((state) => state.auth.user);
@@ -1076,10 +1118,10 @@ const Drivers = () => {
                   PAN
                 </th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Company
+                  Companies
                 </th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Branch
+                  Branches
                 </th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
                   Status
@@ -1131,12 +1173,12 @@ const Drivers = () => {
                       )}
                     </td>
                     <td className="p-3 text-[#202020] dark:text-[#FFD249]">
-                      {driver.company?.name || (
+                      {formatCompanies(driver) || (
                         <span className="text-gray-400">N/A</span>
                       )}
                     </td>
                     <td className="p-3 text-[#202020] dark:text-[#FFD249]">
-                      {driver.branch?.name || (
+                      {formatBranches(driver) || (
                         <span className="text-gray-400">N/A</span>
                       )}
                     </td>
@@ -1231,10 +1273,10 @@ const Drivers = () => {
                   PAN
                 </th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Company
+                  Companies
                 </th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Branch
+                  Branches
                 </th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
                   Status
@@ -1339,13 +1381,13 @@ const Drivers = () => {
                   icon={Truck}
                 />
                 <InfoRow
-                  label="Company"
-                  value={selectedDriver.company?.name}
+                  label="Companies"
+                  value={formatCompanies(selectedDriver)}
                   icon={Building2}
                 />
                 <InfoRow
-                  label="Branch"
-                  value={selectedDriver.branch?.name}
+                  label="Branches"
+                  value={formatBranches(selectedDriver)}
                   icon={MapPin}
                 />
                 <InfoRow

@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useGetAllDriversQuery } from "@/features/api/authApi.js";
+import { getTokenData } from "@/utils/getTokenData";
 
 const CreateVehicle = () => {
   const navigate = useNavigate();
@@ -64,17 +65,43 @@ const CreateVehicle = () => {
   });
 
   useEffect(() => {
+    // Get companyId and branchId from token as fallback
+    const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+    
     if (isBranchAdmin && user?.company && user?.branch) {
+      // Handle both array and single value formats
+      const companyId = Array.isArray(user.company) && user.company.length > 0
+        ? String(user.company[0]._id || user.company[0])
+        : (user.company._id ? String(user.company._id) : tokenCompanyId);
+      const branchId = Array.isArray(user.branch) && user.branch.length > 0
+        ? String(user.branch[0]._id || user.branch[0])
+        : (user.branch._id ? String(user.branch._id) : tokenBranchId);
+      
       setFormData((prev) => ({
         ...prev,
-        company: String(user?.company?._id),
-        branch: String(user?.branch?._id),
+        company: companyId || prev.company,
+        branch: branchId || prev.branch,
       }));
     } else if (isVendor && user?.company && user?.branch) {
+      // Handle both array and single value formats
+      const companyId = Array.isArray(user.company) && user.company.length > 0
+        ? String(user.company[0]._id || user.company[0])
+        : (user.company._id ? String(user.company._id) : tokenCompanyId);
+      const branchId = Array.isArray(user.branch) && user.branch.length > 0
+        ? String(user.branch[0]._id || user.branch[0])
+        : (user.branch._id ? String(user.branch._id) : tokenBranchId);
+      
       setFormData((prev) => ({
         ...prev,
-        company: String(user?.company?._id),
-        branch: String(user?.branch?._id),
+        company: companyId || prev.company,
+        branch: branchId || prev.branch,
+      }));
+    } else if (tokenCompanyId && tokenBranchId) {
+      // Use token values if no user company/branch
+      setFormData((prev) => ({
+        ...prev,
+        company: prev.company || tokenCompanyId,
+        branch: prev.branch || tokenBranchId,
       }));
     }
   }, [user, isBranchAdmin, isVendor]);
@@ -120,9 +147,14 @@ const CreateVehicle = () => {
   };
 
   const handleSubmit = async () => {
-    const { vehicleNumber, type, company, branch } = formData;
+    const { vehicleNumber, type } = formData;
 
-    if (!vehicleNumber || !type || !company || !branch) {
+    // Get companyId and branchId from token as fallback
+    const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+    const finalCompany = formData.company || tokenCompanyId;
+    const finalBranch = formData.branch || tokenBranchId;
+
+    if (!vehicleNumber || !type || !finalCompany || !finalBranch) {
       toast.error("Vehicle Number, Type, Company, and Branch are required");
       return;
     }
@@ -131,6 +163,9 @@ const CreateVehicle = () => {
     Object.entries(formData).forEach(([key, value]) => {
       payload.append(key, value);
     });
+    // Ensure company and branch are set (use token values if formData values are empty)
+    if (finalCompany) payload.set("company", finalCompany);
+    if (finalBranch) payload.set("branch", finalBranch);
     Object.entries(certificateFiles).forEach(([key, file]) => {
       if (file) payload.append(key, file);
     });

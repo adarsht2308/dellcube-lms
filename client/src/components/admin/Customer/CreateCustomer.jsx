@@ -12,6 +12,7 @@ import { FaRegTrashCan } from "react-icons/fa6";
 import { useCreateCustomerMutation } from "@/features/api/Customer/customerApi.js";
 import { useGetAllCompaniesQuery } from "@/features/api/Company/companyApi.js";
 import { useGetBranchesByCompanyMutation } from "@/features/api/Branch/branchApi.js";
+import { getTokenData } from "@/utils/getTokenData";
 import {
   Select,
   SelectContent,
@@ -43,15 +44,30 @@ const CreateCustomer = () => {
   });
 
   useEffect(() => {
+    // Get companyId and branchId from token
+    const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+    
     if (isBranchAdmin && user?.company && user?.branch) {
       console.log("Setting company and branch for branch admin:", user.company._id, user.branch._id);
+      const companyId = user.company._id || (Array.isArray(user.company) ? user.company[0]?._id : null);
+      const branchId = user.branch._id || (Array.isArray(user.branch) ? user.branch[0]?._id : null);
+      
+      if (companyId && branchId) {
+        setFormData((prev) => ({
+          ...prev,
+          company: String(companyId),
+          branch: String(branchId),
+        }));
+        // Also set branches for branch admin
+        setBranches([{ _id: branchId, name: user.branch.name || "Your Branch" }]);
+      }
+    } else if (tokenCompanyId && tokenBranchId) {
+      // For non-branchAdmin users, use token values if available
       setFormData((prev) => ({
         ...prev,
-        company: String(user.company._id),
-        branch: String(user.branch._id),
+        company: (prev.company && prev.company !== "undefined") ? prev.company : tokenCompanyId,
+        branch: (prev.branch && prev.branch !== "undefined") ? prev.branch : tokenBranchId,
       }));
-      // Also set branches for branch admin
-      setBranches([{ _id: user.branch._id, name: user.branch.name }]);
     }
   }, [user, isBranchAdmin]);
 
@@ -78,15 +94,49 @@ const CreateCustomer = () => {
   };
 
   const handleSubmit = async () => {
-    if (!formData.name || !formData.company || !formData.branch) {
+    // Get companyId and branchId from token if not provided in formData
+    const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+    
+    // Ensure we have valid company and branch IDs (not undefined or empty string)
+    const finalCompany = (formData.company && formData.company !== "undefined") 
+      ? formData.company 
+      : (tokenCompanyId || "");
+    const finalBranch = (formData.branch && formData.branch !== "undefined") 
+      ? formData.branch 
+      : (tokenBranchId || "");
+
+    if (!formData.name || !finalCompany || !finalBranch) {
       toast.error("Name, Company, and Branch are required");
       return;
     }
 
-    await createCustomer({
-      ...formData,
+    // Create payload with only valid values, excluding undefined fields
+    const payload = {
+      name: formData.name,
+      email: formData.email || undefined,
+      phone: formData.phone || undefined,
+      gstNumber: formData.gstNumber || undefined,
+      address: formData.address || undefined,
+      company: finalCompany,
+      branch: finalBranch,
+      companyName: formData.companyName || undefined,
+      companyContactName: formData.companyContactName || undefined,
+      companyContactInfo: formData.companyContactInfo || undefined,
+      taxType: formData.taxType || undefined,
+      taxValue: formData.taxValue || undefined,
+      consignees: formData.consignees || [],
+      consignors: formData.consignors || [],
       createdBy: user?._id,
+    };
+
+    // Remove undefined values from payload
+    Object.keys(payload).forEach(key => {
+      if (payload[key] === undefined || payload[key] === "undefined") {
+        delete payload[key];
+      }
     });
+
+    await createCustomer(payload);
   };
 
   useEffect(() => {

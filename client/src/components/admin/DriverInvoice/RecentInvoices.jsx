@@ -29,6 +29,7 @@ import { MdOutlineEdit } from "react-icons/md";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { User, Truck, MapPin } from "lucide-react";
+import { getTokenData } from "@/utils/getTokenData";
 
 const RecentInvoices = () => {
   const driverId = useSelector((state) => state.auth.user?._id);
@@ -203,11 +204,17 @@ const RecentInvoices = () => {
                           value={invoice.status}
                           onValueChange={async (value) => {
                             try {
-                              await updateDriverInvoice({
-                                driverId,
-                                invoiceId: invoice?._id,
-                                status: value,
-                              }).unwrap();
+                              // Get companyId and branchId from token
+                              const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+                              
+                              const formData = new FormData();
+                              formData.append("driverId", driverId);
+                              formData.append("invoiceId", invoice?._id);
+                              formData.append("status", value);
+                              if (tokenCompanyId) formData.append("companyId", tokenCompanyId);
+                              if (tokenBranchId) formData.append("branchId", tokenBranchId);
+                              
+                              await updateDriverInvoice(formData).unwrap();
 
                               toast.success("Status updated successfully");
 

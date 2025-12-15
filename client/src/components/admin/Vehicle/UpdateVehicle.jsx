@@ -20,6 +20,7 @@ import {
   useUpdateVehicleMutation,
 } from "@/features/api/Vehicle/vehicleApi";
 import { useGetAllDriversQuery } from "@/features/api/authApi";
+import { getTokenData } from "@/utils/getTokenData";
 
 const UpdateVehicle = () => {
   const navigate = useNavigate();
@@ -122,7 +123,12 @@ const UpdateVehicle = () => {
   };
 
   const handleUpdate = async () => {
-    if (!vehicleNumber || !type || !companyId || !branchId) {
+    // Get companyId and branchId from token as fallback
+    const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+    const finalCompanyId = companyId || tokenCompanyId;
+    const finalBranchId = branchId || tokenBranchId;
+
+    if (!vehicleNumber || !type || !finalCompanyId || !finalBranchId) {
       return toast.error("Please fill all required fields");
     }
     const payload = new FormData();
@@ -139,8 +145,8 @@ const UpdateVehicle = () => {
     payload.append("pollutionCertificateExpiry", pollutionCertificateExpiry);
     payload.append("status", status);
     payload.append("currentDriver", currentDriver);
-    payload.append("company", companyId);
-    payload.append("branch", branchId);
+    payload.append("company", finalCompanyId);
+    payload.append("branch", finalBranchId);
     payload.append("vehicleInsuranceNo", vehicleInsuranceNo);
     payload.append("fitnessNo", fitnessNo);
     // Only append changed cert files

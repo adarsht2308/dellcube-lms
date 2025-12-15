@@ -67,6 +67,7 @@ import {
 import { Label } from "@/components/ui/label";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { BASE_URL } from "@/utils/BaseUrl.jsx";
+import { getTokenData } from "@/utils/getTokenData";
 
 // InfoCard and InfoRow components for Drawer, styled like Invoices/Customers
 const InfoCard = ({ icon: Icon, title, children, className = "" }) => (
@@ -124,11 +125,30 @@ const Vehicles = () => {
   const debouncedSearch = useDebounce(search, 500);
   // Update state defaults and query logic for 'all' value
   const [status, setStatus] = useState("all");
+  
+  // Get companyId and branchId from token as fallback
+  const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+  
+  // Handle arrays for company and branch (multi-company/multi-branch support)
+  const getUserCompanyId = () => {
+    if (Array.isArray(user?.company) && user.company.length > 0) {
+      return String(user.company[0]._id || user.company[0]);
+    }
+    return user?.company?._id ? String(user.company._id) : tokenCompanyId;
+  };
+  
+  const getUserBranchId = () => {
+    if (Array.isArray(user?.branch) && user.branch.length > 0) {
+      return String(user.branch[0]._id || user.branch[0]);
+    }
+    return user?.branch?._id ? String(user.branch._id) : tokenBranchId;
+  };
+  
   const [companyId, setCompanyId] = useState(
-    isBranchAdmin ? user?.company?._id : "all"
+    isBranchAdmin ? getUserCompanyId() : "all"
   );
   const [branchId, setBranchId] = useState(
-    isBranchAdmin ? user?.branch?._id : "all"
+    isBranchAdmin ? getUserBranchId() : "all"
   );
   const [open, setOpen] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
@@ -160,12 +180,12 @@ const Vehicles = () => {
     search: debouncedSearch,
     status: status === "all" ? "" : status,
     companyId: isBranchAdmin
-      ? user?.company?._id
+      ? getUserCompanyId()
       : companyId === "all"
       ? ""
       : companyId,
     branchId: isBranchAdmin
-      ? user?.branch?._id
+      ? getUserBranchId()
       : branchId === "all"
       ? ""
       : branchId,

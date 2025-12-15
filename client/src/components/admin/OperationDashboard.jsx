@@ -12,11 +12,30 @@ import { useGetAllVehiclesQuery } from "@/features/api/Vehicle/vehicleApi";
 import { useGetAllInvoicesQuery } from "@/features/api/Invoice/invoiceApi";
 import { useGetAllCompaniesQuery } from "@/features/api/Company/companyApi";
 import { useGetAllCustomersQuery } from "@/features/api/Customer/customerApi.js";
+import { getTokenData } from "@/utils/getTokenData";
 
 const OperationDashboard = () => {
   const { user } = useSelector((store) => store.auth);
-  const branchId = user?.branch?._id || "";
-  const companyId = user?.company?._id || "";
+  // Get companyId and branchId from token (current session)
+  const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+  
+  // Handle arrays for company and branch (multi-company/multi-branch support)
+  const getUserCompanyId = () => {
+    if (Array.isArray(user?.company) && user.company.length > 0) {
+      return String(user.company[0]._id || user.company[0]);
+    }
+    return user?.company?._id ? String(user.company._id) : tokenCompanyId || "";
+  };
+  
+  const getUserBranchId = () => {
+    if (Array.isArray(user?.branch) && user.branch.length > 0) {
+      return String(user.branch[0]._id || user.branch[0]);
+    }
+    return user?.branch?._id ? String(user.branch._id) : tokenBranchId || "";
+  };
+  
+  const branchId = getUserBranchId();
+  const companyId = getUserCompanyId();
   const { data: driversData, isLoading: loadingDrivers } =
     useGetAllDriversQuery({
       page: 1,

@@ -632,14 +632,14 @@ const Vendors = () => {
                       {vendor.phone}
                     </td>
                     <td className="p-3 text-[#202020] dark:text-[#FFD249] text-center">
-                      {vendor.company?.name || (
-                        <span className="text-gray-400">N/A</span>
-                      )}
+                      {vendor.company && Array.isArray(vendor.company) && vendor.company.length > 0
+                        ? vendor.company.map(c => typeof c === 'object' ? c.name : c).join(", ")
+                        : vendor.company?.name || <span className="text-gray-400">N/A</span>}
                     </td>
                     <td className="p-3 text-[#202020] dark:text-[#FFD249] text-center">
-                      {vendor.branch?.name || (
-                        <span className="text-gray-400">N/A</span>
-                      )}
+                      {vendor.branch && Array.isArray(vendor.branch) && vendor.branch.length > 0
+                        ? vendor.branch.map(b => typeof b === 'object' ? b.name : b).join(", ")
+                        : vendor.branch?.name || <span className="text-gray-400">N/A</span>}
                     </td>
                     <td className="p-3 text-center">
                       <span
@@ -884,12 +884,20 @@ const Vendors = () => {
               <InfoCard icon={Building2} title="Company & Branch">
                 <InfoRow
                   label="Company"
-                  value={selectedVendor.company?.name}
+                  value={
+                    selectedVendor.company && Array.isArray(selectedVendor.company) && selectedVendor.company.length > 0
+                      ? selectedVendor.company.map(c => typeof c === 'object' ? c.name : c).join(", ")
+                      : selectedVendor.company?.name || "N/A"
+                  }
                   icon={Building2}
                 />
                 <InfoRow
                   label="Branch"
-                  value={selectedVendor.branch?.name}
+                  value={
+                    selectedVendor.branch && Array.isArray(selectedVendor.branch) && selectedVendor.branch.length > 0
+                      ? selectedVendor.branch.map(b => typeof b === 'object' ? b.name : b).join(", ")
+                      : selectedVendor.branch?.name || "N/A"
+                  }
                   icon={MapPin}
                 />
                 <InfoRow

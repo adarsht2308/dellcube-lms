@@ -174,7 +174,11 @@ export const createVehicle = async (req, res) => {
       fitnessNo,
     } = req.body;
 
-    if (!vehicleNumber || !type || !branch || !company) {
+    // Use companyId/branchId from token if not provided in body (for non-superAdmin users)
+    const finalCompany = company || (req.user?.role !== "superAdmin" ? req.companyId : null);
+    const finalBranch = branch || (req.user?.role !== "superAdmin" ? req.branchId : null);
+
+    if (!vehicleNumber || !type || !finalBranch || !finalCompany) {
       return res.status(400).json({
         success: false,
         message: "Vehicle number, type, branch, and company are required",
@@ -202,8 +206,8 @@ export const createVehicle = async (req, res) => {
       pollutionCertificateExpiry,
       status,
       currentDriver,
-      branch,
-      company,
+      branch: finalBranch,
+      company: finalCompany,
       maintenanceHistory,
       // Always set createdBy from authenticated user when available
       createdBy: req?.user?.userId || createdBy,
@@ -269,8 +273,11 @@ export const getAllVehicles = async (req, res) => {
     const query = {};
     if (search) query.vehicleNumber = { $regex: search, $options: "i" };
     if (status) query.status = status;
-    if (companyId) query.company = companyId;
-    if (branchId) query.branch = branchId;
+    // Use companyId/branchId from token if not provided in query (for non-superAdmin users)
+    const finalCompanyId = companyId || (req.user?.role !== "superAdmin" ? req.companyId : null);
+    const finalBranchId = branchId || (req.user?.role !== "superAdmin" ? req.branchId : null);
+    if (finalCompanyId) query.company = finalCompanyId;
+    if (finalBranchId) query.branch = finalBranchId;
 
     // If a vendor is logged in, restrict to vehicles created by that vendor
     if (req.user?.role === "vendor") {
