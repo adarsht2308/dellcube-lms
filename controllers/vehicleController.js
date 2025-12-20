@@ -185,6 +185,33 @@ export const createVehicle = async (req, res) => {
       });
     }
 
+    // Validate ObjectIds
+    if (!mongoose.Types.ObjectId.isValid(finalCompany)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid company ID format",
+      });
+    }
+    if (!mongoose.Types.ObjectId.isValid(finalBranch)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid branch ID format",
+      });
+    }
+    
+    // Handle empty string for optional currentDriver field
+    // Convert empty string to null/undefined so Mongoose doesn't try to cast it
+    const finalCurrentDriver = currentDriver && currentDriver.trim() !== "" 
+      ? (mongoose.Types.ObjectId.isValid(currentDriver) ? currentDriver : null)
+      : null;
+    
+    if (currentDriver && currentDriver.trim() !== "" && !mongoose.Types.ObjectId.isValid(currentDriver)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid driver ID format",
+      });
+    }
+
     const existing = await Vehicle.findOne({ vehicleNumber });
     if (existing) {
       return res.status(400).json({
@@ -193,26 +220,26 @@ export const createVehicle = async (req, res) => {
       });
     }
 
-    const vehicle = await Vehicle.create({
+    // Prepare vehicle data
+    const vehicleData = {
       vehicleNumber,
       type,
-      cargoType,
-      brand,
-      model,
-      yearOfManufacture,
-      registrationDate,
-      fitnessCertificateExpiry,
-      insuranceExpiry,
-      pollutionCertificateExpiry,
-      status,
-      currentDriver,
+      cargoType: cargoType || undefined,
+      brand: brand || undefined,
+      model: model || undefined,
+      yearOfManufacture: yearOfManufacture || undefined,
+      registrationDate: registrationDate || undefined,
+      fitnessCertificateExpiry: fitnessCertificateExpiry || undefined,
+      insuranceExpiry: insuranceExpiry || undefined,
+      pollutionCertificateExpiry: pollutionCertificateExpiry || undefined,
+      status: status || "active",
       branch: finalBranch,
       company: finalCompany,
-      maintenanceHistory,
+      maintenanceHistory: maintenanceHistory || [],
       // Always set createdBy from authenticated user when available
-      createdBy: req?.user?.userId || createdBy,
-      vehicleInsuranceNo,
-      fitnessNo,
+      createdBy: req?.user?.userId || createdBy || undefined,
+      vehicleInsuranceNo: vehicleInsuranceNo || undefined,
+      fitnessNo: fitnessNo || undefined,
       // Certificate images from file uploads (Cloudinary)
       fitnessCertificateImage: req.files?.fitnessCertificateImage?.[0]
         ? {
@@ -238,7 +265,14 @@ export const createVehicle = async (req, res) => {
             public_id: req.files.insuranceImage[0].filename,
           }
         : { url: "", public_id: "" },
-    });
+    };
+
+    // Only add currentDriver if it's a valid ObjectId (not empty string)
+    if (finalCurrentDriver) {
+      vehicleData.currentDriver = finalCurrentDriver;
+    }
+
+    const vehicle = await Vehicle.create(vehicleData);
 
     return res.status(201).json({
       success: true,
@@ -250,6 +284,8 @@ export const createVehicle = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Something went wrong while creating the vehicle",
+      error: error.message || error.toString(),
+      ...(process.env.NODE_ENV === "development" && { stack: error.stack }),
     });
   }
 };

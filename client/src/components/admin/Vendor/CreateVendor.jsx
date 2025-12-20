@@ -33,11 +33,31 @@ import { useCreateVendorMutation } from "@/features/api/Vendor/vendorApi";
 import { useGetAllCompaniesQuery } from "@/features/api/Company/companyApi";
 import { useGetBranchesByCompanyMutation } from "@/features/api/Branch/branchApi";
 import { useGetAllCustomersQuery } from "@/features/api/Customer/customerApi";
+import { getTokenData } from "@/utils/getTokenData";
 
 const CreateVendor = () => {
   const navigate = useNavigate();
   const user = useSelector((state) => state.auth.user);
   const isBranchAdmin = user?.role === "branchAdmin";
+  const isSuperAdmin = user?.role === "superAdmin";
+
+  // Get companyId and branchId from token (current session)
+  const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+  
+  // Helper functions to get company/branch ID from user object (handles arrays)
+  const getUserCompanyId = () => {
+    if (Array.isArray(user?.company) && user.company.length > 0) {
+      return String(user.company[0]._id || user.company[0]);
+    }
+    return user?.company?._id ? String(user.company._id) : tokenCompanyId || "";
+  };
+  
+  const getUserBranchId = () => {
+    if (Array.isArray(user?.branch) && user.branch.length > 0) {
+      return String(user.branch[0]._id || user.branch[0]);
+    }
+    return user?.branch?._id ? String(user.branch._id) : tokenBranchId || "";
+  };
 
   const [vendorFormData, setVendorFormData] = useState({
     name: "",
@@ -61,20 +81,38 @@ const CreateVendor = () => {
 
   const [branches, setBranches] = useState([]);
   const { data: companies = [] } = useGetAllCompaniesQuery({ status: "true" });
-  const { data: customers = [] } = useGetAllCustomersQuery({ status: "true" });
+  
+  // Use token values as fallback for customer query
+  const finalCompanyIdForQuery = vendorFormData.company || tokenCompanyId || "";
+  const finalBranchIdForQuery = vendorFormData.branch || tokenBranchId || "";
+  
+  const { data: customers = [] } = useGetAllCustomersQuery(
+    { companyId: finalCompanyIdForQuery, branchId: finalBranchIdForQuery, status: "true" },
+    { skip: !finalCompanyIdForQuery || !finalBranchIdForQuery }
+  );
   const [getBranchesByCompany] = useGetBranchesByCompanyMutation();
   const [createVendor, { isLoading, isSuccess, isError, error, data }] =
     useCreateVendorMutation();
 
+  // Initialize companyId and branchId from token if empty
   useEffect(() => {
-    if (isBranchAdmin && user?.company && user?.branch) {
+    if (isBranchAdmin) {
+      const companyId = getUserCompanyId();
+      const branchId = getUserBranchId();
       setVendorFormData((prev) => ({
         ...prev,
-        company: String(user?.company?._id),
-        branch: String(user?.branch?._id),
+        company: companyId,
+        branch: branchId,
+      }));
+    } else if (tokenCompanyId && tokenBranchId) {
+      // For non-branchAdmin users, use token values as fallback
+      setVendorFormData((prev) => ({
+        ...prev,
+        company: prev.company || tokenCompanyId,
+        branch: prev.branch || tokenBranchId,
       }));
     }
-  }, [user]);
+  }, [user, tokenCompanyId, tokenBranchId]);
 
   const handleCompanyChange = async (companyId) => {
     setVendorFormData((prev) => ({
@@ -158,12 +196,16 @@ const CreateVendor = () => {
       return;
     }
 
-    if (!company) {
+    // Get companyId and branchId from token as fallback
+    const finalCompany = company || tokenCompanyId;
+    const finalBranch = branch || tokenBranchId;
+
+    if (!finalCompany) {
       toast.error("Company is required");
       return;
     }
 
-    if (!branch) {
+    if (!finalBranch) {
       toast.error("Branch is required");
       return;
     }
@@ -210,8 +252,8 @@ const CreateVendor = () => {
       payload.append("accountNumber", vendorFormData.accountNumber);
       payload.append("ifsc", vendorFormData.ifsc);
       payload.append("status", vendorFormData.status);
-      payload.append("company", vendorFormData.company);
-      payload.append("branch", vendorFormData.branch);
+      payload.append("company", finalCompany);
+      payload.append("branch", finalBranch);
       // Append each assigned client
       vendorFormData.assignedClients.forEach((clientId) => {
         payload.append("assignedClients", clientId);
@@ -327,46 +369,49 @@ const CreateVendor = () => {
                     placeholder="Address"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="company">Company *</Label>
-                  <Select
-                    value={vendorFormData.company}
-                    onValueChange={handleCompanyChange}
-                    disabled={isBranchAdmin}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select company" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(companies?.companies || []).map((comp) => (
-                        <SelectItem key={comp._id} value={comp._id}>
-                          {comp.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="branch">Branch *</Label>
-                  <Select
-                    value={vendorFormData.branch}
-                    onValueChange={(value) =>
-                      setVendorFormData({ ...vendorFormData, branch: value })
-                    }
-                    disabled={isBranchAdmin}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select branch" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {branches?.map((branch) => (
-                        <SelectItem key={branch._id} value={branch._id}>
-                          {branch.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {!isBranchAdmin && (
+                  <>
+                    <div>
+                      <Label htmlFor="company">Company *</Label>
+                      <Select
+                        value={vendorFormData.company}
+                        onValueChange={handleCompanyChange}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select company" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(companies?.companies || []).map((comp) => (
+                            <SelectItem key={comp._id} value={comp._id}>
+                              {comp.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="branch">Branch *</Label>
+                      <Select
+                        value={vendorFormData.branch}
+                        onValueChange={(value) =>
+                          setVendorFormData({ ...vendorFormData, branch: value })
+                        }
+                        disabled={!vendorFormData.company}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select branch" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {branches?.map((branch) => (
+                            <SelectItem key={branch._id} value={branch._id}>
+                              {branch.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                )}
                 <div>
                   <Label htmlFor="assignedClients">Assigned Customers *</Label>
                   <div className="mt-2 border rounded-md p-4 max-h-60 overflow-y-auto bg-gray-50 dark:bg-gray-800/50">

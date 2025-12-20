@@ -14,11 +14,33 @@ export const vendorApi = createApi({
 
   endpoints: (builder) => ({
     createVendor: builder.mutation({
-      query: (payload) => ({
-        url: "/create",
-        method: "POST",
-        body: payload,
-      }),
+      query: (payload) => {
+        // Get companyId and branchId from token
+        const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+        
+        // If payload is FormData, append companyId and branchId if not already present
+        if (payload instanceof FormData) {
+          if (tokenCompanyId && !payload.has("company")) {
+            payload.append("company", tokenCompanyId);
+          }
+          if (tokenBranchId && !payload.has("branch")) {
+            payload.append("branch", tokenBranchId);
+          }
+        } else {
+          // If payload is an object, add companyId and branchId if not already present
+          payload = {
+            ...payload,
+            ...(tokenCompanyId && !payload.company && { company: tokenCompanyId }),
+            ...(tokenBranchId && !payload.branch && { branch: tokenBranchId }),
+          };
+        }
+        
+        return {
+          url: "/create",
+          method: "POST",
+          body: payload,
+        };
+      },
       invalidatesTags: ["Vendor"],
     }),
 
@@ -56,7 +78,17 @@ export const vendorApi = createApi({
 
     updateVendor: builder.mutation({
       query: (payload) => {
+        // Get companyId and branchId from token
+        const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+        
         if (payload instanceof FormData) {
+          // If payload is FormData, append companyId and branchId if not already present
+          if (tokenCompanyId && !payload.has("company")) {
+            payload.append("company", tokenCompanyId);
+          }
+          if (tokenBranchId && !payload.has("branch")) {
+            payload.append("branch", tokenBranchId);
+          }
           return {
             url: "/update",
             method: "PUT",
@@ -64,10 +96,17 @@ export const vendorApi = createApi({
           };
         } else {
           const { vendorId, ...rest } = payload;
+          // Add companyId and branchId if not already present
+          const finalPayload = {
+            vendorId,
+            ...rest,
+            ...(tokenCompanyId && !rest.company && { company: tokenCompanyId }),
+            ...(tokenBranchId && !rest.branch && { branch: tokenBranchId }),
+          };
           return {
             url: "/update",
             method: "PUT",
-            body: { vendorId, ...rest },
+            body: finalPayload,
           };
         }
       },

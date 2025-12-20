@@ -259,9 +259,31 @@ const CreateInvoice = () => {
   const isBranchAdmin = user?.role === "branchAdmin";
   const isVendor = user?.role === "vendor";
 
-  // Initialize with user's company/branch for branch admins
-  const [companyId, setCompanyId] = useState(user?.company?._id || "");
-  const [branchId, setBranchId] = useState(user?.branch?._id || "");
+  // Get companyId and branchId from token (current session)
+  const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+  
+  // Helper functions to get company/branch ID from user object (handles arrays)
+  const getUserCompanyId = () => {
+    if (Array.isArray(user?.company) && user.company.length > 0) {
+      return String(user.company[0]._id || user.company[0]);
+    }
+    return user?.company?._id ? String(user.company._id) : tokenCompanyId || "";
+  };
+  
+  const getUserBranchId = () => {
+    if (Array.isArray(user?.branch) && user.branch.length > 0) {
+      return String(user.branch[0]._id || user.branch[0]);
+    }
+    return user?.branch?._id ? String(user.branch._id) : tokenBranchId || "";
+  };
+
+  // Initialize with user's company/branch for branch admins, or token values
+  const [companyId, setCompanyId] = useState(
+    isBranchAdmin || isVendor ? getUserCompanyId() : tokenCompanyId || ""
+  );
+  const [branchId, setBranchId] = useState(
+    isBranchAdmin || isVendor ? getUserBranchId() : tokenBranchId || ""
+  );
   const [customerId, setCustomerId] = useState("");
   const [invoiceDate, setInvoiceDate] = useState(
     new Date().toISOString().split("T")[0]
@@ -529,9 +551,14 @@ const CreateInvoice = () => {
 
   const { data: companies } = useGetAllCompaniesQuery({});
   const [getBranchesByCompany] = useGetBranchesByCompanyMutation();
+  
+  // Use token values as fallback for customer query
+  const finalCompanyIdForQuery = companyId || tokenCompanyId || "";
+  const finalBranchIdForQuery = branchId || tokenBranchId || "";
+  
   const { data: customersData } = useGetAllCustomersQuery(
-    { companyId, branchId, status: "true" },
-    { skip: !companyId || !branchId }
+    { companyId: finalCompanyIdForQuery, branchId: finalBranchIdForQuery, status: "true" },
+    { skip: !finalCompanyIdForQuery || !finalBranchIdForQuery }
   );
   // console.log(customersData)
   // Remove unused countries query since we're no longer using the region system
@@ -548,22 +575,22 @@ const CreateInvoice = () => {
       {
         page: 1,
         limit: 1000,
-        companyId: companyId,
-        branchId: branchId,
+        companyId: finalCompanyIdForQuery,
+        branchId: finalBranchIdForQuery,
       },
       {
-        skip: !companyId || !branchId,
+        skip: !finalCompanyIdForQuery || !finalBranchIdForQuery,
       }
     );
 
   const { data: vendorData, refetch: refetchVendors } = useGetAllVendorsQuery(
     {
-      companyId: companyId,
-      branchId: branchId,
+      companyId: finalCompanyIdForQuery,
+      branchId: finalBranchIdForQuery,
       status: "active",
     },
     {
-      skip: !companyId || !branchId,
+      skip: !finalCompanyIdForQuery || !finalBranchIdForQuery,
     }
   );
 
@@ -708,6 +735,16 @@ const CreateInvoice = () => {
       setDriverContactNumber("");
     }
   }, [selectedDriver, driversData]);
+
+  // Initialize companyId and branchId from token if empty
+  useEffect(() => {
+    if (!companyId && tokenCompanyId) {
+      setCompanyId(tokenCompanyId);
+    }
+    if (!branchId && tokenBranchId) {
+      setBranchId(tokenBranchId);
+    }
+  }, [tokenCompanyId, tokenBranchId]);
 
   useEffect(() => {
     const fetchBranches = async () => {

@@ -35,11 +35,33 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useGetAllCompaniesQuery } from "@/features/api/Company/companyApi.js";
 import { useGetAllBranchesQuery } from "@/features/api/Branch/branchApi.js";
 import { useGetAllCustomersQuery } from "@/features/api/Customer/customerApi.js";
+import { useSelector } from "react-redux";
+import { getTokenData } from "@/utils/getTokenData";
 
 const UpdateVendor = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const vendorId = location.state?.vendorId;
+  const user = useSelector((state) => state.auth.user);
+  const isBranchAdmin = user?.role === "branchAdmin";
+  
+  // Get companyId and branchId from token (current session)
+  const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+  
+  // Helper functions to get company/branch ID from user object (handles arrays)
+  const getUserCompanyId = () => {
+    if (Array.isArray(user?.company) && user.company.length > 0) {
+      return String(user.company[0]._id || user.company[0]);
+    }
+    return user?.company?._id ? String(user.company._id) : tokenCompanyId || "";
+  };
+  
+  const getUserBranchId = () => {
+    if (Array.isArray(user?.branch) && user.branch.length > 0) {
+      return String(user.branch[0]._id || user.branch[0]);
+    }
+    return user?.branch?._id ? String(user.branch._id) : tokenBranchId || "";
+  };
 
   const [vendorData, setVendorData] = useState({
     name: "",
@@ -78,14 +100,27 @@ const UpdateVendor = () => {
     limit: 100,
   });
   const { data: branchData } = useGetAllBranchesQuery({ page: 1, limit: 100 });
-  const { data: customersData } = useGetAllCustomersQuery({
-    page: 1,
-    limit: 100,
-  });
+  
+  // Use token values as fallback for customer query
+  const finalCompanyIdForQuery = vendorData.company || tokenCompanyId || "";
+  const finalBranchIdForQuery = vendorData.branch || tokenBranchId || "";
+  
+  const { data: customersData } = useGetAllCustomersQuery(
+    { companyId: finalCompanyIdForQuery, branchId: finalBranchIdForQuery, page: 1, limit: 100 },
+    { skip: !finalCompanyIdForQuery || !finalBranchIdForQuery }
+  );
 
   useEffect(() => {
     if (isGetSuccess && viewData?.vendor) {
       const v = viewData.vendor;
+      // Handle both single value and array formats for company/branch
+      const companyId = Array.isArray(v.company) && v.company.length > 0
+        ? String(v.company[0]._id || v.company[0])
+        : (v.company?._id ? String(v.company._id) : (isBranchAdmin ? getUserCompanyId() : ""));
+      const branchId = Array.isArray(v.branch) && v.branch.length > 0
+        ? String(v.branch[0]._id || v.branch[0])
+        : (v.branch?._id ? String(v.branch._id) : (isBranchAdmin ? getUserBranchId() : ""));
+      
       setVendorData({
         name: v.name || "",
         phone: v.phone || "",
@@ -96,9 +131,9 @@ const UpdateVendor = () => {
         bankName: v.bankName || "",
         accountNumber: v.accountNumber || "",
         ifsc: v.ifsc || "",
-        status: v.status === "active",
-        company: v.company?._id || "",
-        branch: v.branch?._id || "",
+        status: v.vendorStatus === "active" || v.status === "active" || v.status === true,
+        company: companyId,
+        branch: branchId,
         assignedClients: v.assignedClients?.map((client) => client._id || client) || [],
       });
       setSignaturePreview(v.signature?.url || "");
@@ -170,12 +205,16 @@ const UpdateVendor = () => {
       return;
     }
 
-    if (!company) {
+    // Get companyId and branchId from token as fallback
+    const finalCompany = company || tokenCompanyId;
+    const finalBranch = branch || tokenBranchId;
+
+    if (!finalCompany) {
       toast.error("Company is required");
       return;
     }
 
-    if (!branch) {
+    if (!finalBranch) {
       toast.error("Branch is required");
       return;
     }
@@ -210,8 +249,8 @@ const UpdateVendor = () => {
       payload.append("accountNumber", vendorData.accountNumber || "");
       payload.append("ifsc", vendorData.ifsc || "");
       payload.append("status", statusString);
-      payload.append("company", vendorData.company);
-      payload.append("branch", vendorData.branch);
+      payload.append("company", finalCompany);
+      payload.append("branch", finalBranch);
       // Append each assigned client
       vendorData.assignedClients.forEach((clientId) => {
         payload.append("assignedClients", clientId);
@@ -338,39 +377,43 @@ const UpdateVendor = () => {
                       placeholder="Address"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="company">Company *</Label>
-                    <Select
-                      value={vendorData.company}
-                      onValueChange={handleCompanyChange}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select company" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {companyData?.companies?.map((comp) => (
-                          <SelectItem key={comp._id} value={comp._id}>
-                            {comp.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="branch">Branch *</Label>
-                    <Select value={vendorData.branch} onValueChange={handleBranchChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select branch" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {branchData?.branches?.map((br) => (
-                          <SelectItem key={br._id} value={br._id}>
-                            {br.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {!isBranchAdmin && (
+                    <>
+                      <div>
+                        <Label htmlFor="company">Company *</Label>
+                        <Select
+                          value={vendorData.company}
+                          onValueChange={handleCompanyChange}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select company" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {companyData?.companies?.map((comp) => (
+                              <SelectItem key={comp._id} value={comp._id}>
+                                {comp.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="branch">Branch *</Label>
+                        <Select value={vendorData.branch} onValueChange={handleBranchChange}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select branch" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {branchData?.branches?.map((br) => (
+                              <SelectItem key={br._id} value={br._id}>
+                                {br.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </>
+                  )}
                   <div>
                     <Label htmlFor="assignedClients">Assigned Customers *</Label>
                     <div className="mt-2 border rounded-md p-4 max-h-60 overflow-y-auto bg-gray-50 dark:bg-gray-800/50">

@@ -38,11 +38,15 @@ export const createVendor = async (req, res) => {
 
     const createdBy = req.user._id;
 
+    // Use companyId/branchId from token if not provided in body (for non-superAdmin users)
+    const finalCompany = company || (req.user?.role !== "superAdmin" ? req.companyId : null);
+    const finalBranch = branch || (req.user?.role !== "superAdmin" ? req.branchId : null);
+
     // Basic validation
-    if (!name || !email || !phone || !branch || !company) {
+    if (!name || !email || !phone || !finalBranch || !finalCompany) {
       return res.status(400).json({
         success: false,
-        message: "Name, email, and phone are required fields for a vendor.",
+        message: "Name, email, phone, branch, and company are required fields for a vendor.",
       });
     }
 
@@ -62,13 +66,17 @@ export const createVendor = async (req, res) => {
       ? await bcrypt.hash(password, 10)
       : await bcrypt.hash("Vendor@123", 10);
 
+    // Convert company and branch to arrays (User model expects arrays)
+    const companyArray = Array.isArray(finalCompany) ? finalCompany : [finalCompany].filter(Boolean);
+    const branchArray = Array.isArray(finalBranch) ? finalBranch : [finalBranch].filter(Boolean);
+
     const vendorDoc = await User.create({
       name,
       email,
       password: hashedPassword,
       role: "vendor",
-      company,
-      branch,
+      company: companyArray,
+      branch: branchArray,
       phone,
       address,
       gstNumber,
@@ -245,6 +253,15 @@ export const updateVendor = async (req, res) => {
     // Extract updates, excluding vendorId
     const updates = { ...req.body };
     delete updates.vendorId;
+
+    // Use companyId/branchId from token if not provided in body (for non-superAdmin users)
+    // Only use token values if company/branch are not explicitly provided
+    if (!updates.company && req.user?.role !== "superAdmin" && req.companyId) {
+      updates.company = req.companyId;
+    }
+    if (!updates.branch && req.user?.role !== "superAdmin" && req.branchId) {
+      updates.branch = req.branchId;
+    }
 
     // Vendor can only update self
     if (
