@@ -388,7 +388,7 @@ const Invoices = () => {
     }
   };
 
-  // Watch for company change in reservedForm (for superAdmin/operation)
+  // Watch for company change in reservedForm (for superAdmin only)
   useEffect(() => {
     if (user?.role === "superAdmin" && reservedForm.company) {
       getBranchesByCompany(reservedForm.company).then((res) => {
@@ -1408,26 +1408,47 @@ const Invoices = () => {
       toast.error("Please select a customer and enter count.");
       return;
     }
-    // For superAdmin/operation, require company and branch
-    if (
-      (user?.role === "superAdmin" || user?.role === "operation") &&
-      (!reservedForm.company || !reservedForm.branch)
-    ) {
+    
+    // For superAdmin, require company and branch from form
+    if (user?.role === "superAdmin" && (!reservedForm.company || !reservedForm.branch)) {
       toast.error("Please select company and branch.");
       return;
     }
+    
     try {
       // Get companyId and branchId from token as fallback
       const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
       
+      // Helper function to get company ID from user profile
+      const getUserCompanyId = () => {
+        if (user?.company?._id) return user.company._id;
+        if (Array.isArray(user?.company) && user.company.length > 0) return user.company[0]._id;
+        return null;
+      };
+      
+      // Helper function to get branch ID from user profile
+      const getUserBranchId = () => {
+        if (user?.branch?._id) return user.branch._id;
+        if (Array.isArray(user?.branch) && user.branch.length > 0) return user.branch[0]._id;
+        return null;
+      };
+      
+      // For superAdmin, use form values; for others, use profile/token
       const finalCompany = 
-        user?.role === "superAdmin" || user?.role === "operation"
+        user?.role === "superAdmin"
           ? reservedForm.company
-          : (user?.company?._id || tokenCompanyId);
+          : (getUserCompanyId() || tokenCompanyId);
+      
       const finalBranch =
-        user?.role === "superAdmin" || user?.role === "operation"
+        user?.role === "superAdmin"
           ? reservedForm.branch
-          : (user?.branch?._id || tokenBranchId);
+          : (getUserBranchId() || tokenBranchId);
+      
+      // Validate that we have company and branch IDs
+      if (!finalCompany || !finalBranch) {
+        toast.error("Company or branch information is missing. Please contact your administrator.");
+        return;
+      }
 
       await createReservedDockets({
         customer: reservedForm.customer,
@@ -2817,8 +2838,8 @@ const Invoices = () => {
               <DialogTitle>Create Reserved Dockets</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleReservedDocketSubmit} className="space-y-4">
-              {/* Company/Branch dropdowns for superAdmin/operation */}
-              {(user?.role === "superAdmin" || user?.role === "operation") && (
+              {/* Company/Branch dropdowns only for superAdmin */}
+              {user?.role === "superAdmin" && (
                 <>
                   <div>
                     <Label>Company</Label>
@@ -2866,6 +2887,28 @@ const Invoices = () => {
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                </>
+              )}
+              
+              {/* Show company/branch info for operation, branchAdmin, vendor (read-only) */}
+              {(user?.role === "operation" || user?.role === "branchAdmin" || user?.role === "vendor") && (
+                <>
+                  <div>
+                    <Label>Company</Label>
+                    <Input
+                      value={user?.company?.name || (Array.isArray(user?.company) && user.company.length > 0 ? user.company[0].name : "")}
+                      disabled
+                      className="bg-gray-100 cursor-not-allowed dark:bg-gray-800"
+                    />
+                  </div>
+                  <div>
+                    <Label>Branch</Label>
+                    <Input
+                      value={user?.branch?.name || (Array.isArray(user?.branch) && user.branch.length > 0 ? user.branch[0].name : "")}
+                      disabled
+                      className="bg-gray-100 cursor-not-allowed dark:bg-gray-800"
+                    />
                   </div>
                 </>
               )}
@@ -2937,8 +2980,7 @@ const Invoices = () => {
                 className="w-full bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020] font-medium py-2 text-base border border-[#FFD249]"
                 disabled={
                   isCreatingReserved ||
-                  ((user?.role === "superAdmin" ||
-                    user?.role === "operation") &&
+                  (user?.role === "superAdmin" &&
                     (!reservedForm.company || !reservedForm.branch))
                 }
               >

@@ -34,6 +34,23 @@ const UpdateCustomer = () => {
 
   const user = useSelector((state) => state.auth.user);
   const isBranchAdmin = user?.role === "branchAdmin";
+  const isOperation = user?.role === "operation";
+  const isVendor = user?.role === "vendor";
+  const shouldHideCompanyBranch = isBranchAdmin || isOperation || isVendor;
+
+  // Helper function to get company ID from user profile
+  const getUserCompanyId = () => {
+    if (user?.company?._id) return user.company._id;
+    if (Array.isArray(user?.company) && user.company.length > 0) return user.company[0]._id;
+    return null;
+  };
+
+  // Helper function to get branch ID from user profile
+  const getUserBranchId = () => {
+    if (user?.branch?._id) return user.branch._id;
+    if (Array.isArray(user?.branch) && user.branch.length > 0) return user.branch[0]._id;
+    return null;
+  };
 
   const [getCustomerById, { data: customerData }] =
     useGetCustomerByIdMutation();
@@ -78,13 +95,19 @@ const UpdateCustomer = () => {
       // Handle branch - could be object or array
       const branchId = c.branch?._id || (Array.isArray(c.branch) && c.branch.length > 0 ? c.branch[0]._id : null) || "";
       
+      // For operation, branchAdmin, vendor - always use their profile company/branch
+      // For superAdmin - use customer's existing company/branch or allow editing
+      const finalCompanyId = shouldHideCompanyBranch 
+        ? (getUserCompanyId() || getTokenData().companyId)
+        : companyId;
+      
       setFormData({
         name: c.name || "",
         email: c.email || "",
         phone: c.phone || "",
         gstNumber: c.gstNumber || "",
         address: c.address || "",
-        company: isBranchAdmin ? (user?.company?._id || getTokenData().companyId) : companyId,
+        company: finalCompanyId,
         branch: "",
         companyName: c.companyName || "",
         companyContactName: c.companyContactName || "",
@@ -97,9 +120,9 @@ const UpdateCustomer = () => {
         status: c.status === true || c.status === "active",
       });
 
-      // Step 2: If not admin, fetch branches & then set branch
-      if (!isBranchAdmin && companyId) {
-        getBranchesByCompany(companyId).then((res) => {
+      // Step 2: For superAdmin, fetch branches & then set branch
+      if (!shouldHideCompanyBranch && finalCompanyId) {
+        getBranchesByCompany(finalCompanyId).then((res) => {
           const br = res?.data?.branches || [];
           setBranches(br);
 
@@ -110,19 +133,25 @@ const UpdateCustomer = () => {
         });
       }
 
-      // Step 3: If admin, populate only their branch
-      if (isBranchAdmin) {
-        const tokenBranchId = getTokenData().branchId || user?.branch?._id;
-        setBranches([{ _id: tokenBranchId, name: "Your Branch" }]);
+      // Step 3: For operation, branchAdmin, vendor - use their profile branch
+      if (shouldHideCompanyBranch) {
+        const profileBranchId = getUserBranchId() || getTokenData().branchId;
+        const branchName = user?.branch?.name || (Array.isArray(user?.branch) && user.branch.length > 0 ? user.branch[0].name : "Your Branch");
+        setBranches([{ _id: profileBranchId, name: branchName }]);
         setFormData((prev) => ({
           ...prev,
-          branch: tokenBranchId || "",
+          branch: profileBranchId || "",
         }));
       }
     }
   }, [customerData]);
 
   const handleCompanyChange = async (companyId) => {
+    // Don't allow changing company for operation, branchAdmin, vendor
+    if (shouldHideCompanyBranch) {
+      return;
+    }
+    
     setFormData({ ...formData, company: companyId, branch: "" });
     const res = await getBranchesByCompany( companyId );
     setBranches(res?.data?.branches || []);
@@ -132,13 +161,22 @@ const UpdateCustomer = () => {
     // Get companyId and branchId from token if not provided in formData
     const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
     
-    // Ensure we have valid company and branch IDs (not undefined or empty string)
-    const finalCompany = (formData.company && formData.company !== "undefined") 
-      ? formData.company 
-      : (tokenCompanyId || "");
-    const finalBranch = (formData.branch && formData.branch !== "undefined") 
-      ? formData.branch 
-      : (tokenBranchId || "");
+    // For superAdmin, use form values; for others, use profile/token
+    let finalCompany, finalBranch;
+    
+    if (shouldHideCompanyBranch) {
+      // For operation, branchAdmin, vendor - use profile data
+      finalCompany = getUserCompanyId() || tokenCompanyId || "";
+      finalBranch = getUserBranchId() || tokenBranchId || "";
+    } else {
+      // For superAdmin - use form values or token
+      finalCompany = (formData.company && formData.company !== "undefined") 
+        ? formData.company 
+        : (tokenCompanyId || "");
+      finalBranch = (formData.branch && formData.branch !== "undefined") 
+        ? formData.branch 
+        : (tokenBranchId || "");
+    }
 
     if (!formData.name || !finalCompany || !finalBranch) {
       toast.error("Name, Company, and Branch are required");
@@ -340,10 +378,22 @@ const UpdateCustomer = () => {
                     Tax Type
                   </Label>
                   <Select
-                    value={formData.taxType}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, taxType: value })
+                    value={
+                      formData.taxType && ["GST", "CGST+SGST", "IGST", "Exempt"].includes(formData.taxType)
+                        ? formData.taxType
+                        : "Other"
                     }
+                    onValueChange={(value) => {
+                      if (value === "Other") {
+                        // Keep current custom value or set to empty if it was a predefined option
+                        setFormData({ 
+                          ...formData, 
+                          taxType: ["GST", "CGST+SGST", "IGST", "Exempt"].includes(formData.taxType) ? "" : formData.taxType 
+                        });
+                      } else {
+                        setFormData({ ...formData, taxType: value });
+                      }
+                    }}
                   >
                     <SelectTrigger className="w-full mt-1.5">
                       <SelectValue placeholder="Select tax type" />
@@ -356,6 +406,16 @@ const UpdateCustomer = () => {
                       <SelectItem value="Other">Other</SelectItem>
                     </SelectContent>
                   </Select>
+                  {(!formData.taxType || !["GST", "CGST+SGST", "IGST", "Exempt"].includes(formData.taxType)) && (
+                    <Input
+                      placeholder="Enter custom tax type"
+                      value={["GST", "CGST+SGST", "IGST", "Exempt"].includes(formData.taxType) ? "" : formData.taxType || ""}
+                      onChange={(e) =>
+                        setFormData({ ...formData, taxType: e.target.value })
+                      }
+                      className="mt-2"
+                    />
+                  )}
                 </div>
 
                 <div>
@@ -389,48 +449,62 @@ const UpdateCustomer = () => {
                   <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Company *
                   </Label>
-                  <Select
-                    value={formData.company}
-                    onValueChange={(val) => handleCompanyChange(val)}
-                    disabled={isBranchAdmin}
-                  >
-                    <SelectTrigger className="w-full mt-1.5">
-                      <SelectValue placeholder="Select Company" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(companies?.companies || []).map((c) => (
-                        <SelectItem key={c._id} value={c._id}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {shouldHideCompanyBranch ? (
+                    <Input
+                      value={user?.company?.name || (Array.isArray(user?.company) && user.company.length > 0 ? user.company[0].name : "")}
+                      disabled
+                      className="bg-gray-100 cursor-not-allowed dark:bg-gray-800 mt-1.5"
+                    />
+                  ) : (
+                    <Select
+                      value={formData.company}
+                      onValueChange={(val) => handleCompanyChange(val)}
+                    >
+                      <SelectTrigger className="w-full mt-1.5">
+                        <SelectValue placeholder="Select Company" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(companies?.companies || []).map((c) => (
+                          <SelectItem key={c._id} value={c._id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
 
                 <div>
                   <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Branch *
                   </Label>
-                  <Select
-                    value={
-                      branches.some((b) => b._id === formData.branch)
-                        ? formData.branch
-                        : ""
-                    }
-                    onValueChange={(val) => setFormData({ ...formData, branch: val })}
-                    disabled={isBranchAdmin}
-                  >
-                    <SelectTrigger className="w-full mt-1.5">
-                      <SelectValue placeholder="Select Branch" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(branches || []).map((b) => (
-                        <SelectItem key={b._id} value={b._id}>
-                          {b.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {shouldHideCompanyBranch ? (
+                    <Input
+                      value={user?.branch?.name || (Array.isArray(user?.branch) && user.branch.length > 0 ? user.branch[0].name : "")}
+                      disabled
+                      className="bg-gray-100 cursor-not-allowed dark:bg-gray-800 mt-1.5"
+                    />
+                  ) : (
+                    <Select
+                      value={
+                        branches.some((b) => b._id === formData.branch)
+                          ? formData.branch
+                          : ""
+                      }
+                      onValueChange={(val) => setFormData({ ...formData, branch: val })}
+                    >
+                      <SelectTrigger className="w-full mt-1.5">
+                        <SelectValue placeholder="Select Branch" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(branches || []).map((b) => (
+                          <SelectItem key={b._id} value={b._id}>
+                            {b.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
 
                 <div className="md:col-span-2">

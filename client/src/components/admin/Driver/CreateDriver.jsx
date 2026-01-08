@@ -44,6 +44,25 @@ const CreateDriver = () => {
   const navigate = useNavigate();
   const user = useSelector((state) => state.auth.user);
   const isBranchAdmin = user?.role === "branchAdmin";
+  const isOperation = user?.role === "operation";
+  const shouldHideCompanyBranch = isBranchAdmin || isOperation;
+
+  // Get company and branch from user profile for operation/branchAdmin
+  const getUserCompanyId = () => {
+    if (isBranchAdmin || isOperation) {
+      if (user?.company?._id) return user.company._id;
+      if (Array.isArray(user?.company) && user.company.length > 0) return user.company[0]._id;
+    }
+    return null;
+  };
+
+  const getUserBranchId = () => {
+    if (isBranchAdmin || isOperation) {
+      if (user?.branch?._id) return user.branch._id;
+      if (Array.isArray(user?.branch) && user.branch.length > 0) return user.branch[0]._id;
+    }
+    return null;
+  };
 
   const [formData, setFormData] = useState({
     name: "",
@@ -52,8 +71,8 @@ const CreateDriver = () => {
     licenseNumber: "",
     experienceYears: "",
     driverType: user?.role === "vendor" ? "vendor" : "dellcube",
-    companies: isBranchAdmin && user?.company?._id ? [user.company._id] : [],
-    branches: isBranchAdmin && user?.branch?._id ? [user.branch._id] : [],
+    companies: shouldHideCompanyBranch && getUserCompanyId() ? [getUserCompanyId()] : [],
+    branches: shouldHideCompanyBranch && getUserBranchId() ? [getUserBranchId()] : [],
     vendor: "",
     status: true,
     aadharNumber: "",
@@ -73,13 +92,13 @@ const CreateDriver = () => {
   // Store branches for each selected company
   const [branchesByCompany, setBranchesByCompany] = useState({});
   
-  // Initialize branches for branchAdmin's company and set token values
+  // Initialize branches for operation/branchAdmin's company and set token values
   useEffect(() => {
     const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
     
-    if (isBranchAdmin && user?.company?._id) {
-      const companyId = user.company._id || (Array.isArray(user.company) ? user.company[0]?._id : null);
-      const branchId = user.branch?._id || (Array.isArray(user.branch) ? user.branch[0]?._id : null);
+    if (shouldHideCompanyBranch) {
+      const companyId = getUserCompanyId();
+      const branchId = getUserBranchId();
       
       if (companyId) {
         getBranchesByCompany(companyId).then((res) => {
@@ -98,14 +117,14 @@ const CreateDriver = () => {
         }));
       }
     } else if (tokenCompanyId && tokenBranchId) {
-      // For non-branchAdmin users, use token values if formData is empty
+      // For superAdmin users, use token values if formData is empty
       setFormData(prev => ({
         ...prev,
         companies: prev.companies.length > 0 ? prev.companies.filter(id => id && id !== "undefined") : [tokenCompanyId],
         branches: prev.branches.length > 0 ? prev.branches.filter(id => id && id !== "undefined") : [tokenBranchId],
       }));
     }
-  }, [isBranchAdmin, user]);
+  }, [shouldHideCompanyBranch, user]);
   
   const { data: vendorsData } = useGetAllVendorsQuery({
     page: 1,
@@ -178,11 +197,13 @@ const CreateDriver = () => {
     const { name, value } = e.target;
     if (name.startsWith("bank.")) {
       const bankField = name.split(".")[1];
+      // Convert IFSC code to uppercase
+      const processedValue = bankField === "ifscCode" ? value.toUpperCase() : value;
       setFormData((prev) => ({
         ...prev,
         bankDetails: {
           ...prev.bankDetails,
-          [bankField]: value,
+          [bankField]: processedValue,
         },
       }));
     } else if (name === "aadharNumber") {
@@ -208,8 +229,8 @@ const CreateDriver = () => {
       password,
       licenseNumber,
       experienceYears,
-      company,
-      branch,
+      companies,
+      branches,
       driverType,
       aadharNumber,
       panNumber,
@@ -221,14 +242,25 @@ const CreateDriver = () => {
       !password ||
       !licenseNumber ||
       !experienceYears ||
-      !companies ||
-      companies.length === 0 ||
-      !branches ||
-      branches.length === 0 ||
       !driverType
     ) {
-      toast.error("All required fields are required including at least one company and branch.");
+      toast.error("All required fields must be filled.");
       return false;
+    }
+
+    // For operation and branchAdmin, company/branch are auto-set from profile
+    // For superAdmin, they need to select at least one
+    if (!shouldHideCompanyBranch) {
+      if (!companies || companies.length === 0 || !branches || branches.length === 0) {
+        toast.error("Please select at least one company and branch.");
+        return false;
+      }
+    } else {
+      // Double-check that company/branch are set for operation/branchAdmin
+      if (!formData.companies || formData.companies.length === 0 || !formData.branches || formData.branches.length === 0) {
+        toast.error("Company or branch information is missing from your profile.");
+        return false;
+      }
     }
       
     if (driverType === "vendor" && !formData.vendor) {
@@ -251,7 +283,8 @@ const CreateDriver = () => {
       return false;
     }
 
-    if (experienceYears < 0 || experienceYears > 50) {
+    const expYears = Number(experienceYears);
+    if (isNaN(expYears) || expYears < 0 || expYears > 50) {
       toast.error("Experience years must be between 0 and 50.");
       return false;
     }
@@ -310,40 +343,57 @@ const CreateDriver = () => {
   const handleSubmit = async () => {
     if (!validateForm()) return;
     
-    // Get companyId and branchId from token if not provided
+    // Get companyId and branchId from token if not provided (for superAdmin)
     const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
     
     // Ensure we have valid companies and branches arrays
     let finalCompanies = formData.companies || [];
     let finalBranches = formData.branches || [];
     
-    // If arrays are empty and we have token values, use them
-    if (finalCompanies.length === 0 && tokenCompanyId) {
-      finalCompanies = [tokenCompanyId];
-    }
-    if (finalBranches.length === 0 && tokenBranchId) {
-      finalBranches = [tokenBranchId];
+    // For operation/branchAdmin, ensure values are set from user profile
+    if (shouldHideCompanyBranch) {
+      const userCompanyId = getUserCompanyId();
+      const userBranchId = getUserBranchId();
+      if (finalCompanies.length === 0 && userCompanyId) {
+        finalCompanies = [userCompanyId];
+      }
+      if (finalBranches.length === 0 && userBranchId) {
+        finalBranches = [userBranchId];
+      }
+    } else {
+      // For superAdmin, use token values if arrays are empty
+      if (finalCompanies.length === 0 && tokenCompanyId) {
+        finalCompanies = [tokenCompanyId];
+      }
+      if (finalBranches.length === 0 && tokenBranchId) {
+        finalBranches = [tokenBranchId];
+      }
     }
     
     // Filter out any undefined or "undefined" values
     finalCompanies = finalCompanies.filter(id => id && id !== "undefined");
     finalBranches = finalBranches.filter(id => id && id !== "undefined");
     
-    // Build clean payload
+    // Build clean payload - backend accepts both companies/branches (arrays) and company/branch (single)
     const payload = {
-      name: formData.name,
-      mobile: formData.mobile,
+      name: formData.name.trim(),
+      mobile: formData.mobile.trim(),
       password: formData.password,
-      licenseNumber: formData.licenseNumber,
-      experienceYears: formData.experienceYears,
+      licenseNumber: formData.licenseNumber.trim(),
+      experienceYears: Number(formData.experienceYears),
       driverType: formData.driverType,
-      company: finalCompanies, // Backend expects 'company' as array
-      branch: finalBranches,   // Backend expects 'branch' as array
+      companies: finalCompanies, // Send as arrays (preferred by backend)
+      branches: finalBranches,
       vendor: formData.driverType === "vendor" ? formData.vendor : undefined,
       status: formData.status,
-      aadharNumber: formData.aadharNumber,
-      panNumber: formData.panNumber,
-      bankDetails: formData.bankDetails,
+      aadharNumber: formData.aadharNumber.trim(),
+      panNumber: formData.panNumber.trim(),
+      bankDetails: {
+        accountHolderName: formData.bankDetails.accountHolderName.trim(),
+        bankName: formData.bankDetails.bankName.trim(),
+        accountNumber: formData.bankDetails.accountNumber.trim(),
+        ifscCode: formData.bankDetails.ifscCode.trim().toUpperCase(),
+      },
     };
     
     // Remove undefined values from payload
@@ -478,9 +528,9 @@ const CreateDriver = () => {
                 </div>
                 <div className="md:col-span-2">
                   <Label>Companies *</Label>
-                  {isBranchAdmin ? (
+                  {shouldHideCompanyBranch ? (
                     <Input
-                      value={user?.company?.name}
+                      value={user?.company?.name || (Array.isArray(user?.company) && user.company.length > 0 ? user.company[0].name : "")}
                       disabled
                       className="bg-gray-100 cursor-not-allowed dark:bg-gray-800"
                     />
@@ -517,9 +567,9 @@ const CreateDriver = () => {
                 </div>
                 <div className="md:col-span-2">
                   <Label>Branches *</Label>
-                  {isBranchAdmin ? (
+                  {shouldHideCompanyBranch ? (
                     <Input
-                      value={user?.branch?.name}
+                      value={user?.branch?.name || (Array.isArray(user?.branch) && user.branch.length > 0 ? user.branch[0].name : "")}
                       disabled
                       className="bg-gray-100 cursor-not-allowed dark:bg-gray-800"
                     />

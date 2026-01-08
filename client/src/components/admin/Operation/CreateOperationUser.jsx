@@ -163,8 +163,8 @@ const CreateOperationUser = () => {
       name,
       email,
       password,
-      company,
-      branch,
+      companies,
+      branches,
       aadharNumber,
       panNumber,
       bankDetails,
@@ -226,28 +226,35 @@ const CreateOperationUser = () => {
     return true;
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e) => {
+    e?.preventDefault?.();
+    
     if (!validateForm()) {
       return;
     }
 
-    const submission = new FormData();
-    submission.append("name", formData.name);
-    submission.append("email", formData.email);
-    submission.append("password", formData.password);
-    submission.append("mobile", formData.mobile);
-    // Append companies and branches as JSON strings (multer doesn't auto-create arrays for non-file fields)
-    submission.append("company", JSON.stringify(formData.companies));
-    submission.append("branch", JSON.stringify(formData.branches));
-    submission.append("status", String(formData.status));
-    submission.append("aadharNumber", formData.aadharNumber);
-    submission.append("panNumber", formData.panNumber);
-    submission.append("bankDetails", JSON.stringify(formData.bankDetails));
-    if (signatureFile) {
-      submission.append("signature", signatureFile);
-    }
+    try {
+      const submission = new FormData();
+      submission.append("name", formData.name);
+      submission.append("email", formData.email);
+      submission.append("password", formData.password);
+      submission.append("mobile", formData.mobile);
+      // Append companies and branches as JSON strings (multer doesn't auto-create arrays for non-file fields)
+      submission.append("company", JSON.stringify(formData.companies));
+      submission.append("branch", JSON.stringify(formData.branches));
+      submission.append("status", String(formData.status));
+      submission.append("aadharNumber", formData.aadharNumber);
+      submission.append("panNumber", formData.panNumber);
+      submission.append("bankDetails", JSON.stringify(formData.bankDetails));
+      if (signatureFile) {
+        submission.append("signature", signatureFile);
+      }
 
-    await createOperationUser(submission);
+      await createOperationUser(submission).unwrap();
+    } catch (err) {
+      console.error("Error creating operation user:", err);
+      toast.error(err?.data?.message || "Failed to create Operation User");
+    }
   };
 
   useEffect(() => {

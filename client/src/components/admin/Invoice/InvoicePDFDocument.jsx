@@ -26,7 +26,7 @@ const FieldInputView = ({ value, style }) => (
       style,
     ]}
   >
-    <Text style={{ fontSize: 7, textAlign: "center", width: "100%" }}>
+    <Text style={{ fontSize: 8, textAlign: "center", width: "100%" }}>
       {value}
     </Text>
   </View>
@@ -59,7 +59,8 @@ const styles = StyleSheet.create({
     flexDirection: "column",
     alignItems: "center",
     padding: 0,
-    gap: "3mm",
+    gap: "2mm",
+    justifyContent: "space-between",
   },
   docketCopy: {
     backgroundColor: "#fff",
@@ -71,45 +72,46 @@ const styles = StyleSheet.create({
     display: "flex",
     flexDirection: "column",
     position: "relative",
-    fontSize: 7,
-    justifyContent: "flex-start",
+    fontSize: 8,
+    justifyContent: "space-between",
+    flex: 1,
   },
 
   // Header Section
   headerSection: {
     flexDirection: "row",
     alignItems: "stretch",
-    marginBottom: "2mm",
-    paddingBottom: "0.5mm",
+    marginBottom: "0.8mm",
+    paddingBottom: "0.2mm",
   },
   logoSection: {
     width: "15%",
     alignItems: "center",
   },
   companyLogo: {
-    width: 100,
-    height: 40,
+    width: 90,
+    height: 35,
   },
   companySection: {
     width: "60%",
     alignItems: "center",
-    paddingHorizontal: "1mm",
+    paddingHorizontal: "0.8mm",
   },
   companyName: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "bold",
     textAlign: "center",
-    marginBottom: "0.4mm",
+    marginBottom: "0.3mm",
     textTransform: "uppercase",
   },
   companyAddress: {
-    fontSize: 7,
+    fontSize: 8,
     textAlign: "center",
     lineHeight: 1.2,
-    marginBottom: "0.3mm",
+    marginBottom: "0.2mm",
   },
   companyContact: {
-    fontSize: 6,
+    fontSize: 7,
     textAlign: "center",
     lineHeight: 1.1,
   },
@@ -122,26 +124,25 @@ const styles = StyleSheet.create({
     paddingLeft: "1mm",
   },
   copyType: {
-    fontSize: 8,
+    fontSize: 9,
     fontWeight: "bold",
     border: "1px solid #000",
-    padding: "0.6mm",
+    padding: "0.5mm",
     textAlign: "center",
     backgroundColor: "#f0f0f0",
   },
   docketNumber: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "bold",
     border: "2px solid #000",
-    paddingVertical: "2mm",
-    paddingHorizontal: "2mm",
+    paddingVertical: "1.5mm",
+    paddingHorizontal: "1.5mm",
     textAlign: "center",
-    marginTop: "0.7mm",
+    marginTop: "0.5mm",
     backgroundColor: "#fff",
     letterSpacing: 0,
     width: "100%",
     flexShrink: 0,
-    flexGrow: 1,
     lineHeight: 1.3,
     flexWrap: "wrap",
   },
@@ -149,14 +150,14 @@ const styles = StyleSheet.create({
   // Company Details Row - Updated layout
   companyDetailsRow: {
     flexDirection: "row",
-    marginBottom: "0.5mm",
-    marginTop: "0.5mm",
+    marginBottom: "0.6mm",
+    marginTop: "0.2mm",
   },
   leftDetails: {
     width: "15%",
     flexDirection: "row",
     alignItems: "center",
-    gap: "1mm",
+    gap: "0.8mm",
     justifyContent: "flex-start",
   },
   centerDetails: {
@@ -167,12 +168,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   panGstText: {
-    fontSize: 7,
+    fontSize: 8,
     fontWeight: "bold",
     textAlign: "left",
   },
   dateText: {
-    fontSize: 7,
+    fontSize: 8,
     fontWeight: "bold",
     textAlign: "left",
   },
@@ -181,19 +182,19 @@ const styles = StyleSheet.create({
   riskContainer: {
     backgroundColor: "#f0f0f0",
     border: "1px solid #000",
-    padding: "0.6mm",
-    fontSize: 7,
+    padding: "0.5mm",
+    fontSize: 8,
     textAlign: "center",
     fontWeight: "bold",
-    marginBottom: "1mm",
+    marginBottom: "0.8mm",
   },
   riskTitle: {
-    fontSize: 8,
+    fontSize: 9,
     fontWeight: "bold",
-    marginBottom: "0.4mm",
+    marginBottom: "0.3mm",
   },
   riskNote: {
-    fontSize: 6,
+    fontSize: 7,
     fontWeight: "normal",
     lineHeight: 1.2,
   },
@@ -201,42 +202,44 @@ const styles = StyleSheet.create({
   // Delivery Container - New separate container
   deliveryContainer: {
     border: "1px solid #000",
-    padding: "1mm",
-    marginBottom: "1mm",
+    padding: "0.8mm",
+    marginBottom: "0.8mm",
     backgroundColor: "#f9f9f9",
   },
   deliverySection: {
     flexDirection: "row",
-    gap: "0.5mm",
+    gap: "0.4mm",
   },
   deliveryColumn: {
     width: "50%",
     flexDirection: "column",
-    gap: "0.3mm",
+    gap: "0.25mm",
   },
   deliveryLabel: {
-    fontSize: 7,
+    fontSize: 8,
     fontWeight: "bold",
-    marginBottom: "0.2mm",
+    marginBottom: "0.15mm",
   },
   deliveryInput: {
     border: "1px solid #000",
-    padding: "0.6mm",
-    fontSize: 7,
-    minHeight: "4mm",
+    padding: "0.5mm",
+    fontSize: 8,
+    minHeight: "8mm",
     backgroundColor: "#fff",
+    lineHeight: 1.3,
   },
 
   // Main Content Area
   contentArea: {
     flexDirection: "row",
-    gap: "1mm",
-    marginBottom: "0.5mm",
+    gap: "0.8mm",
+    marginBottom: "0.8mm",
+    flex: 1,
   },
   leftColumn: {
     width: "82%",
     flexDirection: "column",
-    gap: "0.5mm",
+    gap: "0.3mm",
   },
   rightColumn: {
     width: "18%",
@@ -246,7 +249,7 @@ const styles = StyleSheet.create({
   // Vehicle and Goods Table - Updated structure
   mainTable: {
     border: "1px solid #000",
-    fontSize: 7,
+    fontSize: 8,
   },
   tableHeader: {
     flexDirection: "row",
@@ -254,8 +257,8 @@ const styles = StyleSheet.create({
     borderBottom: "1px solid #000",
   },
   tableHeaderCell: {
-    padding: "0.8mm",
-    fontSize: 7,
+    padding: "0.6mm",
+    fontSize: 8,
     fontWeight: "bold",
     textAlign: "center",
     borderRight: "1px solid #000",
@@ -265,13 +268,13 @@ const styles = StyleSheet.create({
     borderBottom: "1px solid #000",
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 22,
+    minHeight: 20,
   },
   tableCell: {
-    padding: "0.8mm",
-    fontSize: 7,
+    padding: "0.6mm",
+    fontSize: 8,
     borderRight: "1px solid #000",
-    minHeight: "4mm",
+    minHeight: "3.5mm",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -279,25 +282,25 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   fieldLabel: {
-    fontSize: 6,
+    fontSize: 7,
     fontWeight: "bold",
-    marginBottom: "0.2mm",
+    marginBottom: "0.15mm",
     textAlign: "center",
     width: "100%",
   },
   fieldValue: {
-    fontSize: 7,
+    fontSize: 8,
   },
 
   // Freight Chart Section (Right Column)
   freightSection: {
     border: "1px solid #000",
-    fontSize: 6,
+    fontSize: 7,
   },
   freightHeader: {
     backgroundColor: "#e8e8e8",
-    padding: "0.6mm",
-    fontSize: 7,
+    padding: "0.5mm",
+    fontSize: 8,
     fontWeight: "bold",
     textAlign: "center",
     borderBottom: "1px solid #000",
@@ -308,16 +311,16 @@ const styles = StyleSheet.create({
   },
   freightLabel: {
     width: "60%",
-    padding: "0.5mm",
-    fontSize: 6,
+    padding: "0.4mm",
+    fontSize: 7,
     borderRight: "1px solid #000",
     fontWeight: "bold",
     backgroundColor: "#f8f8f8",
   },
   freightValue: {
     width: "40%",
-    padding: "0.5mm",
-    fontSize: 6,
+    padding: "0.4mm",
+    fontSize: 7,
     textAlign: "right",
   },
   freightTotal: {
@@ -329,85 +332,134 @@ const styles = StyleSheet.create({
   footerSection: {
     flexDirection: "row",
     borderTop: "1px solid #000",
-    paddingTop: "0.5mm",
-    gap: "1mm",
+    paddingTop: "0.8mm",
+    gap: "0.8mm",
+    marginTop: "auto",
   },
   receiverSection: {
     width: "82%",
     border: "1px solid #000",
-    padding: "0.6mm",
-    fontSize: 7,
+    padding: "0.5mm",
+    fontSize: 8,
+    flexDirection: "column",
   },
   receiverHeader: {
-    fontSize: 8,
+    fontSize: 9,
     fontWeight: "bold",
-    marginBottom: "0.6mm",
+    marginBottom: "0.4mm",
     textAlign: "center",
     backgroundColor: "#f0f0f0",
-    padding: "0.4mm",
+    padding: "0.3mm",
+  },
+  receiverTableContainer: {
+    flexDirection: "row",
+    border: "1px solid #000",
+    minHeight: "18mm",
+  },
+  receiverTableLeft: {
+    width: "55%",
+    borderRight: "1px solid #000",
+    flexDirection: "column",
+    padding: "0.25mm",
+  },
+  receiverTableRight: {
+    width: "45%",
+    flexDirection: "column",
+    padding: "0.25mm",
+    justifyContent: "flex-start",
   },
   receiverRow: {
     flexDirection: "row",
-    marginBottom: "0.3mm",
+    borderBottom: "1px solid #000",
+    minHeight: "3mm",
+    alignItems: "center",
+    paddingVertical: "0.15mm",
+  },
+  receiverRowLast: {
+    flexDirection: "row",
+    borderBottom: "1px solid #000",
+    minHeight: "3mm",
+    alignItems: "center",
+    paddingVertical: "0.15mm",
   },
   receiverLabel: {
     fontSize: 7,
     fontWeight: "bold",
-    width: "30%",
+    width: "40%",
+    borderRight: "1px solid #000",
+    paddingRight: "0.25mm",
+    paddingLeft: "0.15mm",
   },
   receiverValue: {
     fontSize: 7,
-    width: "70%",
+    width: "60%",
+    paddingLeft: "0.25mm",
+    textAlign: "left",
+  },
+  receiverRightLabel: {
+    fontSize: 7,
+    fontWeight: "bold",
+    width: "35%",
+    borderRight: "1px solid #000",
+    paddingRight: "0.25mm",
+    paddingLeft: "0.15mm",
+  },
+  receiverRightValue: {
+    fontSize: 7,
+    width: "65%",
+    paddingLeft: "0.25mm",
+    textAlign: "left",
   },
   signatureBox: {
-    maxWidth: 200,
-    height: "25",
+    width: "100%",
+    height: "10mm",
     border: "1px solid #000",
-    marginTop: "0.5mm",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     fontSize: 6,
     backgroundColor: "#f9f9f9",
+    marginTop: "0.2mm",
   },
   signatureImg: {
     width: "auto",
-    maxWidth: "100",
-    maxHeight: "35",
+    maxWidth: "100%",
+    maxHeight: "9mm",
     height: "auto",
   },
    companySignatureBox: {
     border: "1px dashed #000",
     borderRadius: 4,
-    minHeight: "18mm",
-    padding: "2mm",
+    minHeight: "9mm",
+    padding: "0.8mm",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: "1mm",
+    marginBottom: "0.4mm",
   },
   companySignatureImg: {
     width: "auto",
-    maxWidth: "90",
-    maxHeight: "40",
+    maxWidth: "65",
+    maxHeight: "20",
     height: "auto",
   },
   authSection: {
     width: "18%",
     border: "1px solid #000",
-    padding: "0.6mm",
+    padding: "0.5mm",
     textAlign: "center",
-    fontSize: 7,
+    fontSize: 8,
     justifyContent: "space-between",
+    flexDirection: "column",
   },
   authHeader: {
-    fontSize: 7,
+    fontSize: 8,
     fontWeight: "bold",
-    marginBottom: "1mm",
+    marginBottom: "0.4mm",
   },
   authSignatory: {
     fontSize: 7,
     marginTop: "auto",
-    paddingTop: "3mm",
+    paddingTop: "0.8mm",
   },
 });
 
@@ -820,56 +872,67 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
       <View style={styles.footerSection}>
         <View style={styles.receiverSection}>
           <Text style={styles.receiverHeader}>DELIVERY CONFIRMATION</Text>
-          <View style={styles.receiverRow}>
-            <Text style={styles.receiverLabel}>Receiver Name:</Text>
-            <Text style={styles.receiverValue}>
-              {invoice?.deliveryProof?.receiverName ||
-                invoice?.receiverName ||
-                "-"}
-            </Text>
-          </View>
-          <View style={styles.receiverRow}>
-            <Text style={styles.receiverLabel}>Mobile No:</Text>
-            <Text style={styles.receiverValue}>
-              {invoice?.deliveryProof?.receiverMobile ||
-                invoice?.receiverMobile ||
-                "-"}
-            </Text>
-          </View>
-          <View style={styles.receiverRow}>
-            <Text style={styles.receiverLabel}>Floor:</Text>
-            <Text style={styles.receiverValue}>
-              {invoice?.deliveryProof?.floor || "-"}
-            </Text>
-          </View>
-          <View style={styles.receiverRow}>
-            <Text style={styles.receiverLabel}>Date & Time:</Text>
-            <Text style={styles.receiverValue}>
-              {safeFormatDate(
-                invoice?.deliveredAt || invoice?.receiverDateTime,
-                { time: true }
-              )}
-            </Text>
-          </View>
-          <View style={styles.receiverRow}>
-            <Text style={styles.receiverLabel}>Remark:</Text>
-            <Text style={styles.receiverValue}>
-              {invoice?.deliveryProof?.remarks}
-            </Text>
-          </View>
-          <Text style={{ fontSize: 6, fontWeight: "bold", marginTop: "1mm" }}>
-            Receiver's Signature:
-          </Text>
-          <View style={styles.signatureBox}>
-            {isValidSignature ? (
-              <Image 
-                src={signature} 
-                style={styles.signatureImg}
-                cache={false}
-              />
-            ) : (
-              <Text style={{ color: "#666" }}>Signature Required</Text>
-            )}
+          {/* Transposed table layout - fields in columns */}
+          <View style={styles.receiverTableContainer}>
+            {/* Left column - Main fields */}
+            <View style={styles.receiverTableLeft}>
+              <View style={styles.receiverRow}>
+                <Text style={styles.receiverLabel}>Receiver Name:</Text>
+                <Text style={styles.receiverValue}>
+                  {invoice?.deliveryProof?.receiverName ||
+                    invoice?.receiverName ||
+                    "-"}
+                </Text>
+              </View>
+              <View style={styles.receiverRow}>
+                <Text style={styles.receiverLabel}>Mobile No:</Text>
+                <Text style={styles.receiverValue}>
+                  {invoice?.deliveryProof?.receiverMobile ||
+                    invoice?.receiverMobile ||
+                    "-"}
+                </Text>
+              </View>
+              <View style={styles.receiverRow}>
+                <Text style={styles.receiverLabel}>Floor:</Text>
+                <Text style={styles.receiverValue}>
+                  {invoice?.deliveryProof?.floor || "-"}
+                </Text>
+              </View>
+              <View style={styles.receiverRowLast}>
+                <Text style={styles.receiverLabel}>Date & Time:</Text>
+                <Text style={styles.receiverValue}>
+                  {safeFormatDate(
+                    invoice?.deliveredAt || invoice?.receiverDateTime,
+                    { time: true }
+                  )}
+                </Text>
+              </View>
+            </View>
+            {/* Right column - Remark and Signature */}
+            <View style={styles.receiverTableRight}>
+              <View style={styles.receiverRow}>
+                <Text style={styles.receiverRightLabel}>Remark:</Text>
+                <Text style={styles.receiverRightValue}>
+                  {invoice?.deliveryProof?.remarks?.replace(/\|/g, '') || "-"}
+                </Text>
+              </View>
+              <View style={{ flex: 1, flexDirection: "column", justifyContent: "flex-start", paddingTop: "0.2mm" }}>
+                <Text style={{ fontSize: 7, fontWeight: "bold", marginBottom: "0.15mm" }}>
+                  Receiver's Signature:
+                </Text>
+                <View style={styles.signatureBox}>
+                  {isValidSignature ? (
+                    <Image 
+                      src={signature} 
+                      style={styles.signatureImg}
+                      cache={false}
+                    />
+                  ) : (
+                    <Text style={{ color: "#666", fontSize: 6 }}>Signature Required</Text>
+                  )}
+                </View>
+              </View>
+            </View>
           </View>
         </View>
 
@@ -887,7 +950,7 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
                 cache={false}
               />
             ) : (
-              <Text style={{ fontSize: 6, color: "#555" }}>
+              <Text style={{ fontSize: 5, color: "#555" }}>
                 Signature Not Available
               </Text>
             )}

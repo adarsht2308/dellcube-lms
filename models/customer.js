@@ -43,7 +43,6 @@ const customerSchema = new mongoose.Schema(
     taxType: {
       type: String,
       trim: true,
-      enum: ["GST", "CGST+SGST", "IGST", "Exempt", "Other"],
     },
     taxValue: {
       type: Number,

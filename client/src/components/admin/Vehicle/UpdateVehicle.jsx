@@ -21,11 +21,31 @@ import {
 } from "@/features/api/Vehicle/vehicleApi";
 import { useGetAllDriversQuery } from "@/features/api/authApi";
 import { getTokenData } from "@/utils/getTokenData";
+import { useSelector } from "react-redux";
 
 const UpdateVehicle = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const vehicleId = location.state?.vehicleId;
+  const user = useSelector((state) => state.auth.user);
+  const isBranchAdmin = user?.role === "branchAdmin";
+  const isOperation = user?.role === "operation";
+  const isVendor = user?.role === "vendor";
+  const shouldHideCompanyBranch = isBranchAdmin || isOperation || isVendor;
+
+  // Helper function to get company ID from user profile
+  const getUserCompanyId = () => {
+    if (user?.company?._id) return user.company._id;
+    if (Array.isArray(user?.company) && user.company.length > 0) return user.company[0]._id;
+    return null;
+  };
+
+  // Helper function to get branch ID from user profile
+  const getUserBranchId = () => {
+    if (user?.branch?._id) return user.branch._id;
+    if (Array.isArray(user?.branch) && user.branch.length > 0) return user.branch[0]._id;
+    return null;
+  };
 
   const [vehicleNumber, setVehicleNumber] = useState("");
   const [type, setType] = useState("");
@@ -99,8 +119,16 @@ const UpdateVehicle = () => {
       setPollutionCertificateExpiry(
         v.pollutionCertificateExpiry?.slice(0, 10) || ""
       );
-      setCompanyId(v.company?._id || "");
-      setBranchId(v.branch?._id || "");
+      // For operation, branchAdmin, vendor - always use their profile company/branch
+      // For superAdmin - use vehicle's existing company/branch
+      const finalCompanyId = shouldHideCompanyBranch 
+        ? (getUserCompanyId() || getTokenData().companyId)
+        : (v.company?._id || "");
+      const finalBranchId = shouldHideCompanyBranch
+        ? (getUserBranchId() || getTokenData().branchId)
+        : (v.branch?._id || "");
+      setCompanyId(finalCompanyId);
+      setBranchId(finalBranchId);
       setStatus(v.status || "active");
       setCurrentDriver(v.currentDriver?._id || ""); // set to driver ID if populated
       setCurrentCertImages({
@@ -123,37 +151,94 @@ const UpdateVehicle = () => {
   };
 
   const handleUpdate = async () => {
+    // Validation for required fields
+    if (!vehicleNumber || !vehicleNumber.trim()) {
+      toast.error("Vehicle Number is required");
+      return;
+    }
+
+    if (!type || !type.trim()) {
+      toast.error("Vehicle Type (Size) is required");
+      return;
+    }
+
+    // Validate cargoType - required field
+    if (!cargoType || !cargoType.trim()) {
+      toast.error("Cargo Type is required");
+      return;
+    }
+    const validCargoTypes = ["Dry", "Refrigerated", "Container", "Open", "Closed", "Flatbed", "Tanker", "Other"];
+    if (!validCargoTypes.includes(cargoType)) {
+      toast.error("Please select a valid Cargo Type");
+      return;
+    }
+
+    // Validate currentDriver - required field
+    if (!currentDriver || !currentDriver.trim()) {
+      toast.error("Current Driver is required");
+      return;
+    }
+    // Validate ObjectId format
+    const objectIdRegex = /^[0-9a-fA-F]{24}$/;
+    if (!objectIdRegex.test(currentDriver)) {
+      toast.error("Please select a valid Current Driver");
+      return;
+    }
+
     // Get companyId and branchId from token as fallback
     const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
-    const finalCompanyId = companyId || tokenCompanyId;
-    const finalBranchId = branchId || tokenBranchId;
+    
+    // For superAdmin, use form values; for others, use profile/token
+    let finalCompanyId, finalBranchId;
+    
+    if (shouldHideCompanyBranch) {
+      // For operation, branchAdmin, vendor - use profile data
+      finalCompanyId = getUserCompanyId() || tokenCompanyId || "";
+      finalBranchId = getUserBranchId() || tokenBranchId || "";
+    } else {
+      // For superAdmin - use form values or token
+      finalCompanyId = companyId || tokenCompanyId || "";
+      finalBranchId = branchId || tokenBranchId || "";
+    }
 
-    if (!vehicleNumber || !type || !finalCompanyId || !finalBranchId) {
-      return toast.error("Please fill all required fields");
+    if (!finalCompanyId || !finalBranchId) {
+      toast.error("Company and Branch are required");
+      return;
     }
     const payload = new FormData();
     payload.append("vehicleId", vehicleId);
-    payload.append("vehicleNumber", vehicleNumber);
+    payload.append("vehicleNumber", vehicleNumber.trim());
     payload.append("type", type);
     payload.append("cargoType", cargoType);
-    payload.append("brand", brand);
-    payload.append("model", model);
-    payload.append("yearOfManufacture", yearOfManufacture);
-    payload.append("registrationDate", registrationDate);
-    payload.append("fitnessCertificateExpiry", fitnessCertificateExpiry);
-    payload.append("insuranceExpiry", insuranceExpiry);
-    payload.append("pollutionCertificateExpiry", pollutionCertificateExpiry);
+    // Only append optional fields if they have values
+    if (brand && brand.trim()) payload.append("brand", brand);
+    if (model && model.trim()) payload.append("model", model);
+    if (yearOfManufacture) payload.append("yearOfManufacture", yearOfManufacture);
+    if (registrationDate) payload.append("registrationDate", registrationDate);
+    if (fitnessCertificateExpiry) payload.append("fitnessCertificateExpiry", fitnessCertificateExpiry);
+    if (insuranceExpiry) payload.append("insuranceExpiry", insuranceExpiry);
+    if (pollutionCertificateExpiry) payload.append("pollutionCertificateExpiry", pollutionCertificateExpiry);
     payload.append("status", status);
     payload.append("currentDriver", currentDriver);
     payload.append("company", finalCompanyId);
     payload.append("branch", finalBranchId);
-    payload.append("vehicleInsuranceNo", vehicleInsuranceNo);
-    payload.append("fitnessNo", fitnessNo);
+    if (vehicleInsuranceNo && vehicleInsuranceNo.trim()) {
+      payload.append("vehicleInsuranceNo", vehicleInsuranceNo);
+    }
+    if (fitnessNo && fitnessNo.trim()) {
+      payload.append("fitnessNo", fitnessNo);
+    }
     // Only append changed cert files
     Object.entries(certFiles).forEach(([key, file]) => {
       if (file) payload.append(key, file);
     });
-    await updateVehicle(payload);
+    
+    try {
+      await updateVehicle(payload).unwrap();
+    } catch (err) {
+      // Error is handled by useEffect below
+      console.error("Error updating vehicle:", err);
+    }
   };
 
   useEffect(() => {
@@ -243,7 +328,7 @@ const UpdateVehicle = () => {
 
               <div>
                 <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Cargo Type
+                  Cargo Type *
                 </Label>
                 <Select value={cargoType} onValueChange={setCargoType}>
                   <SelectTrigger className="mt-1.5">
@@ -332,7 +417,7 @@ const UpdateVehicle = () => {
 
               <div>
                 <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Current Driver
+                  Current Driver *
                 </Label>
                 <Select
                   value={currentDriver}
@@ -356,36 +441,52 @@ const UpdateVehicle = () => {
                 <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Company *
                 </Label>
-                <Select value={companyId} onValueChange={setCompanyId}>
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select company" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {companyData?.companies?.map((comp) => (
-                      <SelectItem key={comp._id} value={comp._id}>
-                        {comp.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {shouldHideCompanyBranch ? (
+                  <Input
+                    value={user?.company?.name || (Array.isArray(user?.company) && user.company.length > 0 ? user.company[0].name : "")}
+                    disabled
+                    className="bg-gray-100 cursor-not-allowed dark:bg-gray-800 mt-1.5"
+                  />
+                ) : (
+                  <Select value={companyId} onValueChange={setCompanyId}>
+                    <SelectTrigger className="mt-1.5">
+                      <SelectValue placeholder="Select company" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {companyData?.companies?.map((comp) => (
+                        <SelectItem key={comp._id} value={comp._id}>
+                          {comp.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
 
               <div>
                 <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Branch *
                 </Label>
-                <Select value={branchId} onValueChange={setBranchId}>
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select branch" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {branchData?.branches?.map((br) => (
-                      <SelectItem key={br._id} value={br._id}>
-                        {br.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {shouldHideCompanyBranch ? (
+                  <Input
+                    value={user?.branch?.name || (Array.isArray(user?.branch) && user.branch.length > 0 ? user.branch[0].name : "")}
+                    disabled
+                    className="bg-gray-100 cursor-not-allowed dark:bg-gray-800 mt-1.5"
+                  />
+                ) : (
+                  <Select value={branchId} onValueChange={setBranchId}>
+                    <SelectTrigger className="mt-1.5">
+                      <SelectValue placeholder="Select branch" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {branchData?.branches?.map((br) => (
+                        <SelectItem key={br._id} value={br._id}>
+                          {br.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             </div>
           </Card>

@@ -39,24 +39,28 @@ const CreateVendor = () => {
   const navigate = useNavigate();
   const user = useSelector((state) => state.auth.user);
   const isBranchAdmin = user?.role === "branchAdmin";
-  const isSuperAdmin = user?.role === "superAdmin";
+  const isOperation = user?.role === "operation";
+  const isVendor = user?.role === "vendor";
+  const shouldHideCompanyBranch = isBranchAdmin || isOperation || isVendor;
 
   // Get companyId and branchId from token (current session)
   const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
   
   // Helper functions to get company/branch ID from user object (handles arrays)
   const getUserCompanyId = () => {
+    if (user?.company?._id) return user.company._id;
     if (Array.isArray(user?.company) && user.company.length > 0) {
       return String(user.company[0]._id || user.company[0]);
     }
-    return user?.company?._id ? String(user.company._id) : tokenCompanyId || "";
+    return tokenCompanyId || "";
   };
   
   const getUserBranchId = () => {
+    if (user?.branch?._id) return user.branch._id;
     if (Array.isArray(user?.branch) && user.branch.length > 0) {
       return String(user.branch[0]._id || user.branch[0]);
     }
-    return user?.branch?._id ? String(user.branch._id) : tokenBranchId || "";
+    return tokenBranchId || "";
   };
 
   const [vendorFormData, setVendorFormData] = useState({
@@ -96,29 +100,37 @@ const CreateVendor = () => {
 
   // Initialize companyId and branchId from token if empty
   useEffect(() => {
-    if (isBranchAdmin) {
+    if (shouldHideCompanyBranch) {
+      // For operation, branchAdmin, vendor - use profile data
       const companyId = getUserCompanyId();
       const branchId = getUserBranchId();
-      setVendorFormData((prev) => ({
-        ...prev,
-        company: companyId,
-        branch: branchId,
-      }));
+      if (companyId && branchId) {
+        setVendorFormData((prev) => ({
+          ...prev,
+          company: String(companyId),
+          branch: String(branchId),
+        }));
+      }
     } else if (tokenCompanyId && tokenBranchId) {
-      // For non-branchAdmin users, use token values as fallback
+      // For superAdmin - use token values as fallback
       setVendorFormData((prev) => ({
         ...prev,
         company: prev.company || tokenCompanyId,
         branch: prev.branch || tokenBranchId,
       }));
     }
-  }, [user, tokenCompanyId, tokenBranchId]);
+  }, [user, shouldHideCompanyBranch, tokenCompanyId, tokenBranchId]);
 
   const handleCompanyChange = async (companyId) => {
+    // Don't allow changing company for operation, branchAdmin, vendor
+    if (shouldHideCompanyBranch) {
+      return;
+    }
+
     setVendorFormData((prev) => ({
       ...prev,
-      company: isBranchAdmin ? prev?.company : companyId,
-      branch: isBranchAdmin ? prev?.branch : "",
+      company: companyId,
+      branch: "",
     }));
 
     const res = await getBranchesByCompany(companyId);
@@ -130,10 +142,8 @@ const CreateVendor = () => {
   };
 
   useEffect(() => {
-    if (!isBranchAdmin && vendorFormData.company) {
+    if (!shouldHideCompanyBranch && vendorFormData.company) {
       handleCompanyChange(vendorFormData.company);
-    } else if (isBranchAdmin && user?.company) {
-      handleCompanyChange(user.company);
     }
   }, []);
 
@@ -196,9 +206,18 @@ const CreateVendor = () => {
       return;
     }
 
-    // Get companyId and branchId from token as fallback
-    const finalCompany = company || tokenCompanyId;
-    const finalBranch = branch || tokenBranchId;
+    // For superAdmin, use form values; for others, use profile/token
+    let finalCompany, finalBranch;
+    
+    if (shouldHideCompanyBranch) {
+      // For operation, branchAdmin, vendor - use profile data
+      finalCompany = getUserCompanyId() || tokenCompanyId || "";
+      finalBranch = getUserBranchId() || tokenBranchId || "";
+    } else {
+      // For superAdmin - use form values or token
+      finalCompany = company || tokenCompanyId || "";
+      finalBranch = branch || tokenBranchId || "";
+    }
 
     if (!finalCompany) {
       toast.error("Company is required");
@@ -369,49 +388,61 @@ const CreateVendor = () => {
                     placeholder="Address"
                   />
                 </div>
-                {!isBranchAdmin && (
-                  <>
-                    <div>
-                      <Label htmlFor="company">Company *</Label>
-                      <Select
-                        value={vendorFormData.company}
-                        onValueChange={handleCompanyChange}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select company" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(companies?.companies || []).map((comp) => (
-                            <SelectItem key={comp._id} value={comp._id}>
-                              {comp.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="branch">Branch *</Label>
-                      <Select
-                        value={vendorFormData.branch}
-                        onValueChange={(value) =>
-                          setVendorFormData({ ...vendorFormData, branch: value })
-                        }
-                        disabled={!vendorFormData.company}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select branch" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {branches?.map((branch) => (
-                            <SelectItem key={branch._id} value={branch._id}>
-                              {branch.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </>
-                )}
+                <div>
+                  <Label htmlFor="company">Company *</Label>
+                  {shouldHideCompanyBranch ? (
+                    <Input
+                      value={user?.company?.name || (Array.isArray(user?.company) && user.company.length > 0 ? user.company[0].name : "")}
+                      disabled
+                      className="bg-gray-100 cursor-not-allowed dark:bg-gray-800"
+                    />
+                  ) : (
+                    <Select
+                      value={vendorFormData.company}
+                      onValueChange={handleCompanyChange}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select company" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(companies?.companies || []).map((comp) => (
+                          <SelectItem key={comp._id} value={comp._id}>
+                            {comp.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="branch">Branch *</Label>
+                  {shouldHideCompanyBranch ? (
+                    <Input
+                      value={user?.branch?.name || (Array.isArray(user?.branch) && user.branch.length > 0 ? user.branch[0].name : "")}
+                      disabled
+                      className="bg-gray-100 cursor-not-allowed dark:bg-gray-800"
+                    />
+                  ) : (
+                    <Select
+                      value={vendorFormData.branch}
+                      onValueChange={(value) =>
+                        setVendorFormData({ ...vendorFormData, branch: value })
+                      }
+                      disabled={!vendorFormData.company}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select branch" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {branches?.map((branch) => (
+                          <SelectItem key={branch._id} value={branch._id}>
+                            {branch.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
                 <div>
                   <Label htmlFor="assignedClients">Assigned Customers *</Label>
                   <div className="mt-2 border rounded-md p-4 max-h-60 overflow-y-auto bg-gray-50 dark:bg-gray-800/50">

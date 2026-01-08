@@ -144,7 +144,7 @@ export const authApi = createApi({
 
     createOperationUser: builder.mutation({
       query: (inputData) => ({
-        url: "/create-operations",
+        url: "create-operations",
         method: "POST",
         body: inputData,
       }),

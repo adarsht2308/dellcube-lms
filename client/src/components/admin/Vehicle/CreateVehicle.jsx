@@ -27,7 +27,23 @@ const CreateVehicle = () => {
   const navigate = useNavigate();
   const user = useSelector((state) => state.auth.user);
   const isBranchAdmin = user?.role === "branchAdmin";
+  const isOperation = user?.role === "operation";
   const isVendor = user?.role === "vendor";
+  const shouldHideCompanyBranch = isBranchAdmin || isOperation || isVendor;
+
+  // Helper function to get company ID from user profile
+  const getUserCompanyId = () => {
+    if (user?.company?._id) return user.company._id;
+    if (Array.isArray(user?.company) && user.company.length > 0) return user.company[0]._id;
+    return null;
+  };
+
+  // Helper function to get branch ID from user profile
+  const getUserBranchId = () => {
+    if (user?.branch?._id) return user.branch._id;
+    if (Array.isArray(user?.branch) && user.branch.length > 0) return user.branch[0]._id;
+    return null;
+  };
 
   const [formData, setFormData] = useState({
     vehicleNumber: "",
@@ -68,49 +84,38 @@ const CreateVehicle = () => {
     // Get companyId and branchId from token as fallback
     const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
     
-    if (isBranchAdmin && user?.company && user?.branch) {
-      // Handle both array and single value formats
-      const companyId = Array.isArray(user.company) && user.company.length > 0
-        ? String(user.company[0]._id || user.company[0])
-        : (user.company._id ? String(user.company._id) : tokenCompanyId);
-      const branchId = Array.isArray(user.branch) && user.branch.length > 0
-        ? String(user.branch[0]._id || user.branch[0])
-        : (user.branch._id ? String(user.branch._id) : tokenBranchId);
+    if (shouldHideCompanyBranch) {
+      // For operation, branchAdmin, vendor - use profile data
+      const companyId = getUserCompanyId();
+      const branchId = getUserBranchId();
       
-      setFormData((prev) => ({
-        ...prev,
-        company: companyId || prev.company,
-        branch: branchId || prev.branch,
-      }));
-    } else if (isVendor && user?.company && user?.branch) {
-      // Handle both array and single value formats
-      const companyId = Array.isArray(user.company) && user.company.length > 0
-        ? String(user.company[0]._id || user.company[0])
-        : (user.company._id ? String(user.company._id) : tokenCompanyId);
-      const branchId = Array.isArray(user.branch) && user.branch.length > 0
-        ? String(user.branch[0]._id || user.branch[0])
-        : (user.branch._id ? String(user.branch._id) : tokenBranchId);
-      
-      setFormData((prev) => ({
-        ...prev,
-        company: companyId || prev.company,
-        branch: branchId || prev.branch,
-      }));
+      if (companyId && branchId) {
+        setFormData((prev) => ({
+          ...prev,
+          company: String(companyId),
+          branch: String(branchId),
+        }));
+      }
     } else if (tokenCompanyId && tokenBranchId) {
-      // Use token values if no user company/branch
+      // For superAdmin - use token values if no form data
       setFormData((prev) => ({
         ...prev,
         company: prev.company || tokenCompanyId,
         branch: prev.branch || tokenBranchId,
       }));
     }
-  }, [user, isBranchAdmin, isVendor]);
+  }, [user, shouldHideCompanyBranch]);
 
   const handleCompanyChange = async (companyId) => {
+    // Don't allow changing company for operation, branchAdmin, vendor
+    if (shouldHideCompanyBranch) {
+      return;
+    }
+
     setFormData((prev) => ({
       ...prev,
-      company: isBranchAdmin || isVendor ? prev?.company : companyId,
-      branch: isBranchAdmin || isVendor ? prev?.branch : "",
+      company: companyId,
+      branch: "",
     }));
 
     const res = await getBranchesByCompany(companyId);
@@ -123,12 +128,8 @@ const CreateVehicle = () => {
   };
 
   useEffect(() => {
-    if (!isBranchAdmin && !isVendor && formData.company) {
+    if (!shouldHideCompanyBranch && formData.company) {
       handleCompanyChange(formData.company);
-    } else if (isBranchAdmin && user?.company) {
-      handleCompanyChange(user.company);
-    } else if (isVendor && user?.company) {
-      handleCompanyChange(user.company);
     }
   }, []);
 
@@ -151,8 +152,19 @@ const CreateVehicle = () => {
 
     // Get companyId and branchId from token as fallback
     const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
-    const finalCompany = formData.company || tokenCompanyId;
-    const finalBranch = formData.branch || tokenBranchId;
+    
+    // For superAdmin, use form values; for others, use profile/token
+    let finalCompany, finalBranch;
+    
+    if (shouldHideCompanyBranch) {
+      // For operation, branchAdmin, vendor - use profile data
+      finalCompany = getUserCompanyId() || tokenCompanyId || "";
+      finalBranch = getUserBranchId() || tokenBranchId || "";
+    } else {
+      // For superAdmin - use form values or token
+      finalCompany = formData.company || tokenCompanyId || "";
+      finalBranch = formData.branch || tokenBranchId || "";
+    }
 
     if (!vehicleNumber || !type || !finalCompany || !finalBranch) {
       toast.error("Vehicle Number, Type, Company, and Branch are required");
@@ -536,17 +548,23 @@ const CreateVehicle = () => {
           </Card>
 
           {/* Company & Branch Information Card */}
-          {!isBranchAdmin && !isVendor && (
-            <Card className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-[#202020] dark:text-[#FFD249] mb-4 flex items-center gap-2">
-                <Calendar className="w-5 h-5" />
-                Company & Branch Information
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Company *
-                  </Label>
+          <Card className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-[#202020] dark:text-[#FFD249] mb-4 flex items-center gap-2">
+              <Calendar className="w-5 h-5" />
+              Company & Branch Information
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Company *
+                </Label>
+                {shouldHideCompanyBranch ? (
+                  <Input
+                    value={user?.company?.name || (Array.isArray(user?.company) && user.company.length > 0 ? user.company[0].name : "")}
+                    disabled
+                    className="bg-gray-100 cursor-not-allowed dark:bg-gray-800 mt-1.5"
+                  />
+                ) : (
                   <Select
                     value={formData.company}
                     onValueChange={handleCompanyChange}
@@ -562,12 +580,20 @@ const CreateVehicle = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
+                )}
+              </div>
 
-                <div>
-                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Branch *
-                  </Label>
+              <div>
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Branch *
+                </Label>
+                {shouldHideCompanyBranch ? (
+                  <Input
+                    value={user?.branch?.name || (Array.isArray(user?.branch) && user.branch.length > 0 ? user.branch[0].name : "")}
+                    disabled
+                    className="bg-gray-100 cursor-not-allowed dark:bg-gray-800 mt-1.5"
+                  />
+                ) : (
                   <Select
                     value={formData.branch}
                     onValueChange={(value) =>
@@ -585,10 +611,10 @@ const CreateVehicle = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
+                )}
               </div>
-            </Card>
-          )}
+            </div>
+          </Card>
         </div>
 
         {/* Action Buttons */}

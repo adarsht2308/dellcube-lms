@@ -25,6 +25,23 @@ const CreateCustomer = () => {
   const navigate = useNavigate();
   const user = useSelector((state) => state.auth.user);
   const isBranchAdmin = user?.role === "branchAdmin";
+  const isOperation = user?.role === "operation";
+  const isVendor = user?.role === "vendor";
+  const shouldHideCompanyBranch = isBranchAdmin || isOperation || isVendor;
+
+  // Helper function to get company ID from user profile
+  const getUserCompanyId = () => {
+    if (user?.company?._id) return user.company._id;
+    if (Array.isArray(user?.company) && user.company.length > 0) return user.company[0]._id;
+    return null;
+  };
+
+  // Helper function to get branch ID from user profile
+  const getUserBranchId = () => {
+    if (user?.branch?._id) return user.branch._id;
+    if (Array.isArray(user?.branch) && user.branch.length > 0) return user.branch[0]._id;
+    return null;
+  };
 
   const [formData, setFormData] = useState({
     name: "",
@@ -47,10 +64,10 @@ const CreateCustomer = () => {
     // Get companyId and branchId from token
     const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
     
-    if (isBranchAdmin && user?.company && user?.branch) {
-      console.log("Setting company and branch for branch admin:", user.company._id, user.branch._id);
-      const companyId = user.company._id || (Array.isArray(user.company) ? user.company[0]?._id : null);
-      const branchId = user.branch._id || (Array.isArray(user.branch) ? user.branch[0]?._id : null);
+    if (shouldHideCompanyBranch) {
+      // For operation, branchAdmin, vendor - use profile data
+      const companyId = getUserCompanyId();
+      const branchId = getUserBranchId();
       
       if (companyId && branchId) {
         setFormData((prev) => ({
@@ -58,18 +75,19 @@ const CreateCustomer = () => {
           company: String(companyId),
           branch: String(branchId),
         }));
-        // Also set branches for branch admin
-        setBranches([{ _id: branchId, name: user.branch.name || "Your Branch" }]);
+        // Set branches for these roles
+        const branchName = user?.branch?.name || (Array.isArray(user?.branch) && user.branch.length > 0 ? user.branch[0].name : "Your Branch");
+        setBranches([{ _id: branchId, name: branchName }]);
       }
     } else if (tokenCompanyId && tokenBranchId) {
-      // For non-branchAdmin users, use token values if available
+      // For superAdmin users, use token values if available
       setFormData((prev) => ({
         ...prev,
         company: (prev.company && prev.company !== "undefined") ? prev.company : tokenCompanyId,
         branch: (prev.branch && prev.branch !== "undefined") ? prev.branch : tokenBranchId,
       }));
     }
-  }, [user, isBranchAdmin]);
+  }, [user, shouldHideCompanyBranch]);
 
   const [branches, setBranches] = useState([]);
   const { data: companies = [] } = useGetAllCompaniesQuery({ status: "true" });
@@ -78,10 +96,15 @@ const CreateCustomer = () => {
     useCreateCustomerMutation();
 
   const handleCompanyChange = async (companyId) => {
+    // Don't allow changing company for operation, branchAdmin, vendor
+    if (shouldHideCompanyBranch) {
+      return;
+    }
+
     setFormData((prev) => ({
       ...prev,
-      company: isBranchAdmin ? prev.company : companyId,
-      branch: isBranchAdmin ? prev?.branch : "",
+      company: companyId,
+      branch: "",
     }));
 
     const res = await getBranchesByCompany(companyId);
@@ -97,13 +120,22 @@ const CreateCustomer = () => {
     // Get companyId and branchId from token if not provided in formData
     const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
     
-    // Ensure we have valid company and branch IDs (not undefined or empty string)
-    const finalCompany = (formData.company && formData.company !== "undefined") 
-      ? formData.company 
-      : (tokenCompanyId || "");
-    const finalBranch = (formData.branch && formData.branch !== "undefined") 
-      ? formData.branch 
-      : (tokenBranchId || "");
+    // For superAdmin, use form values; for others, use profile/token
+    let finalCompany, finalBranch;
+    
+    if (shouldHideCompanyBranch) {
+      // For operation, branchAdmin, vendor - use profile data
+      finalCompany = getUserCompanyId() || tokenCompanyId || "";
+      finalBranch = getUserBranchId() || tokenBranchId || "";
+    } else {
+      // For superAdmin - use form values or token
+      finalCompany = (formData.company && formData.company !== "undefined") 
+        ? formData.company 
+        : (tokenCompanyId || "");
+      finalBranch = (formData.branch && formData.branch !== "undefined") 
+        ? formData.branch 
+        : (tokenBranchId || "");
+    }
 
     if (!formData.name || !finalCompany || !finalBranch) {
       toast.error("Name, Company, and Branch are required");
@@ -140,10 +172,8 @@ const CreateCustomer = () => {
   };
 
   useEffect(() => {
-    if (!isBranchAdmin && formData.company) {
+    if (!shouldHideCompanyBranch && formData.company) {
       handleCompanyChange(formData.company);
-    } else if (isBranchAdmin && user?.company) {
-      handleCompanyChange(user.company);
     }
   }, []);
 
@@ -308,10 +338,22 @@ const CreateCustomer = () => {
                   Tax Type
                 </Label>
                 <Select
-                  value={formData.taxType}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, taxType: value })
+                  value={
+                    formData.taxType && ["GST", "CGST+SGST", "IGST", "Exempt"].includes(formData.taxType)
+                      ? formData.taxType
+                      : "Other"
                   }
+                  onValueChange={(value) => {
+                    if (value === "Other") {
+                      // Keep current custom value or set to empty if it was a predefined option
+                      setFormData({ 
+                        ...formData, 
+                        taxType: ["GST", "CGST+SGST", "IGST", "Exempt"].includes(formData.taxType) ? "" : formData.taxType 
+                      });
+                    } else {
+                      setFormData({ ...formData, taxType: value });
+                    }
+                  }}
                 >
                   <SelectTrigger className="w-full mt-1.5">
                     <SelectValue placeholder="Select tax type" />
@@ -324,6 +366,16 @@ const CreateCustomer = () => {
                     <SelectItem value="Other">Other</SelectItem>
                   </SelectContent>
                 </Select>
+                {(!formData.taxType || !["GST", "CGST+SGST", "IGST", "Exempt"].includes(formData.taxType)) && (
+                  <Input
+                    placeholder="Enter custom tax type"
+                    value={["GST", "CGST+SGST", "IGST", "Exempt"].includes(formData.taxType) ? "" : formData.taxType || ""}
+                    onChange={(e) =>
+                      setFormData({ ...formData, taxType: e.target.value })
+                    }
+                    className="mt-2"
+                  />
+                )}
               </div>
 
               <div>
@@ -347,17 +399,23 @@ const CreateCustomer = () => {
           </Card>
 
           {/* Organization Assignment Card */}
-          {!isBranchAdmin && (
-            <Card className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-[#202020] dark:text-[#FFD249] mb-4 flex items-center gap-2">
-                <Building2 className="w-5 h-5" />
-                Organization Assignment
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Company *
-                  </Label>
+          <Card className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-[#202020] dark:text-[#FFD249] mb-4 flex items-center gap-2">
+              <Building2 className="w-5 h-5" />
+              Organization Assignment
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Company *
+                </Label>
+                {shouldHideCompanyBranch ? (
+                  <Input
+                    value={user?.company?.name || (Array.isArray(user?.company) && user.company.length > 0 ? user.company[0].name : "")}
+                    disabled
+                    className="bg-gray-100 cursor-not-allowed dark:bg-gray-800 mt-1.5"
+                  />
+                ) : (
                   <Select
                     value={formData.company}
                     onValueChange={handleCompanyChange}
@@ -373,12 +431,20 @@ const CreateCustomer = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
+                )}
+              </div>
 
-                <div>
-                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Branch *
-                  </Label>
+              <div>
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Branch *
+                </Label>
+                {shouldHideCompanyBranch ? (
+                  <Input
+                    value={user?.branch?.name || (Array.isArray(user?.branch) && user.branch.length > 0 ? user.branch[0].name : "")}
+                    disabled
+                    className="bg-gray-100 cursor-not-allowed dark:bg-gray-800 mt-1.5"
+                  />
+                ) : (
                   <Select
                     value={formData.branch}
                     onValueChange={(value) =>
@@ -396,10 +462,10 @@ const CreateCustomer = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
+                )}
               </div>
-            </Card>
-          )}
+            </div>
+          </Card>
 
         
         </div>
