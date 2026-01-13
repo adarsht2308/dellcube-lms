@@ -26,7 +26,7 @@ const FieldInputView = ({ value, style }) => (
       style,
     ]}
   >
-    <Text style={{ fontSize: 8, textAlign: "center", width: "100%" }}>
+    <Text style={{ fontSize: 8, textAlign: "center", width: "100%", lineHeight: 1.2 }}>
       {value}
     </Text>
   </View>
@@ -48,33 +48,35 @@ const styles = StyleSheet.create({
   page: {
     backgroundColor: "#fff",
     fontFamily: "Helvetica",
-    paddingTop: 2,
-    paddingBottom: 2,
-    paddingLeft: 2,
-    paddingRight: 2,
+    paddingTop: "8mm",
+    paddingBottom: "4mm",
+    paddingLeft: "8mm",
+    paddingRight: "8mm",
   },
   pageContainer: {
     width: "100%",
-    minHeight: "100%",
+    height: "100%",
     flexDirection: "column",
     alignItems: "center",
     padding: 0,
-    gap: "2mm",
-    justifyContent: "space-between",
+    justifyContent: "space-evenly",
   },
   docketCopy: {
     backgroundColor: "#fff",
     border: "2px solid #000",
     width: "100%",
     margin: 0,
-    padding: "1mm",
+    paddingTop: "2mm",
+    paddingBottom: "1.5mm",
+    paddingLeft: "2mm",
+    paddingRight: "2mm",
     boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     position: "relative",
     fontSize: 8,
-    justifyContent: "space-between",
-    flex: 1,
+    justifyContent: "flex-start",
+    flexShrink: 1,
   },
 
   // Header Section
@@ -103,6 +105,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: "0.3mm",
     textTransform: "uppercase",
+    lineHeight: 1.2,
   },
   companyAddress: {
     fontSize: 8,
@@ -234,7 +237,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: "0.8mm",
     marginBottom: "0.8mm",
-    flex: 1,
+    flexShrink: 1,
   },
   leftColumn: {
     width: "82%",
@@ -308,6 +311,7 @@ const styles = StyleSheet.create({
   freightRow: {
     flexDirection: "row",
     borderBottom: "1px solid #000",
+    minHeight: "3mm",
   },
   freightLabel: {
     width: "60%",
@@ -332,29 +336,32 @@ const styles = StyleSheet.create({
   footerSection: {
     flexDirection: "row",
     borderTop: "1px solid #000",
-    paddingTop: "0.8mm",
+    paddingTop: "0.5mm",
     gap: "0.8mm",
-    marginTop: "auto",
+    marginTop: "0.5mm",
+    marginBottom: "0",
   },
   receiverSection: {
     width: "82%",
     border: "1px solid #000",
-    padding: "0.5mm",
+    padding: "0.4mm",
     fontSize: 8,
     flexDirection: "column",
   },
   receiverHeader: {
     fontSize: 9,
     fontWeight: "bold",
-    marginBottom: "0.4mm",
+    marginBottom: "0.6mm",
+    marginTop: "0",
     textAlign: "center",
     backgroundColor: "#f0f0f0",
     padding: "0.3mm",
+    paddingVertical: "0.4mm",
   },
   receiverTableContainer: {
     flexDirection: "row",
     border: "1px solid #000",
-    minHeight: "18mm",
+    minHeight: "16mm",
   },
   receiverTableLeft: {
     width: "55%",
@@ -365,21 +372,22 @@ const styles = StyleSheet.create({
   receiverTableRight: {
     width: "45%",
     flexDirection: "column",
-    padding: "0.25mm",
+    padding: "0.3mm",
     justifyContent: "flex-start",
+    gap: "0.15mm",
   },
   receiverRow: {
     flexDirection: "row",
     borderBottom: "1px solid #000",
-    minHeight: "3mm",
-    alignItems: "center",
-    paddingVertical: "0.15mm",
+    minHeight: "3.5mm",
+    alignItems: "flex-start",
+    paddingVertical: "0.2mm",
   },
   receiverRowLast: {
     flexDirection: "row",
     borderBottom: "1px solid #000",
     minHeight: "3mm",
-    alignItems: "center",
+    alignItems: "flex-start",
     paddingVertical: "0.15mm",
   },
   receiverLabel: {
@@ -395,6 +403,7 @@ const styles = StyleSheet.create({
     width: "60%",
     paddingLeft: "0.25mm",
     textAlign: "left",
+    lineHeight: 1.3,
   },
   receiverRightLabel: {
     fontSize: 7,
@@ -403,12 +412,20 @@ const styles = StyleSheet.create({
     borderRight: "1px solid #000",
     paddingRight: "0.25mm",
     paddingLeft: "0.15mm",
+    paddingTop: "0.15mm",
+    paddingBottom: "0.15mm",
   },
   receiverRightValue: {
     fontSize: 7,
     width: "65%",
-    paddingLeft: "0.25mm",
+    paddingLeft: "0.3mm",
+    paddingRight: "0.2mm",
+    paddingTop: "0.15mm",
+    paddingBottom: "0.15mm",
     textAlign: "left",
+    lineHeight: 1.3,
+    flexWrap: "wrap",
+    wordBreak: "break-word",
   },
   signatureBox: {
     width: "100%",
@@ -431,10 +448,10 @@ const styles = StyleSheet.create({
     border: "1px dashed #000",
     borderRadius: 4,
     minHeight: "9mm",
-    padding: "0.8mm",
+    padding: "0.6mm",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: "0.4mm",
+    marginBottom: "0.2mm",
   },
   companySignatureImg: {
     width: "auto",
@@ -445,7 +462,7 @@ const styles = StyleSheet.create({
   authSection: {
     width: "18%",
     border: "1px solid #000",
-    padding: "0.5mm",
+    padding: "0.4mm",
     textAlign: "center",
     fontSize: 8,
     justifyContent: "space-between",
@@ -454,12 +471,17 @@ const styles = StyleSheet.create({
   authHeader: {
     fontSize: 8,
     fontWeight: "bold",
-    marginBottom: "0.4mm",
+    marginBottom: "0.3mm",
+    marginTop: "0",
+    lineHeight: 1.3,
+    textAlign: "center",
   },
   authSignatory: {
     fontSize: 7,
-    marginTop: "auto",
-    paddingTop: "0.8mm",
+    marginTop: "0.2mm",
+    marginBottom: "0",
+    paddingTop: "0.3mm",
+    paddingBottom: "0",
   },
 });
 
@@ -910,14 +932,16 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
             </View>
             {/* Right column - Remark and Signature */}
             <View style={styles.receiverTableRight}>
-              <View style={styles.receiverRow}>
+              <View style={[styles.receiverRow, { alignItems: "flex-start", minHeight: "4mm", paddingVertical: "0.4mm", borderBottom: "1px solid #000" }]}>
                 <Text style={styles.receiverRightLabel}>Remark:</Text>
-                <Text style={styles.receiverRightValue}>
-                  {invoice?.deliveryProof?.remarks?.replace(/\|/g, '') || "-"}
-                </Text>
+                <View style={{ width: "65%", paddingLeft: "0.3mm", paddingRight: "0.2mm" }}>
+                  <Text style={[styles.receiverRightValue, { width: "100%" }]}>
+                    {invoice?.deliveryProof?.remarks?.replace(/\|/g, '') || "-"}
+                  </Text>
+                </View>
               </View>
-              <View style={{ flex: 1, flexDirection: "column", justifyContent: "flex-start", paddingTop: "0.2mm" }}>
-                <Text style={{ fontSize: 7, fontWeight: "bold", marginBottom: "0.15mm" }}>
+              <View style={{ flex: 1, flexDirection: "column", justifyContent: "flex-start", paddingTop: "0.3mm" }}>
+                <Text style={{ fontSize: 7, fontWeight: "bold", marginBottom: "0.2mm" }}>
                   Receiver's Signature:
                 </Text>
                 <View style={styles.signatureBox}>

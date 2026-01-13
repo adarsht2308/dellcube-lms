@@ -519,29 +519,58 @@ const Drivers = () => {
           errors.push({ type: 'row', row: rowNum, field: 'vendor', message: `Invalid vendor ID format: "${row.vendor}". Please provide a valid MongoDB ObjectId.` });
         }
       }
-      if (!row.aadharNumber || !row.aadharNumber.trim()) {
-        errors.push({ type: 'row', row: rowNum, field: 'aadharNumber', message: 'Aadhar number is required' });
-      } else if (!/^\d{12}$/.test(row.aadharNumber.replace(/\D/g, ''))) {
-        errors.push({ type: 'row', row: rowNum, field: 'aadharNumber', message: 'Aadhar number must be exactly 12 digits' });
+
+      // Aadhar and PAN validation (required only for dellcube drivers)
+      if (normalizedDriverType === 'dellcube') {
+        if (!row.aadharNumber || !row.aadharNumber.trim()) {
+          errors.push({ type: 'row', row: rowNum, field: 'aadharNumber', message: 'Aadhar number is required for company drivers' });
+        } else if (!/^\d{12}$/.test(row.aadharNumber.replace(/\D/g, ''))) {
+          errors.push({ type: 'row', row: rowNum, field: 'aadharNumber', message: 'Aadhar number must be exactly 12 digits' });
+        }
+        if (!row.panNumber || !row.panNumber.trim()) {
+          errors.push({ type: 'row', row: rowNum, field: 'panNumber', message: 'PAN number is required for company drivers' });
+        } else if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(row.panNumber.toUpperCase())) {
+          errors.push({ type: 'row', row: rowNum, field: 'panNumber', message: 'PAN number must be in format ABCDE1234F' });
+        }
+      } else {
+        // For vendor and temporary drivers, Aadhar and PAN are optional
+        // But if provided, validate format
+        if (row.aadharNumber && row.aadharNumber.trim()) {
+          if (!/^\d{12}$/.test(row.aadharNumber.replace(/\D/g, ''))) {
+            errors.push({ type: 'row', row: rowNum, field: 'aadharNumber', message: 'Aadhar number must be exactly 12 digits' });
+          }
+        }
+        if (row.panNumber && row.panNumber.trim()) {
+          if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(row.panNumber.toUpperCase())) {
+            errors.push({ type: 'row', row: rowNum, field: 'panNumber', message: 'PAN number must be in format ABCDE1234F' });
+          }
+        }
       }
-      if (!row.panNumber || !row.panNumber.trim()) {
-        errors.push({ type: 'row', row: rowNum, field: 'panNumber', message: 'PAN number is required' });
-      } else if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(row.panNumber.toUpperCase())) {
-        errors.push({ type: 'row', row: rowNum, field: 'panNumber', message: 'PAN number must be in format ABCDE1234F' });
-      }
-      if (!row.accountHolderName || !row.accountHolderName.trim()) {
-        errors.push({ type: 'row', row: rowNum, field: 'accountHolderName', message: 'Account holder name is required' });
-      }
-      if (!row.bankName || !row.bankName.trim()) {
-        errors.push({ type: 'row', row: rowNum, field: 'bankName', message: 'Bank name is required' });
-      }
-      if (!row.accountNumber || !row.accountNumber.trim()) {
-        errors.push({ type: 'row', row: rowNum, field: 'accountNumber', message: 'Account number is required' });
-      }
-      if (!row.ifscCode || !row.ifscCode.trim()) {
-        errors.push({ type: 'row', row: rowNum, field: 'ifscCode', message: 'IFSC code is required' });
-      } else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(row.ifscCode.toUpperCase())) {
-        errors.push({ type: 'row', row: rowNum, field: 'ifscCode', message: 'IFSC code must be in format ABCD0123456' });
+
+      // Bank Details validation (required only for dellcube drivers)
+      if (normalizedDriverType === 'dellcube') {
+        if (!row.accountHolderName || !row.accountHolderName.trim()) {
+          errors.push({ type: 'row', row: rowNum, field: 'accountHolderName', message: 'Account holder name is required for company drivers' });
+        }
+        if (!row.bankName || !row.bankName.trim()) {
+          errors.push({ type: 'row', row: rowNum, field: 'bankName', message: 'Bank name is required for company drivers' });
+        }
+        if (!row.accountNumber || !row.accountNumber.trim()) {
+          errors.push({ type: 'row', row: rowNum, field: 'accountNumber', message: 'Account number is required for company drivers' });
+        }
+        if (!row.ifscCode || !row.ifscCode.trim()) {
+          errors.push({ type: 'row', row: rowNum, field: 'ifscCode', message: 'IFSC code is required for company drivers' });
+        } else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(row.ifscCode.toUpperCase())) {
+          errors.push({ type: 'row', row: rowNum, field: 'ifscCode', message: 'IFSC code must be in format ABCD0123456' });
+        }
+      } else {
+        // For vendor and temporary drivers, bank details are optional
+        // But if provided, validate IFSC format
+        if (row.ifscCode && row.ifscCode.trim()) {
+          if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(row.ifscCode.toUpperCase())) {
+            errors.push({ type: 'row', row: rowNum, field: 'ifscCode', message: 'IFSC code must be in format ABCD0123456' });
+          }
+        }
       }
     });
 

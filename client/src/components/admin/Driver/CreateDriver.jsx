@@ -126,11 +126,14 @@ const CreateDriver = () => {
     }
   }, [shouldHideCompanyBranch, user]);
   
-  const { data: vendorsData } = useGetAllVendorsQuery({
+  // Fetch vendors - use first selected company/branch if multiple selected
+  const { data: vendorsData, isLoading: vendorsLoading } = useGetAllVendorsQuery({
     page: 1,
     limit: 100,
-    companyId: formData.companies.length === 1 ? formData.companies[0] : "",
-    branchId: formData.branches.length === 1 ? formData.branches[0] : "",
+    companyId: formData.companies.length > 0 ? formData.companies[0] : "",
+    branchId: formData.branches.length > 0 ? formData.branches[0] : "",
+  }, {
+    skip: formData.companies.length === 0 || formData.branches.length === 0,
   });
 
   const [createDriver, { isLoading, isSuccess, isError, data, error }] =
@@ -289,52 +292,84 @@ const CreateDriver = () => {
       return false;
     }
 
-    if (!aadharNumber || !aadharNumber.trim()) {
-      toast.error("Aadhar Card Number is required.");
-      return false;
-    }
+    // Aadhar and PAN validation (required only for dellcube drivers)
+    if (driverType === "dellcube") {
+      if (!aadharNumber || !aadharNumber.trim()) {
+        toast.error("Aadhar Card Number is required for company drivers.");
+        return false;
+      }
 
-    if (aadharNumber.length !== 12 || !/^\d{12}$/.test(aadharNumber)) {
-      toast.error("Aadhar Card Number must be exactly 12 digits.");
-      return false;
-    }
+      if (aadharNumber.length !== 12 || !/^\d{12}$/.test(aadharNumber)) {
+        toast.error("Aadhar Card Number must be exactly 12 digits.");
+        return false;
+      }
 
-    if (!panNumber || !panNumber.trim()) {
-      toast.error("PAN Card Number is required.");
-      return false;
-    }
+      if (!panNumber || !panNumber.trim()) {
+        toast.error("PAN Card Number is required for company drivers.");
+        return false;
+      }
 
-    if (panNumber.length !== 10 || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(panNumber)) {
-      toast.error("PAN Card Number must be in valid format (e.g., ABCDE1234F).");
-      return false;
-    }
+      if (panNumber.length !== 10 || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(panNumber)) {
+        toast.error("PAN Card Number must be in valid format (e.g., ABCDE1234F).");
+        return false;
+      }
 
-    // Bank Details Validation
-    const { accountHolderName, bankName, accountNumber, ifscCode } = formData.bankDetails;
-    
-    if (!accountHolderName || !accountHolderName.trim()) {
-      toast.error("Account Holder Name is required.");
-      return false;
-    }
+      // Bank Details Validation (required only for dellcube drivers)
+      const { accountHolderName, bankName, accountNumber, ifscCode } = formData.bankDetails;
+      
+      if (!accountHolderName || !accountHolderName.trim()) {
+        toast.error("Account Holder Name is required for company drivers.");
+        return false;
+      }
 
-    if (!bankName || !bankName.trim()) {
-      toast.error("Bank Name is required.");
-      return false;
-    }
+      if (!bankName || !bankName.trim()) {
+        toast.error("Bank Name is required for company drivers.");
+        return false;
+      }
 
-    if (!accountNumber || !accountNumber.trim()) {
-      toast.error("Account Number is required.");
-      return false;
-    }
+      if (!accountNumber || !accountNumber.trim()) {
+        toast.error("Account Number is required for company drivers.");
+        return false;
+      }
 
-    if (!ifscCode || !ifscCode.trim()) {
-      toast.error("IFSC Code is required.");
-      return false;
-    }
+      if (!ifscCode || !ifscCode.trim()) {
+        toast.error("IFSC Code is required for company drivers.");
+        return false;
+      }
 
-    if (ifscCode.length !== 11 || !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)) {
-      toast.error("IFSC Code must be in valid format (e.g., ABCD0123456).");
-      return false;
+      if (ifscCode.length !== 11 || !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)) {
+        toast.error("IFSC Code must be in valid format (e.g., ABCD0123456).");
+        return false;
+      }
+    } else {
+      // For vendor and temporary drivers, Aadhar and PAN are optional
+      // But if provided, validate format
+      if (aadharNumber && aadharNumber.trim()) {
+        if (aadharNumber.length !== 12 || !/^\d{12}$/.test(aadharNumber)) {
+          toast.error("Aadhar Card Number must be exactly 12 digits.");
+          return false;
+        }
+      }
+
+      if (panNumber && panNumber.trim()) {
+        if (panNumber.length !== 10 || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(panNumber)) {
+          toast.error("PAN Card Number must be in valid format (e.g., ABCDE1234F).");
+          return false;
+        }
+      }
+
+      // Bank Details Validation (optional for vendor/temporary drivers)
+      // But if provided, validate format
+      if (formData.bankDetails) {
+        const { accountHolderName, bankName, accountNumber, ifscCode } = formData.bankDetails;
+        
+        if (ifscCode && ifscCode.trim()) {
+          if (ifscCode.length !== 11 || !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)) {
+            toast.error("IFSC Code must be in valid format (e.g., ABCD0123456).");
+            return false;
+          }
+        }
+      }
     }
 
     return true;
@@ -638,33 +673,48 @@ const CreateDriver = () => {
                 </div>
                 {formData.driverType === "vendor" && (
                   <div>
-                    <Label>Vendor *</Label>
+                    <Label>Select Vendor *</Label>
                     <Select
                       value={formData.vendor}
                       onValueChange={(val) =>
                         setFormData((prev) => ({ ...prev, vendor: val }))
                       }
-                      disabled={formData.companies.length === 0 || formData.branches.length === 0}
+                      disabled={formData.companies.length === 0 || formData.branches.length === 0 || vendorsLoading}
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Vendor" />
+                      <SelectTrigger className={formData.companies.length === 0 || formData.branches.length === 0 ? "bg-gray-100 dark:bg-gray-800" : ""}>
+                        <SelectValue placeholder={
+                          vendorsLoading 
+                            ? "Loading vendors..." 
+                            : formData.companies.length === 0 || formData.branches.length === 0
+                            ? "Please select company and branch first"
+                            : "Select a vendor"
+                        } />
                       </SelectTrigger>
                       <SelectContent>
-                        {vendorsData?.vendors?.length > 0 ? (
+                        {vendorsLoading ? (
+                          <div className="px-2 py-1.5 text-sm text-gray-500">
+                            Loading vendors...
+                          </div>
+                        ) : vendorsData?.vendors?.length > 0 ? (
                           vendorsData.vendors.map((v) => (
                             <SelectItem key={v._id} value={v._id}>
-                              {v.name}
+                              {v.name} {v.email ? `(${v.email})` : ""}
                             </SelectItem>
                           ))
                         ) : (
-                          <SelectItem value="" disabled>
+                          <div className="px-2 py-1.5 text-sm text-gray-500">
                             {formData.companies.length === 0 || formData.branches.length === 0
                               ? "Please select company and branch first"
-                              : "No vendors available"}
-                          </SelectItem>
+                              : "No vendors available for selected company/branch"}
+                          </div>
                         )}
                       </SelectContent>
                     </Select>
+                    {formData.driverType === "vendor" && formData.companies.length > 0 && formData.branches.length > 0 && !vendorsLoading && vendorsData?.vendors?.length === 0 && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                        No vendors found. Please create a vendor first or select a different company/branch.
+                      </p>
+                    )}
                   </div>
                 )}
                 <div className="flex items-center gap-3">

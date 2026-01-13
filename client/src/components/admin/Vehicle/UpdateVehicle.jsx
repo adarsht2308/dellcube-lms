@@ -157,6 +157,15 @@ const UpdateVehicle = () => {
       return;
     }
 
+    // Validate vehicle number format: 2 letters + 2 digits + 2 letters + 4 digits (e.g., CG04MM9576)
+    const cleanedVehicleNumber = vehicleNumber.trim().replace(/[\s-]/g, '').toUpperCase();
+    const vehicleNumberRegex = /^[A-Z]{2}[0-9]{2}[A-Z]{2}[0-9]{4}$/;
+    
+    if (!vehicleNumberRegex.test(cleanedVehicleNumber)) {
+      toast.error("Vehicle number must be in format: 2 letters + 2 digits + 2 letters + 4 digits (e.g., CG04MM9576). No dashes or spaces allowed.");
+      return;
+    }
+
     if (!type || !type.trim()) {
       toast.error("Vehicle Type (Size) is required");
       return;
@@ -295,15 +304,23 @@ const UpdateVehicle = () => {
                   Vehicle Number *
                 </Label>
                 <Input
-                  placeholder="e.g. MH-12-AB-1234"
+                  placeholder="e.g. CG04MM9576"
                   value={vehicleNumber}
                   onChange={(e) => {
-                    // Replace spaces with hyphens and convert to uppercase
-                    const formatted = e.target.value.replace(/\s+/g, "-").toUpperCase();
-                    setVehicleNumber(formatted);
+                    // Remove spaces, dashes, and convert to uppercase
+                    const cleaned = e.target.value.replace(/[\s-]/g, '').toUpperCase();
+                    // Limit to 10 characters (2 letters + 2 digits + 2 letters + 4 digits)
+                    const limited = cleaned.slice(0, 10);
+                    setVehicleNumber(limited);
                   }}
+                  maxLength={10}
                   className="mt-1.5"
                 />
+                {vehicleNumber && vehicleNumber.length > 0 && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Format: 2 letters + 2 digits + 2 letters + 4 digits (e.g., CG04MM9576)
+                  </p>
+                )}
               </div>
 
               <div>

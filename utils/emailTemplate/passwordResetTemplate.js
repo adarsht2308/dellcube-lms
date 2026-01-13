@@ -198,8 +198,8 @@ export const passwordResetOTPTemplate = (name, otp) => {
 
                   <div class="info-box">
                       <p class="info-text">
-                          <strong>Important:</strong> This code will expire in <strong>10 minutes</strong>. 
-                          If you didn't request a password reset, please ignore this email or contact 
+                          <strong>Important:</strong> This code will expire in 10 minutes. 
+                          If you did not request a password reset, please ignore this email or contact 
                           our support team if you have concerns.
                       </p>
                   </div>

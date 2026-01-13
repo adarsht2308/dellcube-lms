@@ -409,6 +409,7 @@ const UpdateInvoice = () => {
     licenseNumber: "",
     experienceYears: "",
     driverType: user?.role === "vendor" ? "vendor" : "dellcube",
+    vendor: "",
   });
 
   // Add driver creation mutation
@@ -1589,13 +1590,27 @@ const UpdateInvoice = () => {
       return;
     }
 
+    // Validate vendor is required when driver type is vendor
+    if (newDriverData.driverType === "vendor" && !newDriverData.vendor) {
+      toast.error("Vendor is required when driver type is 'vendor'");
+      return;
+    }
+
     try {
-      const result = await createDriver({
+      const payload = {
         ...newDriverData,
         experienceYears: Number(newDriverData.experienceYears),
-        company: companyId,
-        branch: branchId,
-      }).unwrap();
+        companies: companyId ? [companyId] : [],
+        branches: branchId ? [branchId] : [],
+        ...(newDriverData.driverType === "vendor" && newDriverData.vendor && { vendor: newDriverData.vendor }),
+      };
+
+      // Remove vendor from payload if not vendor driver type
+      if (newDriverData.driverType !== "vendor") {
+        delete payload.vendor;
+      }
+
+      const result = await createDriver(payload).unwrap();
 
       if (result?.success) {
         toast.success("Driver created successfully");
@@ -1607,6 +1622,7 @@ const UpdateInvoice = () => {
           licenseNumber: "",
           experienceYears: "",
           driverType: "dellcube",
+          vendor: "",
         });
         // Refresh drivers list
         // Note: You might need to add a refetch function to the drivers query
@@ -2805,7 +2821,7 @@ const UpdateInvoice = () => {
               <Select
                 value={newDriverData.driverType}
                 onValueChange={(value) =>
-                  setNewDriverData((prev) => ({ ...prev, driverType: value }))
+                  setNewDriverData((prev) => ({ ...prev, driverType: value, vendor: "" }))
                 }
               >
                 <SelectTrigger>
@@ -2818,6 +2834,48 @@ const UpdateInvoice = () => {
                 </SelectContent>
               </Select>
             </div>
+            {newDriverData.driverType === "vendor" && (
+              <div className="space-y-2">
+                <Label>Select Vendor *</Label>
+                <Select
+                  value={newDriverData.vendor}
+                  onValueChange={(value) =>
+                    setNewDriverData((prev) => ({ ...prev, vendor: value }))
+                  }
+                  disabled={!companyId || !branchId}
+                >
+                  <SelectTrigger className={!companyId || !branchId ? "bg-gray-100 dark:bg-gray-800" : ""}>
+                    <SelectValue placeholder={
+                      !companyId || !branchId
+                        ? "Company and branch must be selected first"
+                        : vendorData?.vendors?.length > 0
+                        ? "Select a vendor"
+                        : "No vendors available"
+                    } />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {vendorData?.vendors?.length > 0 ? (
+                      vendorData.vendors.map((v) => (
+                        <SelectItem key={v._id} value={v._id}>
+                          {v.name} {v.email ? `(${v.email})` : ""}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="px-2 py-1.5 text-sm text-gray-500">
+                        {!companyId || !branchId
+                          ? "Please select company and branch first"
+                          : "No vendors available for selected company/branch"}
+                      </div>
+                    )}
+                  </SelectContent>
+                </Select>
+                {newDriverData.driverType === "vendor" && companyId && branchId && vendorData?.vendors?.length === 0 && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                    No vendors found. Please create a vendor first or select a different company/branch.
+                  </p>
+                )}
+              </div>
+            )}
             <div className="flex flex-col sm:flex-row gap-2 pt-4">
               <Button
                 variant="outline"

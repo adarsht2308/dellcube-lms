@@ -1,7 +1,7 @@
 import { User } from "../models/user.js";
 import { Company } from "../models/company.js";
 import { Branch } from "../models/branch.js";
-import { generateOTP, sendOTPEmail, sendPasswordResetOTPEmail } from "../utils/common/registerOTP.js";
+import { generateOTP, sendOTPEmail, sendPasswordResetOTPEmail, sendWelcomeEmail } from "../utils/common/registerOTP.js";
 import bcrypt from "bcryptjs";
 import { generateToken } from "../utils/common/generateToken.js";
 import { v2 as cloudinary } from "cloudinary";
@@ -754,6 +754,14 @@ export const createBranchAdminController = async (req, res) => {
       .populate("branch", "name branchCode")
       .select("-password");
 
+    // Send welcome email to new user
+    try {
+      await sendWelcomeEmail(name, email, "branchAdmin");
+    } catch (emailError) {
+      console.error("Error sending welcome email:", emailError);
+      // Don't fail user creation if welcome email fails
+    }
+
     return res.status(201).json({
       success: true,
       message: "Branch Admin created successfully.",
@@ -1330,6 +1338,14 @@ export const createOperationUserController = async (req, res) => {
       .populate("branch", "name branchCode")
       .select("-password");
 
+    // Send welcome email to new user
+    try {
+      await sendWelcomeEmail(name, email, "operation");
+    } catch (emailError) {
+      console.error("Error sending welcome email:", emailError);
+      // Don't fail user creation if welcome email fails
+    }
+
     return res.status(201).json({
       success: true,
       message: "Operation User created successfully.",
@@ -1825,95 +1841,148 @@ export const createDriverController = async (req, res) => {
       });
     }
 
-    // Aadhar and PAN validation (required)
-    if (!aadharNumber || !aadharNumber.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "Aadhar Card Number is required.",
-      });
+    // Aadhar and PAN validation (required only for dellcube drivers)
+    if (driverType === "dellcube") {
+      if (!aadharNumber || !aadharNumber.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Aadhar Card Number is required for company drivers.",
+        });
+      }
+
+      if (aadharNumber.length !== 12 || !/^\d{12}$/.test(aadharNumber)) {
+        return res.status(400).json({
+          success: false,
+          message: "Aadhar Card Number must be exactly 12 digits.",
+        });
+      }
+
+      if (!panNumber || !panNumber.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "PAN Card Number is required for company drivers.",
+        });
+      }
+
+      if (panNumber.length !== 10 || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(panNumber)) {
+        return res.status(400).json({
+          success: false,
+          message: "PAN Card Number must be in valid format (e.g., ABCDE1234F).",
+        });
+      }
+
+      // Check for existing users with same Aadhar or PAN (only for dellcube drivers)
+      const existingAadhar = await User.findOne({ aadharNumber });
+      if (existingAadhar) {
+        return res.status(400).json({
+          success: false,
+          message: "User with this Aadhar number already exists.",
+        });
+      }
+
+      const existingPAN = await User.findOne({ panNumber });
+      if (existingPAN) {
+        return res.status(400).json({
+          success: false,
+          message: "User with this PAN number already exists.",
+        });
+      }
+    } else {
+      // For vendor and temporary drivers, Aadhar and PAN are optional
+      // But if provided, validate format and check for duplicates
+      if (aadharNumber && aadharNumber.trim()) {
+        if (aadharNumber.length !== 12 || !/^\d{12}$/.test(aadharNumber)) {
+          return res.status(400).json({
+            success: false,
+            message: "Aadhar Card Number must be exactly 12 digits.",
+          });
+        }
+        const existingAadhar = await User.findOne({ aadharNumber });
+        if (existingAadhar) {
+          return res.status(400).json({
+            success: false,
+            message: "User with this Aadhar number already exists.",
+          });
+        }
+      }
+
+      if (panNumber && panNumber.trim()) {
+        if (panNumber.length !== 10 || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(panNumber)) {
+          return res.status(400).json({
+            success: false,
+            message: "PAN Card Number must be in valid format (e.g., ABCDE1234F).",
+          });
+        }
+        const existingPAN = await User.findOne({ panNumber });
+        if (existingPAN) {
+          return res.status(400).json({
+            success: false,
+            message: "User with this PAN number already exists.",
+          });
+        }
+      }
     }
 
-    if (aadharNumber.length !== 12 || !/^\d{12}$/.test(aadharNumber)) {
-      return res.status(400).json({
-        success: false,
-        message: "Aadhar Card Number must be exactly 12 digits.",
-      });
-    }
+    // Bank Details validation (required only for dellcube drivers)
+    if (driverType === "dellcube") {
+      if (!bankDetails) {
+        return res.status(400).json({
+          success: false,
+          message: "Bank details are required for company drivers.",
+        });
+      }
 
-    if (!panNumber || !panNumber.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "PAN Card Number is required.",
-      });
-    }
+      const { accountHolderName, bankName, accountNumber, ifscCode } = bankDetails;
 
-    if (panNumber.length !== 10 || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(panNumber)) {
-      return res.status(400).json({
-        success: false,
-        message: "PAN Card Number must be in valid format (e.g., ABCDE1234F).",
-      });
-    }
+      if (!accountHolderName || !accountHolderName.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Account Holder Name is required for company drivers.",
+        });
+      }
 
-    // Check for existing users with same Aadhar or PAN
-    const existingAadhar = await User.findOne({ aadharNumber });
-    if (existingAadhar) {
-      return res.status(400).json({
-        success: false,
-        message: "User with this Aadhar number already exists.",
-      });
-    }
+      if (!bankName || !bankName.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Bank Name is required for company drivers.",
+        });
+      }
 
-    const existingPAN = await User.findOne({ panNumber });
-    if (existingPAN) {
-      return res.status(400).json({
-        success: false,
-        message: "User with this PAN number already exists.",
-      });
-    }
+      if (!accountNumber || !accountNumber.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Account Number is required for company drivers.",
+        });
+      }
 
-    // Bank Details validation (required)
-    if (!bankDetails) {
-      return res.status(400).json({
-        success: false,
-        message: "Bank details are required.",
-      });
-    }
+      if (!ifscCode || !ifscCode.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "IFSC Code is required for company drivers.",
+        });
+      }
 
-    const { accountHolderName, bankName, accountNumber, ifscCode } = bankDetails;
+      if (ifscCode.length !== 11 || !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)) {
+        return res.status(400).json({
+          success: false,
+          message: "IFSC Code must be in valid format (e.g., ABCD0123456).",
+        });
+      }
+    } else {
+      // For vendor and temporary drivers, bank details are optional
+      // But if provided, validate format
+      if (bankDetails) {
+        const { accountHolderName, bankName, accountNumber, ifscCode } = bankDetails;
 
-    if (!accountHolderName || !accountHolderName.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "Account Holder Name is required.",
-      });
-    }
-
-    if (!bankName || !bankName.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "Bank Name is required.",
-      });
-    }
-
-    if (!accountNumber || !accountNumber.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "Account Number is required.",
-      });
-    }
-
-    if (!ifscCode || !ifscCode.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "IFSC Code is required.",
-      });
-    }
-
-    if (ifscCode.length !== 11 || !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)) {
-      return res.status(400).json({
-        success: false,
-        message: "IFSC Code must be in valid format (e.g., ABCD0123456).",
-      });
+        if (ifscCode && ifscCode.trim()) {
+          if (ifscCode.length !== 11 || !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)) {
+            return res.status(400).json({
+              success: false,
+              message: "IFSC Code must be in valid format (e.g., ABCD0123456).",
+            });
+          }
+        }
+      }
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -1935,9 +2004,9 @@ export const createDriverController = async (req, res) => {
       experienceYears,
       driverType,
       ...(driverType === "vendor" && vendor && { vendor }),
-      aadharNumber,
-      panNumber,
-      bankDetails,
+      ...(aadharNumber && aadharNumber.trim() && { aadharNumber }),
+      ...(panNumber && panNumber.trim() && { panNumber }),
+      ...(bankDetails && { bankDetails }),
       status: true,
     });
 
@@ -2073,28 +2142,6 @@ export const updateDriverController = async (req, res) => {
       });
     }
 
-    // Determine the effective driver type (use provided or existing)
-    const effectiveDriverType = driverType || user.driverType;
-
-    // If driver type is vendor, vendor field is required
-    if (effectiveDriverType === "vendor" && !vendor) {
-      return res.status(400).json({
-        success: false,
-        message: "Vendor is required when driver type is 'vendor'.",
-      });
-    }
-
-    // Validate vendor exists and is actually a vendor
-    if (effectiveDriverType === "vendor" && vendor) {
-      const vendorUser = await User.findOne({ _id: vendor, role: "vendor" });
-      if (!vendorUser) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid vendor selected.",
-        });
-      }
-    }
-
     // License number validation
     if (licenseNumber && licenseNumber.length < 5) {
       return res.status(400).json({
@@ -2141,6 +2188,28 @@ export const updateDriverController = async (req, res) => {
         success: false,
         message: "Driver not found",
       });
+    }
+
+    // Determine the effective driver type (use provided or existing)
+    const effectiveDriverType = driverType || user.driverType;
+
+    // If driver type is vendor, vendor field is required
+    if (effectiveDriverType === "vendor" && !vendor) {
+      return res.status(400).json({
+        success: false,
+        message: "Vendor is required when driver type is 'vendor'.",
+      });
+    }
+
+    // Validate vendor exists and is actually a vendor
+    if (effectiveDriverType === "vendor" && vendor) {
+      const vendorUser = await User.findOne({ _id: vendor, role: "vendor" });
+      if (!vendorUser) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid vendor selected.",
+        });
+      }
     }
 
     // Check for existing users with same mobile (excluding current user)
@@ -2208,33 +2277,56 @@ export const updateDriverController = async (req, res) => {
       photoUrlPublicId = req.files.profilePhoto[0].filename;
     }
 
-    // Aadhar and PAN validation (required)
-    if (!aadharNumber || !aadharNumber.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "Aadhar Card Number is required.",
-      });
-    }
+    // Aadhar and PAN validation (required only for dellcube drivers)
+    // Note: effectiveDriverType was already declared earlier in the function
+    if (effectiveDriverType === "dellcube") {
+      if (!aadharNumber || !aadharNumber.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Aadhar Card Number is required for company drivers.",
+        });
+      }
 
-    if (aadharNumber.length !== 12 || !/^\d{12}$/.test(aadharNumber)) {
-      return res.status(400).json({
-        success: false,
-        message: "Aadhar Card Number must be exactly 12 digits.",
-      });
-    }
+      if (aadharNumber.length !== 12 || !/^\d{12}$/.test(aadharNumber)) {
+        return res.status(400).json({
+          success: false,
+          message: "Aadhar Card Number must be exactly 12 digits.",
+        });
+      }
 
-    if (!panNumber || !panNumber.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "PAN Card Number is required.",
-      });
-    }
+      if (!panNumber || !panNumber.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "PAN Card Number is required for company drivers.",
+        });
+      }
 
-    if (panNumber.length !== 10 || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(panNumber)) {
-      return res.status(400).json({
-        success: false,
-        message: "PAN Card Number must be in valid format (e.g., ABCDE1234F).",
-      });
+      if (panNumber.length !== 10 || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(panNumber)) {
+        return res.status(400).json({
+          success: false,
+          message: "PAN Card Number must be in valid format (e.g., ABCDE1234F).",
+        });
+      }
+    } else {
+      // For vendor and temporary drivers, Aadhar and PAN are optional
+      // But if provided, validate format
+      if (aadharNumber && aadharNumber.trim()) {
+        if (aadharNumber.length !== 12 || !/^\d{12}$/.test(aadharNumber)) {
+          return res.status(400).json({
+            success: false,
+            message: "Aadhar Card Number must be exactly 12 digits.",
+          });
+        }
+      }
+
+      if (panNumber && panNumber.trim()) {
+        if (panNumber.length !== 10 || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(panNumber)) {
+          return res.status(400).json({
+            success: false,
+            message: "PAN Card Number must be in valid format (e.g., ABCDE1234F).",
+          });
+        }
+      }
     }
 
     // Parse bankDetails if it's a JSON string
@@ -2250,49 +2342,65 @@ export const updateDriverController = async (req, res) => {
       }
     }
 
-    // Bank Details validation (required)
-    if (!parsedBankDetails) {
-      return res.status(400).json({
-        success: false,
-        message: "Bank details are required.",
-      });
-    }
+    // Bank Details validation (required only for dellcube drivers)
+    if (effectiveDriverType === "dellcube") {
+      if (!parsedBankDetails) {
+        return res.status(400).json({
+          success: false,
+          message: "Bank details are required for company drivers.",
+        });
+      }
 
-    const { accountHolderName, bankName, accountNumber, ifscCode } = parsedBankDetails;
+      const { accountHolderName, bankName, accountNumber, ifscCode } = parsedBankDetails;
 
-    if (!accountHolderName || !accountHolderName.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "Account Holder Name is required.",
-      });
-    }
+      if (!accountHolderName || !accountHolderName.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Account Holder Name is required for company drivers.",
+        });
+      }
 
-    if (!bankName || !bankName.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "Bank Name is required.",
-      });
-    }
+      if (!bankName || !bankName.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Bank Name is required for company drivers.",
+        });
+      }
 
-    if (!accountNumber || !accountNumber.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "Account Number is required.",
-      });
-    }
+      if (!accountNumber || !accountNumber.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Account Number is required for company drivers.",
+        });
+      }
 
-    if (!ifscCode || !ifscCode.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "IFSC Code is required.",
-      });
-    }
+      if (!ifscCode || !ifscCode.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "IFSC Code is required for company drivers.",
+        });
+      }
 
-    if (ifscCode.length !== 11 || !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)) {
-      return res.status(400).json({
-        success: false,
-        message: "IFSC Code must be in valid format (e.g., ABCD0123456).",
-      });
+      if (ifscCode.length !== 11 || !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)) {
+        return res.status(400).json({
+          success: false,
+          message: "IFSC Code must be in valid format (e.g., ABCD0123456).",
+        });
+      }
+    } else {
+      // For vendor and temporary drivers, bank details are optional
+      // But if provided, validate format
+      if (parsedBankDetails) {
+        const { ifscCode } = parsedBankDetails;
+        if (ifscCode && ifscCode.trim()) {
+          if (ifscCode.length !== 11 || !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)) {
+            return res.status(400).json({
+              success: false,
+              message: "IFSC Code must be in valid format (e.g., ABCD0123456).",
+            });
+          }
+        }
+      }
     }
 
     // Determine effective driver type for vendor field handling
@@ -2335,9 +2443,9 @@ export const updateDriverController = async (req, res) => {
         : effectiveDriverTypeForUpdate !== "vendor"
         ? { vendor: null }
         : {}),
-      aadharNumber,
-      panNumber,
-      bankDetails: parsedBankDetails,
+      ...(aadharNumber && aadharNumber.trim() && { aadharNumber }),
+      ...(panNumber && panNumber.trim() && { panNumber }),
+      ...(parsedBankDetails && { bankDetails: parsedBankDetails }),
       ...(photoUrl && {
         photoUrl,
         photoUrlPublicId,
@@ -2427,10 +2535,9 @@ export const bulkUploadDriversController = async (req, res) => {
     }
 
     // Required fields (company and branch are optional if user has defaults)
+    // Aadhar, PAN, and bank details are only required for dellcube drivers
     const requiredFields = [
-      'name', 'mobile', 'password', 'licenseNumber', 'experienceYears',
-      'driverType', 'aadharNumber', 'panNumber',
-      'accountHolderName', 'bankName', 'accountNumber', 'ifscCode'
+      'name', 'mobile', 'password', 'licenseNumber', 'experienceYears', 'driverType'
     ];
 
     // Optional fields that can use defaults
@@ -2626,44 +2733,110 @@ export const bulkUploadDriversController = async (req, res) => {
           }
         }
 
-        if (aadharNumber.length !== 12 || !/^\d{12}$/.test(aadharNumber)) {
-          results.errors.push({
-            row: rowNumber,
-            name,
-            error: "Aadhar number must be exactly 12 digits",
-          });
-          results.errorCount++;
-          continue;
+        // Aadhar and PAN validation (required only for dellcube drivers)
+        if (driverType === "dellcube") {
+          if (!aadharNumber || aadharNumber.trim().length === 0) {
+            results.errors.push({
+              row: rowNumber,
+              name,
+              error: "Aadhar number is required for company drivers",
+            });
+            results.errorCount++;
+            continue;
+          }
+
+          if (aadharNumber.length !== 12 || !/^\d{12}$/.test(aadharNumber)) {
+            results.errors.push({
+              row: rowNumber,
+              name,
+              error: "Aadhar number must be exactly 12 digits",
+            });
+            results.errorCount++;
+            continue;
+          }
+
+          if (!panNumber || panNumber.trim().length === 0) {
+            results.errors.push({
+              row: rowNumber,
+              name,
+              error: "PAN number is required for company drivers",
+            });
+            results.errorCount++;
+            continue;
+          }
+
+          if (panNumber.length !== 10 || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(panNumber)) {
+            results.errors.push({
+              row: rowNumber,
+              name,
+              error: "PAN number must be in format ABCDE1234F",
+            });
+            results.errorCount++;
+            continue;
+          }
+        } else {
+          // For vendor and temporary drivers, Aadhar and PAN are optional
+          // But if provided, validate format
+          if (aadharNumber && aadharNumber.trim()) {
+            if (aadharNumber.length !== 12 || !/^\d{12}$/.test(aadharNumber)) {
+              results.errors.push({
+                row: rowNumber,
+                name,
+                error: "Aadhar number must be exactly 12 digits",
+              });
+              results.errorCount++;
+              continue;
+            }
+          }
+
+          if (panNumber && panNumber.trim()) {
+            if (panNumber.length !== 10 || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(panNumber)) {
+              results.errors.push({
+                row: rowNumber,
+                name,
+                error: "PAN number must be in format ABCDE1234F",
+              });
+              results.errorCount++;
+              continue;
+            }
+          }
         }
 
-        if (panNumber.length !== 10 || !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(panNumber)) {
-          results.errors.push({
-            row: rowNumber,
-            name,
-            error: "PAN number must be in format ABCDE1234F",
-          });
-          results.errorCount++;
-          continue;
-        }
+        // Bank Details validation (required only for dellcube drivers)
+        if (driverType === "dellcube") {
+          if (!accountHolderName || !bankName || !accountNumber || !ifscCode) {
+            results.errors.push({
+              row: rowNumber,
+              name,
+              error: "All bank details are required for company drivers",
+            });
+            results.errorCount++;
+            continue;
+          }
 
-        if (!accountHolderName || !bankName || !accountNumber || !ifscCode) {
-          results.errors.push({
-            row: rowNumber,
-            name,
-            error: "All bank details are required",
-          });
-          results.errorCount++;
-          continue;
-        }
-
-        if (ifscCode.length !== 11 || !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)) {
-          results.errors.push({
-            row: rowNumber,
-            name,
-            error: "IFSC code must be in format ABCD0123456",
-          });
-          results.errorCount++;
-          continue;
+          if (ifscCode.length !== 11 || !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)) {
+            results.errors.push({
+              row: rowNumber,
+              name,
+              error: "IFSC code must be in format ABCD0123456",
+            });
+            results.errorCount++;
+            continue;
+          }
+        } else {
+          // For vendor and temporary drivers, bank details are optional
+          // But if provided, validate IFSC format
+          if (ifscCode && ifscCode.trim()) {
+            if (ifscCode.length !== 11 || !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)) {
+              results.errors.push({
+                row: rowNumber,
+                name,
+                error: "IFSC code must be in format ABCD0123456",
+              });
+              results.errorCount++;
+              continue;
+            }
+          }
         }
 
         // Check for duplicates
@@ -2689,26 +2862,32 @@ export const bulkUploadDriversController = async (req, res) => {
           continue;
         }
 
-        const existingAadhar = await User.findOne({ aadharNumber });
-        if (existingAadhar) {
-          results.errors.push({
-            row: rowNumber,
-            name,
-            error: "Aadhar number already exists",
-          });
-          results.errorCount++;
-          continue;
+        // Check for duplicate Aadhar only if provided
+        if (aadharNumber && aadharNumber.trim()) {
+          const existingAadhar = await User.findOne({ aadharNumber });
+          if (existingAadhar) {
+            results.errors.push({
+              row: rowNumber,
+              name,
+              error: "Aadhar number already exists",
+            });
+            results.errorCount++;
+            continue;
+          }
         }
 
-        const existingPAN = await User.findOne({ panNumber });
-        if (existingPAN) {
-          results.errors.push({
-            row: rowNumber,
-            name,
-            error: "PAN number already exists",
-          });
-          results.errorCount++;
-          continue;
+        // Check for duplicate PAN only if provided
+        if (panNumber && panNumber.trim()) {
+          const existingPAN = await User.findOne({ panNumber });
+          if (existingPAN) {
+            results.errors.push({
+              row: rowNumber,
+              name,
+              error: "PAN number already exists",
+            });
+            results.errorCount++;
+            continue;
+          }
         }
 
         // Validate vendor if driver type is vendor
@@ -2759,14 +2938,16 @@ export const bulkUploadDriversController = async (req, res) => {
           experienceYears,
           driverType,
           ...(driverType === "vendor" && vendor && { vendor }),
-          aadharNumber,
-          panNumber,
-          bankDetails: {
-            accountHolderName,
-            bankName,
-            accountNumber,
-            ifscCode,
-          },
+          ...(aadharNumber && aadharNumber.trim() && { aadharNumber }),
+          ...(panNumber && panNumber.trim() && { panNumber }),
+          ...(accountHolderName && bankName && accountNumber && ifscCode && {
+            bankDetails: {
+              accountHolderName,
+              bankName,
+              accountNumber,
+              ifscCode,
+            }
+          }),
           status,
         });
 

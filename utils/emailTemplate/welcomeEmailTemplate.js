@@ -1,4 +1,6 @@
-export const registerOTPTemplate = (name, otp) => {
+export const welcomeEmailTemplate = (name, role) => {
+  const roleDisplay = role ? role.charAt(0).toUpperCase() + role.slice(1).replace(/([A-Z])/g, " $1").trim() : "User";
+  
   return `
   <!DOCTYPE html>
   <html lang="en">
@@ -6,7 +8,7 @@ export const registerOTPTemplate = (name, otp) => {
   <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Dellcube Verify Your Registration</title>
+      <title>Welcome to Dellcube</title>
       <style>
           body, html {
               margin: 0;
@@ -40,7 +42,7 @@ export const registerOTPTemplate = (name, otp) => {
 
           .header-title {
               color: #202020;
-              font-size: 28px;
+              font-size: 32px;
               font-weight: 700;
               margin: 0;
               text-align: center;
@@ -52,10 +54,10 @@ export const registerOTPTemplate = (name, otp) => {
           }
 
           .greeting {
-              font-size: 20px;
+              font-size: 24px;
               font-weight: 600;
               color: #202020;
-              margin-bottom: 16px;
+              margin-bottom: 20px;
           }
 
           .message {
@@ -66,54 +68,40 @@ export const registerOTPTemplate = (name, otp) => {
               text-align: left;
           }
 
-          .otp-container {
-              margin: 30px 0;
-          }
-
-          .otp-label {
-              font-size: 14px;
-              font-weight: 600;
-              color: #828083;
-              text-transform: uppercase;
-              letter-spacing: 1px;
-              margin-bottom: 12px;
-          }
-
-          .otp-box {
-              display: inline-block;
+          .role-box {
               background: linear-gradient(135deg, #FFD249 0%, #FFB800 100%);
               color: #202020;
-              font-size: 36px;
+              font-size: 18px;
               font-weight: 700;
-              letter-spacing: 8px;
               padding: 20px 40px;
               border-radius: 12px;
               box-shadow: 0 4px 12px rgba(255, 210, 73, 0.3);
-              margin: 10px 0;
+              margin: 30px 0;
               border: 2px solid #FFD249;
+              display: inline-block;
           }
 
           .info-box {
               background-color: #FFF9E6;
               border-left: 4px solid #FFD249;
-              padding: 16px 20px;
+              padding: 20px;
               margin: 30px 0;
               border-radius: 8px;
               text-align: left;
           }
 
           .info-text {
-              font-size: 14px;
+              font-size: 15px;
               color: #4a4a4a;
               line-height: 1.6;
               margin: 0;
           }
 
-          .warning {
-              font-size: 14px;
-              color: #828083;
+          .closing {
+              font-size: 16px;
+              color: #202020;
               margin-top: 30px;
-              font-style: italic;
+              font-weight: 500;
           }
 
           .footer {
@@ -153,14 +141,17 @@ export const registerOTPTemplate = (name, otp) => {
                   padding: 30px 20px;
               }
 
-              .otp-box {
-                  font-size: 28px;
-                  padding: 16px 30px;
-                  letter-spacing: 6px;
-              }
-
               .header-title {
                   font-size: 24px;
+              }
+
+              .greeting {
+                  font-size: 20px;
+              }
+
+              .role-box {
+                  font-size: 16px;
+                  padding: 16px 30px;
               }
           }
       </style>
@@ -170,31 +161,36 @@ export const registerOTPTemplate = (name, otp) => {
       <div class="wrapper">
           <div class="container">
               <div class="header">
-                  <h1 class="header-title">Email Verification</h1>
+                  <h1 class="header-title">Welcome to Dellcube</h1>
               </div>
               
               <div class="content">
                   <div class="greeting">Hello ${name}!</div>
                   
                   <p class="message">
-                      Thank you for registering with Dellcube. Please use the verification code below to verify your email address and complete your registration.
+                      On behalf of the entire Dellcube team, we are thrilled to welcome you to our platform. 
+                      Your account has been successfully created and you are now part of the Dellcube family.
                   </p>
 
-                  <div class="otp-container">
-                      <div class="otp-label">Your Verification Code</div>
-                      <div class="otp-box">${otp}</div>
+                  <div class="role-box">
+                      Role: ${roleDisplay}
                   </div>
 
                   <div class="info-box">
                       <p class="info-text">
-                          <strong>Important:</strong> This code will expire in 10 minutes. 
-                          If you did not request this registration, please ignore this email or contact 
-                          our support team if you have concerns.
+                          <strong>Getting Started:</strong> You can now log in to your account using your registered email address. 
+                          If you have any questions or need assistance, please do not hesitate to reach out to our support team. 
+                          We are here to help you succeed.
                       </p>
                   </div>
 
-                  <p class="warning">
-                      For security reasons, never share this code with anyone. Dellcube staff will never ask for your verification code.
+                  <p class="message">
+                      We wish you the very best in your journey with Dellcube. Thank you for choosing us, and we look forward to working with you.
+                  </p>
+
+                  <p class="closing">
+                      Best Regards,<br>
+                      The Dellcube Team
                   </p>
               </div>
 
@@ -202,7 +198,8 @@ export const registerOTPTemplate = (name, otp) => {
                   <p class="footer-text">
                       &copy; ${new Date().getFullYear()} Dellcube. All rights reserved.<br>
                       This is an automated email, please do not reply.<br>
-                      Need help? Contact us at <a href="mailto:info@dellcube.com" class="footer-link">info@dellcube.com</a>
+                      Need help? Contact us at <a href="mailto:info@dellcube.com" class="footer-link">info@dellcube.com</a><br>
+                      Visit us at <a href="https://www.dellcube.com" class="footer-link" target="_blank">www.dellcube.com</a>
                   </p>
               </div>
           </div>

@@ -639,6 +639,7 @@ const CreateInvoice = () => {
     licenseNumber: "",
     experienceYears: "",
     driverType: user?.role === "vendor" ? "vendor" : "dellcube",
+    vendor: "",
   });
 
   // Add vehicle creation state
@@ -1150,6 +1151,15 @@ const CreateInvoice = () => {
       return;
     }
 
+    // Validate vehicle number format: 2 letters + 2 digits + 2 letters + 4 digits (e.g., CG04MM9576)
+    const cleanedVehicleNumber = newVehicleData.vehicleNumber.trim().replace(/[\s-]/g, '').toUpperCase();
+    const vehicleNumberRegex = /^[A-Z]{2}[0-9]{2}[A-Z]{2}[0-9]{4}$/;
+    
+    if (!vehicleNumberRegex.test(cleanedVehicleNumber)) {
+      toast.error("Vehicle number must be in format: 2 letters + 2 digits + 2 letters + 4 digits (e.g., CG04MM9576). No dashes or spaces allowed.");
+      return;
+    }
+
     if (!companyId || !branchId) {
       toast.error("Company and Branch are required");
       return;
@@ -1157,7 +1167,7 @@ const CreateInvoice = () => {
 
     try {
       const payload = new FormData();
-      payload.append("vehicleNumber", newVehicleData.vehicleNumber.toUpperCase());
+      payload.append("vehicleNumber", cleanedVehicleNumber);
       payload.append("type", newVehicleData.type);
       payload.append("company", companyId);
       payload.append("branch", branchId);
@@ -1217,13 +1227,25 @@ const CreateInvoice = () => {
       return;
     }
 
+    // Validate vendor is required when driver type is vendor
+    if (newDriverData.driverType === "vendor" && !newDriverData.vendor) {
+      toast.error("Vendor is required when driver type is 'vendor'");
+      return;
+    }
+
     try {
       const payload = {
         ...newDriverData,
         experienceYears: Number(newDriverData.experienceYears),
-        company: companyId,
-        branch: branchId,
+        companies: companyId ? [companyId] : [],
+        branches: branchId ? [branchId] : [],
+        ...(newDriverData.driverType === "vendor" && newDriverData.vendor && { vendor: newDriverData.vendor }),
       };
+
+      // Remove vendor from payload if not vendor driver type
+      if (newDriverData.driverType !== "vendor") {
+        delete payload.vendor;
+      }
 
       console.log("Creating driver with payload:", payload);
 
@@ -1239,6 +1261,7 @@ const CreateInvoice = () => {
           licenseNumber: "",
           experienceYears: "",
           driverType: "dellcube",
+          vendor: "",
         });
         // Refresh drivers list
         // Note: You might need to add a refetch function to the drivers query
@@ -2173,7 +2196,7 @@ const CreateInvoice = () => {
               <Select
                 value={newDriverData.driverType}
                 onValueChange={(value) =>
-                  setNewDriverData((prev) => ({ ...prev, driverType: value }))
+                  setNewDriverData((prev) => ({ ...prev, driverType: value, vendor: "" }))
                 }
               >
                 <SelectTrigger>
@@ -2186,6 +2209,48 @@ const CreateInvoice = () => {
                 </SelectContent>
               </Select>
             </div>
+            {newDriverData.driverType === "vendor" && (
+              <div className="space-y-2">
+                <Label>Select Vendor *</Label>
+                <Select
+                  value={newDriverData.vendor}
+                  onValueChange={(value) =>
+                    setNewDriverData((prev) => ({ ...prev, vendor: value }))
+                  }
+                  disabled={!companyId || !branchId}
+                >
+                  <SelectTrigger className={!companyId || !branchId ? "bg-gray-100 dark:bg-gray-800" : ""}>
+                    <SelectValue placeholder={
+                      !companyId || !branchId
+                        ? "Company and branch must be selected first"
+                        : vendorData?.vendors?.length > 0
+                        ? "Select a vendor"
+                        : "No vendors available"
+                    } />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {vendorData?.vendors?.length > 0 ? (
+                      vendorData.vendors.map((v) => (
+                        <SelectItem key={v._id} value={v._id}>
+                          {v.name} {v.email ? `(${v.email})` : ""}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="px-2 py-1.5 text-sm text-gray-500">
+                        {!companyId || !branchId
+                          ? "Please select company and branch first"
+                          : "No vendors available for selected company/branch"}
+                      </div>
+                    )}
+                  </SelectContent>
+                </Select>
+                {newDriverData.driverType === "vendor" && companyId && branchId && vendorData?.vendors?.length === 0 && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                    No vendors found. Please create a vendor first or select a different company/branch.
+                  </p>
+                )}
+              </div>
+            )}
             <div className="flex flex-col sm:flex-row gap-2 pt-4">
               <Button
                 variant="outline"
@@ -2300,15 +2365,25 @@ const CreateInvoice = () => {
               </Label>
               <Input
                 id="vehicle-number"
-                placeholder="e.g., MH 12 AB 1234"
+                placeholder="e.g., CG04MM9576"
                 value={newVehicleData.vehicleNumber}
-                onChange={(e) =>
+                onChange={(e) => {
+                  // Remove spaces, dashes, and convert to uppercase
+                  const cleaned = e.target.value.replace(/[\s-]/g, '').toUpperCase();
+                  // Limit to 10 characters (2 letters + 2 digits + 2 letters + 4 digits)
+                  const limited = cleaned.slice(0, 10);
                   setNewVehicleData({
                     ...newVehicleData,
-                    vehicleNumber: e.target.value.toUpperCase(),
-                  })
-                }
+                    vehicleNumber: limited,
+                  });
+                }}
+                maxLength={10}
               />
+              {newVehicleData.vehicleNumber && newVehicleData.vehicleNumber.length > 0 && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Format: 2 letters + 2 digits + 2 letters + 4 digits (e.g., CG04MM9576)
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="vehicle-type">

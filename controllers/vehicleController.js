@@ -185,6 +185,17 @@ export const createVehicle = async (req, res) => {
       });
     }
 
+    // Validate vehicle number format: 2 letters + 2 digits + 2 letters + 4 digits (e.g., CG04MM9576)
+    const vehicleNumberRegex = /^[A-Z]{2}[0-9]{2}[A-Z]{2}[0-9]{4}$/;
+    const cleanedVehicleNumber = vehicleNumber.trim().replace(/[\s-]/g, '').toUpperCase();
+    
+    if (!vehicleNumberRegex.test(cleanedVehicleNumber)) {
+      return res.status(400).json({
+        success: false,
+        message: "Vehicle number must be in format: 2 letters + 2 digits + 2 letters + 4 digits (e.g., CG04MM9576). No dashes or spaces allowed.",
+      });
+    }
+
     // Validate ObjectIds
     if (!mongoose.Types.ObjectId.isValid(finalCompany)) {
       return res.status(400).json({
@@ -212,7 +223,10 @@ export const createVehicle = async (req, res) => {
       });
     }
 
-    const existing = await Vehicle.findOne({ vehicleNumber });
+    // Use cleaned vehicle number for duplicate check and storage
+    const finalVehicleNumber = cleanedVehicleNumber;
+
+    const existing = await Vehicle.findOne({ vehicleNumber: finalVehicleNumber });
     if (existing) {
       return res.status(400).json({
         success: false,
@@ -222,7 +236,7 @@ export const createVehicle = async (req, res) => {
 
     // Prepare vehicle data
     const vehicleData = {
-      vehicleNumber,
+      vehicleNumber: finalVehicleNumber,
       type,
       cargoType: cargoType || undefined,
       brand: brand || undefined,
@@ -426,6 +440,32 @@ export const updateVehicle = async (req, res) => {
           public_id: req.files[field][0].filename,
         };
       }
+    }
+
+    // Validate vehicle number format if being updated
+    if (updates.vehicleNumber) {
+      const vehicleNumberRegex = /^[A-Z]{2}[0-9]{2}[A-Z]{2}[0-9]{4}$/;
+      const cleanedVehicleNumber = updates.vehicleNumber.trim().replace(/[\s-]/g, '').toUpperCase();
+      
+      if (!vehicleNumberRegex.test(cleanedVehicleNumber)) {
+        return res.status(400).json({
+          success: false,
+          message: "Vehicle number must be in format: 2 letters + 2 digits + 2 letters + 4 digits (e.g., CG04MM9576). No dashes or spaces allowed.",
+        });
+      }
+      
+      // Check for duplicate if vehicle number is being changed
+      if (cleanedVehicleNumber !== vehicle.vehicleNumber) {
+        const existing = await Vehicle.findOne({ vehicleNumber: cleanedVehicleNumber });
+        if (existing) {
+          return res.status(400).json({
+            success: false,
+            message: "Vehicle with this number already exists",
+          });
+        }
+      }
+      
+      updates.vehicleNumber = cleanedVehicleNumber;
     }
 
     // Update other fields
