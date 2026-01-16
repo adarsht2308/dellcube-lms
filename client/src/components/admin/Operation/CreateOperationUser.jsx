@@ -34,19 +34,77 @@ import { useSelector } from "react-redux";
 import { useGetAllCompaniesQuery } from "@/features/api/Company/companyApi";
 import { useGetBranchesByCompanyMutation } from "@/features/api/Branch/branchApi";
 import { useCreateOperationUserMutation } from "@/features/api/authApi";
+import { getTokenData } from "@/utils/getTokenData";
 
 const CreateOperationUser = () => {
   const navigate = useNavigate();
   const user = useSelector((state) => state.auth.user);
   const isBranchAdmin = user?.role === "branchAdmin";
 
+  // Helper functions to get company and branch IDs (handle both single object and array)
+  const getUserCompanyId = () => {
+    if (isBranchAdmin) {
+      // First check for selectedCompany (from token/current session)
+      if (user?.selectedCompany?._id) return String(user.selectedCompany._id);
+      // Then check if company is a single object
+      if (user?.company?._id) return String(user.company._id);
+      // Finally check if company is an array
+      if (Array.isArray(user?.company) && user.company.length > 0) {
+        const company = user.company[0];
+        return String(company._id || company);
+      }
+    }
+    return null;
+  };
+
+  const getUserBranchId = () => {
+    if (isBranchAdmin) {
+      // First check for selectedBranch (from token/current session)
+      if (user?.selectedBranch?._id) return String(user.selectedBranch._id);
+      // Then check if branch is a single object
+      if (user?.branch?._id) return String(user.branch._id);
+      // Finally check if branch is an array
+      if (Array.isArray(user?.branch) && user.branch.length > 0) {
+        const branch = user.branch[0];
+        return String(branch._id || branch);
+      }
+    }
+    return null;
+  };
+
+  // Helper functions to get company and branch names for display
+  const getUserCompanyName = () => {
+    if (isBranchAdmin) {
+      if (user?.selectedCompany?.name) return user.selectedCompany.name;
+      if (user?.company?.name) return user.company.name;
+      if (Array.isArray(user?.company) && user.company.length > 0) {
+        return user.company[0].name || "";
+      }
+    }
+    return "";
+  };
+
+  const getUserBranchName = () => {
+    if (isBranchAdmin) {
+      if (user?.selectedBranch?.name) return user.selectedBranch.name;
+      if (user?.branch?.name) return user.branch.name;
+      if (Array.isArray(user?.branch) && user.branch.length > 0) {
+        return user.branch[0].name || "";
+      }
+    }
+    return "";
+  };
+
+  const companyId = getUserCompanyId();
+  const branchId = getUserBranchId();
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     password: "",
     mobile: "",
-    companies: isBranchAdmin && user?.company?._id ? [user.company._id] : [],
-    branches: isBranchAdmin && user?.branch?._id ? [user.branch._id] : [],
+    companies: isBranchAdmin && companyId ? [companyId] : [],
+    branches: isBranchAdmin && branchId ? [branchId] : [],
     status: true,
     aadharNumber: "",
     panNumber: "",
@@ -67,18 +125,29 @@ const CreateOperationUser = () => {
   // Store branches for each selected company
   const [branchesByCompany, setBranchesByCompany] = useState({});
   
+  // Initialize formData with company and branch when user data is available
+  useEffect(() => {
+    if (isBranchAdmin && companyId && branchId) {
+      setFormData(prev => ({
+        ...prev,
+        companies: [companyId],
+        branches: [branchId],
+      }));
+    }
+  }, [isBranchAdmin, companyId, branchId]);
+
   // Initialize branches for branchAdmin's company
   useEffect(() => {
-    if (isBranchAdmin && user?.company?._id) {
-      getBranchesByCompany(user.company._id).then((res) => {
+    if (isBranchAdmin && companyId) {
+      getBranchesByCompany(companyId).then((res) => {
         if (res?.data?.branches) {
           setBranchesByCompany({
-            [user.company._id]: res.data.branches
+            [companyId]: res.data.branches
           });
         }
       });
     }
-  }, [isBranchAdmin, user]);
+  }, [isBranchAdmin, companyId]);
 
   const [createOperationUser, { isLoading, isSuccess, isError, data, error }] =
     useCreateOperationUserMutation();
@@ -353,7 +422,7 @@ const CreateOperationUser = () => {
                   <Label>Companies *</Label>
                   {isBranchAdmin ? (
                     <Input
-                      value={user?.company?.name}
+                      value={getUserCompanyName()}
                       disabled
                       className="bg-gray-100 cursor-not-allowed dark:bg-gray-800"
                     />
@@ -392,7 +461,7 @@ const CreateOperationUser = () => {
                   <Label>Branches *</Label>
                   {isBranchAdmin ? (
                     <Input
-                      value={user?.branch?.name}
+                      value={getUserBranchName()}
                       disabled
                       className="bg-gray-100 cursor-not-allowed dark:bg-gray-800"
                     />

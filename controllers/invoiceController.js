@@ -112,13 +112,38 @@ export const createInvoice = async (req, res) => {
     let companyId = req.body.company || (req.user?.role !== "superAdmin" ? req.companyId : null);
     let branchId = req.body.branch || (req.user?.role !== "superAdmin" ? req.branchId : null);
 
-    // Role-based control
+    // Role-based control - use token values (selected company/branch) if available, otherwise use first from user's array
     if (
       actingUser.role === "branchAdmin" ||
       actingUser.role === "operation"
     ) {
-      companyId = actingUser.company?.toString();
-      branchId = actingUser.branch?.toString();
+      // Priority: 1. req.body.company (explicit), 2. req.companyId (token/selected), 3. user's company array
+      if (!companyId) {
+        if (req.companyId) {
+          companyId = req.companyId;
+        } else {
+          // Fallback to user's company (handle both array and single value)
+          if (Array.isArray(actingUser.company) && actingUser.company.length > 0) {
+            companyId = actingUser.company[0].toString();
+          } else if (actingUser.company) {
+            companyId = actingUser.company.toString();
+          }
+        }
+      }
+      
+      // Priority: 1. req.body.branch (explicit), 2. req.branchId (token/selected), 3. user's branch array
+      if (!branchId) {
+        if (req.branchId) {
+          branchId = req.branchId;
+        } else {
+          // Fallback to user's branch (handle both array and single value)
+          if (Array.isArray(actingUser.branch) && actingUser.branch.length > 0) {
+            branchId = actingUser.branch[0].toString();
+          } else if (actingUser.branch) {
+            branchId = actingUser.branch.toString();
+          }
+        }
+      }
     }
 
     if (!companyId || !branchId) {
@@ -132,7 +157,7 @@ export const createInvoice = async (req, res) => {
     const companyDoc = await mongoose
       .model("Company")
       .findById(companyId)
-      .select("companyCode");
+      .select("companyCode name");
     const branchDoc = await mongoose
       .model("Branch")
       .findById(branchId)
@@ -148,6 +173,42 @@ export const createInvoice = async (req, res) => {
     // Use the actual companyCode and branchCode from database
     const companyCode = companyDoc.companyCode;
     const branchCode = branchDoc.branchCode;
+    const companyIdStr = companyId.toString();
+    const companyName = companyDoc.name || "";
+
+    // Helper function to determine starting docket number based on company ID or code
+    const getStartingDocketNumber = (companyId, companyCode, companyName) => {
+      // Check by company ID first (most reliable) - handle both ObjectId and string
+      const idStr = companyId?.toString() || companyIdStr || "";
+      if (idStr === "693128338bcc0d6a2f75d16a") {
+        return 196451; // DISPL - Dellcube Integrated Solutions Pvt Ltd
+      } else if (idStr === "69312a928bcc0d6a2f75d1ac") {
+        return 5389; // DSCS - Dellcube Supply Chain
+      }
+      
+      // Fallback to company code check
+      const codeUpper = (companyCode || "").toUpperCase();
+      if (codeUpper === "DISPL") {
+        return 196451; // Dellcube Integrated Solutions Pvt Ltd
+      } else if (codeUpper === "DSCS") {
+        return 5389; // Dellcube Supply Chain
+      }
+      
+      // Fallback to name check (for backward compatibility)
+      const nameLower = (companyName || "").toLowerCase();
+      if (nameLower.includes("dellcube") && nameLower.includes("integrated")) {
+        return 196451; // Dellcube Integrated Solutions Pvt Ltd
+      } else if (nameLower.includes("supply chain")) {
+        return 5389; // Supply Chain
+      }
+      
+      return 10000; // Default starting number
+    };
+
+    const startingDocketNumber = getStartingDocketNumber(companyId, companyCode, companyName);
+    
+    // Debug logging
+    console.log(`Company ID: ${companyId}, Company Code: ${companyCode}, Starting Number: ${startingDocketNumber}`);
 
     // Generate date string (DDMMYYYY)
     const now = new Date();
@@ -159,24 +220,44 @@ export const createInvoice = async (req, res) => {
     // Generate docketPrefix (CompanyCode-BranchCode-Date)
     const docketPrefix = `${companyCode}-${branchCode}-${dateStr}`;
 
-    // Find the highest numeric docket number starting from 10000
-    // Get all invoices and find the max numeric docket number
-    const invoices = await Invoice.find()
+    // Find the highest numeric docket number for this specific company
+    // Only consider invoices from the same company to maintain separate series
+    const invoices = await Invoice.find({ company: companyId })
       .select("docketNumber")
       .lean();
 
-    let maxDocketNumber = 9999; // Start from 9999 so next will be 10000
+    let maxDocketNumber = startingDocketNumber - 1; // Start from one less than starting number
+    
+    // For companies with specific starting numbers, ignore old docket numbers (>= 10000)
+    // that were created before this logic was implemented
+    const shouldIgnoreOldNumbers = startingDocketNumber < 10000;
+    const oldNumberThreshold = 10000;
+    
     for (const invoice of invoices) {
       if (invoice?.docketNumber) {
         // Try to parse the docket number as a numeric value (must be pure number, no dashes)
         const parsedNumber = parseInt(invoice.docketNumber, 10);
-        if (!isNaN(parsedNumber) && parsedNumber >= 10000 && parsedNumber > maxDocketNumber) {
-          maxDocketNumber = parsedNumber;
+        if (!isNaN(parsedNumber)) {
+          // Only consider numbers that are >= starting number for this company
+          // For companies with specific starting numbers (like DSCS: 5389), ignore old numbers (>= 10000)
+          if (parsedNumber >= startingDocketNumber) {
+            if (shouldIgnoreOldNumbers && parsedNumber >= oldNumberThreshold) {
+              // Ignore old docket numbers that were created before this logic
+              continue;
+            }
+            if (parsedNumber > maxDocketNumber) {
+              maxDocketNumber = parsedNumber;
+            }
+          }
         }
       }
     }
 
-    const nextDocketNumber = maxDocketNumber + 1;
+    // Ensure we don't go below the starting number
+    // If no invoices exist with numbers >= starting number (and < 10000 for specific companies), start from starting number
+    const nextDocketNumber = Math.max(maxDocketNumber + 1, startingDocketNumber);
+    
+    console.log(`Company: ${companyCode}, Starting: ${startingDocketNumber}, Max found: ${maxDocketNumber}, Next: ${nextDocketNumber}`);
     const docketNumber = String(nextDocketNumber);
 
     const invoiceNumberValues = normalizeMultiValueField(
@@ -509,13 +590,38 @@ export const createReservedInvoices = async (req, res) => {
     let companyId = req.body.company || (req.user?.role !== "superAdmin" ? req.companyId : null);
     let branchId = req.body.branch || (req.user?.role !== "superAdmin" ? req.branchId : null);
 
-    // Role-based control
+    // Role-based control - use token values (selected company/branch) if available, otherwise use first from user's array
     if (
       actingUser.role === "branchAdmin" ||
       actingUser.role === "operation"
     ) {
-      companyId = actingUser.company?.toString();
-      branchId = actingUser.branch?.toString();
+      // Priority: 1. req.body.company (explicit), 2. req.companyId (token/selected), 3. user's company array
+      if (!companyId) {
+        if (req.companyId) {
+          companyId = req.companyId;
+        } else {
+          // Fallback to user's company (handle both array and single value)
+          if (Array.isArray(actingUser.company) && actingUser.company.length > 0) {
+            companyId = actingUser.company[0].toString();
+          } else if (actingUser.company) {
+            companyId = actingUser.company.toString();
+          }
+        }
+      }
+      
+      // Priority: 1. req.body.branch (explicit), 2. req.branchId (token/selected), 3. user's branch array
+      if (!branchId) {
+        if (req.branchId) {
+          branchId = req.branchId;
+        } else {
+          // Fallback to user's branch (handle both array and single value)
+          if (Array.isArray(actingUser.branch) && actingUser.branch.length > 0) {
+            branchId = actingUser.branch[0].toString();
+          } else if (actingUser.branch) {
+            branchId = actingUser.branch.toString();
+          }
+        }
+      }
     }
 
     if (!companyId || !branchId) {
@@ -545,7 +651,7 @@ export const createReservedInvoices = async (req, res) => {
     const companyDoc = await mongoose
       .model("Company")
       .findById(companyId)
-      .select("companyCode");
+      .select("companyCode name");
     const branchDoc = await mongoose
       .model("Branch")
       .findById(branchId)
@@ -561,6 +667,39 @@ export const createReservedInvoices = async (req, res) => {
     // Use the actual companyCode and branchCode from database
     const companyCode = companyDoc.companyCode;
     const branchCode = branchDoc.branchCode;
+    const companyIdStr = companyId.toString();
+    const companyName = companyDoc.name || "";
+
+    // Helper function to determine starting docket number based on company ID or code
+    const getStartingDocketNumber = (companyId, companyCode, companyName) => {
+      // Check by company ID first (most reliable) - handle both ObjectId and string
+      const idStr = companyId?.toString() || companyIdStr || "";
+      if (idStr === "693128338bcc0d6a2f75d16a") {
+        return 196451; // DISPL - Dellcube Integrated Solutions Pvt Ltd
+      } else if (idStr === "69312a928bcc0d6a2f75d1ac") {
+        return 5389; // DSCS - Dellcube Supply Chain
+      }
+      
+      // Fallback to company code check
+      const codeUpper = (companyCode || "").toUpperCase();
+      if (codeUpper === "DISPL") {
+        return 196451; // Dellcube Integrated Solutions Pvt Ltd
+      } else if (codeUpper === "DSCS") {
+        return 5389; // Dellcube Supply Chain
+      }
+      
+      // Fallback to name check (for backward compatibility)
+      const nameLower = (companyName || "").toLowerCase();
+      if (nameLower.includes("dellcube") && nameLower.includes("integrated")) {
+        return 196451; // Dellcube Integrated Solutions Pvt Ltd
+      } else if (nameLower.includes("supply chain")) {
+        return 5389; // Supply Chain
+      }
+      
+      return 10000; // Default starting number
+    };
+
+    const startingDocketNumber = getStartingDocketNumber(companyId, companyCode, companyName);
 
     // Generate date string (DDMMYYYY)
     const now = new Date();
@@ -572,24 +711,44 @@ export const createReservedInvoices = async (req, res) => {
     // Generate docketPrefix (CompanyCode-BranchCode-Date)
     const docketPrefix = `${companyCode}-${branchCode}-${dateStr}`;
 
-    // Find the highest numeric docket number starting from 10000
-    // Get all invoices and find the max numeric docket number
-    const invoices = await Invoice.find()
+    // Find the highest numeric docket number for this specific company
+    // Only consider invoices from the same company to maintain separate series
+    const invoices = await Invoice.find({ company: companyId })
       .select("docketNumber")
       .lean();
 
-    let maxDocketNumber = 9999; // Start from 9999 so next will be 10000
+    let maxDocketNumber = startingDocketNumber - 1; // Start from one less than starting number
+    
+    // For companies with specific starting numbers, ignore old docket numbers (>= 10000)
+    // that were created before this logic was implemented
+    const shouldIgnoreOldNumbers = startingDocketNumber < 10000;
+    const oldNumberThreshold = 10000;
+    
     for (const invoice of invoices) {
       if (invoice?.docketNumber) {
         // Try to parse the docket number as a numeric value (must be pure number, no dashes)
         const parsedNumber = parseInt(invoice.docketNumber, 10);
-        if (!isNaN(parsedNumber) && parsedNumber >= 10000 && parsedNumber > maxDocketNumber) {
-          maxDocketNumber = parsedNumber;
+        if (!isNaN(parsedNumber)) {
+          // Only consider numbers that are >= starting number for this company
+          // For companies with specific starting numbers (like DSCS: 5389), ignore old numbers (>= 10000)
+          if (parsedNumber >= startingDocketNumber) {
+            if (shouldIgnoreOldNumbers && parsedNumber >= oldNumberThreshold) {
+              // Ignore old docket numbers that were created before this logic
+              continue;
+            }
+            if (parsedNumber > maxDocketNumber) {
+              maxDocketNumber = parsedNumber;
+            }
+          }
         }
       }
     }
 
-    let nextDocketNumber = maxDocketNumber + 1;
+    // Ensure we don't go below the starting number
+    // If no invoices exist with numbers >= starting number (and < 10000 for specific companies), start from starting number
+    let nextDocketNumber = Math.max(maxDocketNumber + 1, startingDocketNumber);
+    
+    console.log(`Reserved - Company: ${companyCode}, Starting: ${startingDocketNumber}, Max found: ${maxDocketNumber}, Next: ${nextDocketNumber}`);
     const creatorSignatureBase64 = await getUserSignatureBase64(
       req.user?.userId
     );
@@ -725,7 +884,7 @@ export const getAllInvoices = async (req, res) => {
     const invoices = await Invoice.find(query)
       .populate("company", "name address contactPhone gstNumber pan")
       .populate("branch", "name")
-      .populate("customer", "name phone email")
+      .populate("customer", "name phone email consignors consignees")
       .populate("goodsType", "name items")
       .populate("vehicle", "vehicleNumber")
       .populate("vendor", "name")
@@ -742,12 +901,61 @@ export const getAllInvoices = async (req, res) => {
       .skip(skip)
       .limit(limit);
 
+    // Helper function to build full formatted address from components
+    const buildFullAddress = (addressObj) => {
+      if (!addressObj) return "";
+      const parts = [];
+      if (addressObj.locality?.name) parts.push(addressObj.locality.name);
+      if (addressObj.city?.name) parts.push(addressObj.city.name);
+      if (addressObj.district) parts.push(addressObj.district);
+      if (addressObj.taluk) parts.push(addressObj.taluk);
+      if (addressObj.state?.name || addressObj.stateName) parts.push(addressObj.state?.name || addressObj.stateName);
+      if (addressObj.country?.name || addressObj.countryName) parts.push(addressObj.country?.name || addressObj.countryName);
+      if (addressObj.pincode) parts.push(addressObj.pincode);
+      return parts.join(", ");
+    };
+
+    // Helper function to get consignor/consignee address from customer
+    const getConsignorAddress = (inv) => {
+      if (inv.pickupAddress) return inv.pickupAddress;
+      if (inv.customer?.consignors && Array.isArray(inv.customer.consignors) && inv.consignor) {
+        let consignor = inv.customer.consignors.find(c => c.consignor === inv.consignor);
+        if (!consignor && inv.siteId) {
+          consignor = inv.customer.consignors.find(c => c.siteId === inv.siteId);
+        }
+        if (consignor?.address) return consignor.address;
+      }
+      return buildFullAddress(inv.fromAddress);
+    };
+
+    const getConsigneeAddress = (inv) => {
+      if (inv.deliveryAddress) return inv.deliveryAddress;
+      if (inv.customer?.consignees && Array.isArray(inv.customer.consignees) && inv.consignee) {
+        let consignee = inv.customer.consignees.find(c => c.consignee === inv.consignee);
+        if (!consignee && inv.siteId) {
+          consignee = inv.customer.consignees.find(c => c.siteId === inv.siteId);
+        }
+        if (consignee?.address) return consignee.address;
+      }
+      return buildFullAddress(inv.toAddress);
+    };
+
+    // Add computed fields to each invoice
+    const invoicesWithComputedFields = invoices.map(inv => {
+      const invObj = inv.toObject();
+      invObj.consignorAddress = getConsignorAddress(inv);
+      invObj.consigneeAddress = getConsigneeAddress(inv);
+      invObj.fromFullAddress = buildFullAddress(inv.fromAddress);
+      invObj.toFullAddress = buildFullAddress(inv.toAddress);
+      return invObj;
+    });
+
     const total = await Invoice.countDocuments(query);
 
     return res.status(200).json({
       success: true,
       message: "Invoices fetched successfully",
-      invoices,
+      invoices: invoicesWithComputedFields,
       total,
       page,
       limit,
@@ -1155,13 +1363,13 @@ export const exportInvoicesCSV = async (req, res) => {
     }
 
     const invoices = await Invoice.find(query)
-      .populate("company", "name address contactPhone gstNumber pan")
-      .populate("branch", "name")
-      .populate("customer", "name phone email misFields")
+      .populate("company", "name companyCode address contactPhone emailId website gstNumber gstValue pan sacHsnCode companyType")
+      .populate("branch", "name branchCode address gstNo branchNo")
+      .populate("customer", "name phone email gstNumber address companyName companyContactName companyContactInfo taxType taxValue misFields consignors consignees")
       .populate("goodsType", "name items")
-      .populate("vehicle", "vehicleNumber")
-      .populate("vendor", "name availableVehicles")
-      .populate("driver", "name mobile")
+      .populate("vehicle", "vehicleNumber type model brand cargoType yearOfManufacture")
+      .populate("vendor", "name phone email availableVehicles")
+      .populate("driver", "name mobile email")
       .populate("siteType", "name desc")
       .populate("transportMode", "name desc")
       .populate(
@@ -1227,6 +1435,55 @@ export const exportInvoicesCSV = async (req, res) => {
 
     const attemptStatuses = ["Undelivered", "Delivered"];
 
+    // Helper function to build full formatted address from components
+    const buildFullAddress = (addressObj) => {
+      if (!addressObj) return "";
+      const parts = [];
+      if (addressObj.locality?.name) parts.push(addressObj.locality.name);
+      if (addressObj.city?.name) parts.push(addressObj.city.name);
+      if (addressObj.district) parts.push(addressObj.district);
+      if (addressObj.taluk) parts.push(addressObj.taluk);
+      if (addressObj.state?.name || addressObj.stateName) parts.push(addressObj.state?.name || addressObj.stateName);
+      if (addressObj.country?.name || addressObj.countryName) parts.push(addressObj.country?.name || addressObj.countryName);
+      if (addressObj.pincode) parts.push(addressObj.pincode);
+      return parts.join(", ");
+    };
+
+    // Helper function to get consignor/consignee address from customer
+    const getConsignorAddress = (inv) => {
+      // First try to get from invoice's pickupAddress field
+      if (inv.pickupAddress) return inv.pickupAddress;
+      
+      // Then try to get from customer's consignors array
+      if (inv.customer?.consignors && Array.isArray(inv.customer.consignors) && inv.consignor) {
+        // Try to match by consignor name first
+        let consignor = inv.customer.consignors.find(c => c.consignor === inv.consignor);
+        // If not found, try to match by siteId
+        if (!consignor && inv.siteId) {
+          consignor = inv.customer.consignors.find(c => c.siteId === inv.siteId);
+        }
+        if (consignor?.address) return consignor.address;
+      }
+      return "";
+    };
+
+    const getConsigneeAddress = (inv) => {
+      // First try to get from invoice's deliveryAddress field
+      if (inv.deliveryAddress) return inv.deliveryAddress;
+      
+      // Then try to get from customer's consignees array
+      if (inv.customer?.consignees && Array.isArray(inv.customer.consignees) && inv.consignee) {
+        // Try to match by consignee name first
+        let consignee = inv.customer.consignees.find(c => c.consignee === inv.consignee);
+        // If not found, try to match by siteId
+        if (!consignee && inv.siteId) {
+          consignee = inv.customer.consignees.find(c => c.siteId === inv.siteId);
+        }
+        if (consignee?.address) return consignee.address;
+      }
+      return "";
+    };
+
     // Flatten and map fields for CSV
     const rows = [];
 
@@ -1237,7 +1494,9 @@ export const exportInvoicesCSV = async (req, res) => {
         SiteId: inv.siteId || "",
         SealNo: inv.sealNo || "",
         SiteType: inv.siteType?.name || "",
+        SiteTypeDescription: inv.siteType?.desc || "",
         TransportMode: inv.transportMode?.name || "",
+        TransportModeDescription: inv.transportMode?.desc || "",
         InvoiceNumbers: formatMultiValueField(inv.invoiceNumber),
         InvoiceBill: inv.invoiceBill || "",
         EwayBillNumbers: formatMultiValueField(inv.ewayBillNo),
@@ -1246,26 +1505,58 @@ export const exportInvoicesCSV = async (req, res) => {
         AttemptedAt: attempt?.attemptedAt
           ? new Date(attempt.attemptedAt).toLocaleString()
           : "",
+        // Company Information
         Company: inv.company?.name || "",
+        CompanyCode: inv.company?.companyCode || "",
         CompanyAddress: inv.company?.address || "",
+        CompanyContactPhone: inv.company?.contactPhone || "",
+        CompanyEmail: inv.company?.emailId || "",
+        CompanyWebsite: inv.company?.website || "",
         CompanyGST: inv.company?.gstNumber || "",
+        CompanyGSTValue: inv.company?.gstValue || "",
         CompanyPAN: inv.company?.pan || "",
+        CompanySACHSNCode: inv.company?.sacHsnCode || "",
+        CompanyType: inv.company?.companyType || "",
+        // Branch Information
         Branch: inv.branch?.name || "",
+        BranchCode: inv.branch?.branchCode || "",
+        BranchAddress: inv.branch?.address || "",
+        BranchGST: inv.branch?.gstNo || "",
+        BranchNumber: inv.branch?.branchNo || "",
+        // Customer Information
         Customer: inv.customer?.name || "",
         CustomerPhone: inv.customer?.phone || "",
         CustomerEmail: inv.customer?.email || "",
+        CustomerGST: inv.customer?.gstNumber || "",
+        CustomerAddress: inv.customer?.address || "",
+        CustomerCompanyName: inv.customer?.companyName || "",
+        CustomerCompanyContactName: inv.customer?.companyContactName || "",
+        CustomerCompanyContactInfo: inv.customer?.companyContactInfo || "",
+        CustomerTaxType: inv.customer?.taxType || "",
+        CustomerTaxValue: inv.customer?.taxValue || "",
+        // Goods Information
         GoodsType: inv.goodsType?.name || "",
         GoodsItems: inv.goodsType?.items?.join("; ") || "",
         GoodItems: inv.goodItems?.map(item => item.name).join("; ") || "",
+        // Vehicle Information
         VehicleType: inv.vehicleType || "",
-        VehicleNumber:
-          inv.vehicle?.vehicleNumber || inv.vendorVehicle?.vehicleNumber || "",
-        VehicleSize: inv.vehicleSize || "",
+        VehicleNumber: inv.vehicle?.vehicleNumber || inv.vendorVehicle?.vehicleNumber || "",
+        VehicleModel: inv.vehicle?.model || "",
+        VehicleBrand: inv.vehicle?.brand || "",
+        VehicleSize: inv.vehicle?.type || inv.vehicleSize || "",
+        VehicleCargoType: inv.vehicle?.cargoType || "",
+        VehicleYearOfManufacture: inv.vehicle?.yearOfManufacture || "",
+        // Vendor Information
         Vendor: inv.vendor?.name || "",
+        VendorPhone: inv.vendor?.phone || "",
+        VendorEmail: inv.vendor?.email || "",
         VendorVehicle: inv.vendorVehicle?.vehicleNumber || "",
+        // Driver Information
         Driver: inv.driver?.name || "",
         DriverPhone: inv.driver?.mobile || "",
+        DriverEmail: inv.driver?.email || "",
         DriverContactNumber: inv.driverContactNumber || "",
+        // Status and Dates
         Status: inv.status || "",
         InvoiceDate: inv.invoiceDate
           ? new Date(inv.invoiceDate).toLocaleString()
@@ -1273,6 +1564,7 @@ export const exportInvoicesCSV = async (req, res) => {
         DispatchDateTime: inv.dispatchDateTime
           ? new Date(inv.dispatchDateTime).toLocaleString()
           : "",
+        // From Address (Pickup Location)
         FromCountry: inv.fromAddress?.country?.name || inv.fromAddress?.countryName || "",
         FromState: inv.fromAddress?.state?.name || inv.fromAddress?.stateName || "",
         FromCity: inv.fromAddress?.city?.name || "",
@@ -1281,6 +1573,8 @@ export const exportInvoicesCSV = async (req, res) => {
         FromPostOffice: inv.fromAddress?.postOfficeName || "",
         FromDistrict: inv.fromAddress?.district || "",
         FromTaluk: inv.fromAddress?.taluk || "",
+        FromFullAddress: buildFullAddress(inv.fromAddress) || inv.pickupAddress || "",
+        // To Address (Delivery Location)
         ToCountry: inv.toAddress?.country?.name || inv.toAddress?.countryName || "",
         ToState: inv.toAddress?.state?.name || inv.toAddress?.stateName || "",
         ToCity: inv.toAddress?.city?.name || "",
@@ -1289,20 +1583,32 @@ export const exportInvoicesCSV = async (req, res) => {
         ToPostOffice: inv.toAddress?.postOfficeName || "",
         ToDistrict: inv.toAddress?.district || "",
         ToTaluk: inv.toAddress?.taluk || "",
+        ToFullAddress: buildFullAddress(inv.toAddress) || inv.deliveryAddress || "",
+        // Financial Information
         TotalWeight: inv?.totalWeight || "",
         NumberOfPackages: inv?.numberOfPackages || "",
         FreightCharges: inv?.freightCharges || "",
         PaymentType: inv?.paymentType || "",
         Remarks: inv?.remarks || "",
-        PickupAddress: inv.pickupAddress || "",
-        DeliveryAddress: inv.deliveryAddress || "",
+        // Address Fields - Full formatted addresses
+        PickupAddress: inv.pickupAddress || buildFullAddress(inv.fromAddress) || "",
+        DeliveryAddress: inv.deliveryAddress || buildFullAddress(inv.toAddress) || "",
+        // Consignor Information
         Consignor: inv.consignor || "",
+        ConsignorAddress: getConsignorAddress(inv) || buildFullAddress(inv.fromAddress) || "",
+        ConsignorSiteId: inv.siteId || "",
+        // Consignee Information
         Consignee: inv.consignee || "",
+        ConsigneeAddress: getConsigneeAddress(inv) || buildFullAddress(inv.toAddress) || "",
+        ConsigneeSiteId: inv.siteId || "",
+        // General Address Field
         Address: inv.address || "",
+        // Contact Information
         LoadingContactName: inv.loadingContact?.name || "",
         LoadingContactMobile: inv.loadingContact?.mobile || "",
         UnloadingContactName: inv.unloadingContact?.name || "",
         UnloadingContactMobile: inv.unloadingContact?.mobile || "",
+        // Delivery Information
         UndeliveredReason: inv.undeliveredReason || "",
         DeliveredAt: inv.deliveredAt
           ? new Date(inv.deliveredAt).toLocaleString()
@@ -1311,6 +1617,8 @@ export const exportInvoicesCSV = async (req, res) => {
         DeliveryProofReceiverMobile: inv.deliveryProof?.receiverMobile || "",
         DeliveryProofFloor: inv.deliveryProof?.floor || "",
         DeliveryProofRemarks: inv.deliveryProof?.remarks || "",
+        DeliveryProofSignature: inv.deliveryProof?.signature ? "Yes" : "",
+        // Additional Data
         DeliveryAttempts: JSON.stringify(inv.deliveryAttempts || []),
         DriverUpdates: JSON.stringify(inv.driverUpdates || []),
         CreatedAt: inv.createdAt ? new Date(inv.createdAt).toLocaleString() : "",
