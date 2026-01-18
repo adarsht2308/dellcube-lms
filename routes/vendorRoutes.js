@@ -10,6 +10,8 @@ import {
   addVehicleController,
   updateVendorVehicleStatus, // <-- import the new controller
   addVendorVehicleMaintenance, // <-- import the new controller
+  updateVendorVehicle,
+  deleteVendorVehicle,
   getVendorVehicles,
   getVendorInvoices,
   getVendorProfile,
@@ -54,6 +56,17 @@ router.put(
   isAuthenticated,
   upload,
   addVendorVehicleMaintenance
+);
+router.put(
+  "/vendor/vehicle/update",
+  isAuthenticated,
+  upload,
+  updateVendorVehicle
+);
+router.delete(
+  "/vendor/vehicle/delete",
+  isAuthenticated,
+  deleteVendorVehicle
 );
 
 export default router;

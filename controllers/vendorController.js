@@ -1238,3 +1238,303 @@ export const updateVendorProfile = async (req, res) => {
     });
   }
 };
+
+// Update a vendor vehicle
+export const updateVendorVehicle = async (req, res) => {
+  console.log("=== Update Vendor Vehicle Request ===");
+  console.log("Body:", req.body);
+  console.log("Files:", req.files);
+
+  const { vendorId, vehicleId } = req.body;
+
+  if (!vendorId || !vehicleId) {
+    return res.status(400).json({
+      success: false,
+      message: "Vendor ID and vehicle ID are required",
+    });
+  }
+
+  // Validate ObjectIds
+  if (!mongoose.Types.ObjectId.isValid(vendorId) || !mongoose.Types.ObjectId.isValid(vehicleId)) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid vendor ID or vehicle ID format",
+    });
+  }
+
+  try {
+    const vendor = await User.findOne({ _id: vendorId, role: "vendor" });
+
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor not found",
+      });
+    }
+
+    // Find the specific vehicle in the vendor's availableVehicles array
+    const vehicleIndex = vendor.availableVehicles.findIndex(
+      (v) => v._id && v._id.toString() === vehicleId.toString()
+    );
+
+    if (vehicleIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: "Vehicle not found in vendor's available vehicles",
+      });
+    }
+
+    // Map old enum values to new ones for backward compatibility
+    const mapOldVehicleType = (type) => {
+      if (!type) return "14 Feet"; // Default fallback
+      
+      const typeMapping = {
+        "7ft": "14 Feet",
+        "10ft": "14 Feet",
+        "14ft": "14 Feet",
+        "18ft": "19 Feet",
+        "24ft": "24 Feet",
+        "32ft": "32FTMXL-14MT",
+      };
+      
+      // If it's an old value, map it; otherwise return as-is (assuming it's already a new value)
+      return typeMapping[type.toLowerCase()] || type;
+    };
+
+    // Valid enum values for vehicle type
+    const validVehicleTypes = [
+      "14 Feet", "17 Feet", "19 Feet", "20 Feet", "22 Feet", "24 Feet",
+      "32FTMXL-14MT", "Biker", "BYHAND", "FLAT BED TRAILER 20FT", "Pickup",
+      "TAURUS 16 TON", "Tata 407", "TRUCK/LORRY", "SFBT40", "TATA/EICHER 709",
+      "32FTMXL-18MT", "32FTSXL-7MT", "32FTSXL-9MT", "FLAT BED TRAILER 40FT",
+      "SEMI FLAT BED TRAILER 40FT", "TAURUS 18 TON", "TAURUS 21 TON",
+      "TAURUS 25 TON", "TAURUS 30 TON", "TATA ACE"
+    ];
+
+    // Map and validate the vehicle type
+    const mappedType = mapOldVehicleType(req.body.type);
+    if (!validVehicleTypes.includes(mappedType)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid vehicle type: ${req.body.type}. Valid types are: ${validVehicleTypes.join(", ")}`,
+      });
+    }
+
+    // Extract vehicle data from form fields
+    const vehicleData = {
+      vehicleNumber: req.body.vehicleNumber,
+      type: mappedType, // Use the mapped and validated type
+      brand: req.body.brand,
+      model: req.body.model,
+      yearOfManufacture: req.body.yearOfManufacture
+        ? parseInt(req.body.yearOfManufacture)
+        : undefined,
+      registrationDate: req.body.registrationDate
+        ? new Date(req.body.registrationDate)
+        : undefined,
+      fitnessCertificateExpiry: req.body.fitnessCertificateExpiry
+        ? new Date(req.body.fitnessCertificateExpiry)
+        : undefined,
+      insuranceExpiry: req.body.insuranceExpiry
+        ? new Date(req.body.insuranceExpiry)
+        : undefined,
+      pollutionCertificateExpiry: req.body.pollutionCertificateExpiry
+        ? new Date(req.body.pollutionCertificateExpiry)
+        : undefined,
+      vehicleInsuranceNo: req.body.vehicleInsuranceNo || "",
+      fitnessNo: req.body.fitnessNo || "",
+      status: req.body.status || vendor.availableVehicles[vehicleIndex].status,
+    };
+
+    // Handle certificate image uploads if present
+    const certFields = [
+      "fitnessCertificateImage",
+      "pollutionCertificateImage",
+      "registrationCertificateImage",
+      "insuranceImage",
+    ];
+
+    for (const field of certFields) {
+      if (
+        req.files &&
+        req.files[
+          `vendorVehicle${field.charAt(0).toUpperCase() + field.slice(1)}`
+        ] &&
+        req.files[
+          `vendorVehicle${field.charAt(0).toUpperCase() + field.slice(1)}`
+        ][0]
+      ) {
+        // Delete old image if exists
+        const oldPublicId = vendor.availableVehicles[vehicleIndex][field]?.public_id;
+        if (oldPublicId) {
+          try {
+            await cloudinary.uploader.destroy(oldPublicId);
+          } catch (err) {
+            console.error(`Failed to delete old image for ${field}:`, err);
+          }
+        }
+        vehicleData[field] = {
+          url: req.files[
+            `vendorVehicle${field.charAt(0).toUpperCase() + field.slice(1)}`
+          ][0].path,
+          public_id:
+            req.files[
+              `vendorVehicle${field.charAt(0).toUpperCase() + field.slice(1)}`
+            ][0].filename,
+        };
+      }
+    }
+
+    // Use findOneAndUpdate with $set and positional operator to update only the specific vehicle
+    // This avoids validating other vehicles in the array that might have old enum values
+    const updateFields = {};
+    Object.keys(vehicleData).forEach((key) => {
+      if (vehicleData[key] !== undefined) {
+        updateFields[`availableVehicles.$.${key}`] = vehicleData[key];
+      }
+    });
+
+    // Also handle certificate images
+    for (const field of certFields) {
+      if (vehicleData[field]) {
+        updateFields[`availableVehicles.$.${field}`] = vehicleData[field];
+      }
+    }
+
+    // Convert vehicleId to ObjectId for the query
+    const vehicleObjectId = mongoose.Types.ObjectId.isValid(vehicleId) 
+      ? new mongoose.Types.ObjectId(vehicleId) 
+      : vehicleId;
+
+    const updateResult = await User.findOneAndUpdate(
+      { _id: vendorId, role: "vendor", "availableVehicles._id": vehicleObjectId },
+      { $set: updateFields },
+      { new: true, runValidators: false } // Disable validators to avoid issues with other vehicles
+    );
+
+    if (!updateResult) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor or vehicle not found",
+      });
+    }
+
+    // Fetch updated vendor with populated fields
+    const finalVendor = await User.findById(vendorId)
+      .populate("company", "name")
+      .populate("branch", "name");
+
+    res.status(200).json({
+      success: true,
+      message: "Vendor vehicle updated successfully",
+      vendor: finalVendor,
+    });
+  } catch (error) {
+    console.error("Update Vendor Vehicle Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error while updating vendor vehicle",
+      error: error.message,
+    });
+  }
+};
+
+// Delete a vendor vehicle
+export const deleteVendorVehicle = async (req, res) => {
+  const { vendorId, vehicleId } = req.body;
+
+  if (!vendorId || !vehicleId) {
+    return res.status(400).json({
+      success: false,
+      message: "Vendor ID and vehicle ID are required",
+    });
+  }
+
+  // Validate ObjectIds
+  if (!mongoose.Types.ObjectId.isValid(vendorId) || !mongoose.Types.ObjectId.isValid(vehicleId)) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid vendor ID or vehicle ID format",
+    });
+  }
+
+  try {
+    const vendor = await User.findOne({ _id: vendorId, role: "vendor" });
+
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor not found",
+      });
+    }
+
+    // Find the specific vehicle in the vendor's availableVehicles array
+    const vehicle = vendor.availableVehicles.find(
+      (v) => v._id && v._id.toString() === vehicleId.toString()
+    );
+
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        message: "Vehicle not found in vendor's available vehicles",
+      });
+    }
+
+    // Delete images from Cloudinary
+    const certFields = [
+      "fitnessCertificateImage",
+      "pollutionCertificateImage",
+      "registrationCertificateImage",
+      "insuranceImage",
+    ];
+
+    for (const field of certFields) {
+      const publicId = vehicle[field]?.public_id;
+      if (publicId) {
+        try {
+          await cloudinary.uploader.destroy(publicId);
+        } catch (err) {
+          console.error(`Failed to delete image for ${field}:`, err);
+        }
+      }
+    }
+
+    // Convert vehicleId to ObjectId for the query
+    const vehicleObjectId = mongoose.Types.ObjectId.isValid(vehicleId) 
+      ? new mongoose.Types.ObjectId(vehicleId) 
+      : vehicleId;
+
+    // Use findOneAndUpdate with $pull to remove the vehicle from the array
+    // This avoids validating other vehicles that might have old enum values
+    const updateResult = await User.findOneAndUpdate(
+      { _id: vendorId, role: "vendor", "availableVehicles._id": vehicleObjectId },
+      { $pull: { availableVehicles: { _id: vehicleObjectId } } },
+      { new: true, runValidators: false } // Disable validators to avoid issues with other vehicles
+    );
+
+    if (!updateResult) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor or vehicle not found",
+      });
+    }
+
+    // Fetch updated vendor with populated fields
+    const finalVendor = await User.findById(vendorId)
+      .populate("company", "name")
+      .populate("branch", "name");
+
+    res.status(200).json({
+      success: true,
+      message: "Vendor vehicle deleted successfully",
+      vendor: finalVendor,
+    });
+  } catch (error) {
+    console.error("Delete Vendor Vehicle Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error while deleting vendor vehicle",
+      error: error.message,
+    });
+  }
+};

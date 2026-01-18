@@ -15,9 +15,42 @@ import {
   AlertTriangle,
   Truck,
   BarChart2,
+  Edit,
+  Trash2,
 } from "lucide-react";
-import { useGetVendorByIdMutation } from "@/features/api/Vendor/vendorApi";
+import { 
+  useGetVendorByIdMutation,
+  useUpdateVendorVehicleMutation,
+  useDeleteVendorVehicleMutation,
+} from "@/features/api/Vendor/vendorApi";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import toast from "react-hot-toast";
 
 const DELLCUBE_COLORS = {
   gold: "#FFD249",
@@ -29,29 +62,153 @@ const VendorDetail = () => {
   const { vendorId } = useParams();
   const navigate = useNavigate();
   const [getVendorById] = useGetVendorByIdMutation();
+  const [updateVendorVehicle] = useUpdateVendorVehicleMutation();
+  const [deleteVendorVehicle] = useDeleteVendorVehicleMutation();
   const [vendorData, setVendorData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [editVehicleDialog, setEditVehicleDialog] = useState({ open: false, vehicle: null });
+  const [deleteVehicleDialog, setDeleteVehicleDialog] = useState({ open: false, vehicle: null });
+  const [vehicleForm, setVehicleForm] = useState({
+    vehicleNumber: "",
+    type: "14 Feet",
+    brand: "",
+    model: "",
+    yearOfManufacture: "",
+    registrationDate: "",
+    fitnessCertificateExpiry: "",
+    insuranceExpiry: "",
+    pollutionCertificateExpiry: "",
+    vehicleInsuranceNo: "",
+    fitnessNo: "",
+    status: "active",
+  });
+  const [vehicleFiles, setVehicleFiles] = useState({
+    fitnessCertificateImage: null,
+    pollutionCertificateImage: null,
+    registrationCertificateImage: null,
+    insuranceImage: null,
+  });
+
+  const fetchVendor = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const { data } = await getVendorById(vendorId);
+      if (data?.success) {
+        setVendorData(data.vendor);
+      } else {
+        setError("Vendor not found");
+      }
+    } catch (err) {
+      setError("Failed to fetch vendor data");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchVendor = async () => {
-      setLoading(true);
-      setError("");
-      try {
-        const { data } = await getVendorById(vendorId);
-        if (data?.success) {
-          setVendorData(data.vendor);
-        } else {
-          setError("Vendor not found");
-        }
-      } catch (err) {
-        setError("Failed to fetch vendor data");
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchVendor();
   }, [vendorId, getVendorById]);
+
+  const handleEditVehicle = (vehicle) => {
+    // Format dates properly - handle both Date objects and ISO strings
+    const formatDate = (dateValue) => {
+      if (!dateValue) return "";
+      try {
+        const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+        if (isNaN(date.getTime())) return "";
+        return date.toISOString().split('T')[0];
+      } catch (e) {
+        return "";
+      }
+    };
+
+    setVehicleForm({
+      vehicleNumber: vehicle.vehicleNumber || "",
+      type: vehicle.type || "14 Feet",
+      brand: vehicle.brand || "",
+      model: vehicle.model || "",
+      yearOfManufacture: vehicle.yearOfManufacture ? vehicle.yearOfManufacture.toString() : "",
+      registrationDate: formatDate(vehicle.registrationDate),
+      fitnessCertificateExpiry: formatDate(vehicle.fitnessCertificateExpiry),
+      insuranceExpiry: formatDate(vehicle.insuranceExpiry),
+      pollutionCertificateExpiry: formatDate(vehicle.pollutionCertificateExpiry),
+      vehicleInsuranceNo: vehicle.vehicleInsuranceNo || "",
+      fitnessNo: vehicle.fitnessNo || "",
+      status: vehicle.status || "active",
+    });
+    setVehicleFiles({
+      fitnessCertificateImage: null,
+      pollutionCertificateImage: null,
+      registrationCertificateImage: null,
+      insuranceImage: null,
+    });
+    setEditVehicleDialog({ open: true, vehicle });
+  };
+
+  const handleUpdateVehicle = async () => {
+    if (!vehicleForm.vehicleNumber || !vehicleForm.brand || !vehicleForm.model || !vehicleForm.type) {
+      toast.error("Vehicle Number, Type, Brand, and Model are required.");
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append("vendorId", vendorId);
+      formData.append("vehicleId", editVehicleDialog.vehicle._id);
+      formData.append("vehicleNumber", vehicleForm.vehicleNumber.trim().replace(/[\s-]/g, '').toUpperCase());
+      formData.append("type", vehicleForm.type);
+      formData.append("brand", vehicleForm.brand);
+      formData.append("model", vehicleForm.model);
+      if (vehicleForm.yearOfManufacture) formData.append("yearOfManufacture", vehicleForm.yearOfManufacture);
+      if (vehicleForm.registrationDate) formData.append("registrationDate", vehicleForm.registrationDate);
+      if (vehicleForm.fitnessCertificateExpiry) formData.append("fitnessCertificateExpiry", vehicleForm.fitnessCertificateExpiry);
+      if (vehicleForm.insuranceExpiry) formData.append("insuranceExpiry", vehicleForm.insuranceExpiry);
+      if (vehicleForm.pollutionCertificateExpiry) formData.append("pollutionCertificateExpiry", vehicleForm.pollutionCertificateExpiry);
+      formData.append("vehicleInsuranceNo", vehicleForm.vehicleInsuranceNo || "");
+      formData.append("fitnessNo", vehicleForm.fitnessNo || "");
+      formData.append("status", vehicleForm.status);
+
+      if (vehicleFiles.fitnessCertificateImage) {
+        formData.append("vendorVehicleFitnessCertificateImage", vehicleFiles.fitnessCertificateImage);
+      }
+      if (vehicleFiles.pollutionCertificateImage) {
+        formData.append("vendorVehiclePollutionCertificateImage", vehicleFiles.pollutionCertificateImage);
+      }
+      if (vehicleFiles.registrationCertificateImage) {
+        formData.append("vendorVehicleRegistrationCertificateImage", vehicleFiles.registrationCertificateImage);
+      }
+      if (vehicleFiles.insuranceImage) {
+        formData.append("vendorVehicleInsuranceImage", vehicleFiles.insuranceImage);
+      }
+
+      await updateVendorVehicle({ vehicle: formData }).unwrap();
+      toast.success("Vehicle updated successfully!");
+      setEditVehicleDialog({ open: false, vehicle: null });
+      await fetchVendor();
+    } catch (err) {
+      console.error("Update vehicle error:", err);
+      toast.error(err?.data?.message || "Failed to update vehicle.");
+    }
+  };
+
+  const handleDeleteVehicle = async () => {
+    if (!deleteVehicleDialog.vehicle) return;
+    
+    try {
+      await deleteVendorVehicle({
+        vendorId,
+        vehicleId: deleteVehicleDialog.vehicle._id,
+      }).unwrap();
+      toast.success("Vehicle deleted successfully!");
+      setDeleteVehicleDialog({ open: false, vehicle: null });
+      await fetchVendor();
+    } catch (err) {
+      console.error("Delete vehicle error:", err);
+      toast.error(err?.data?.message || "Failed to delete vehicle.");
+    }
+  };
 
   if (loading)
     return (
@@ -113,7 +270,11 @@ const VendorDetail = () => {
                 {vendorData.email} • {vendorData.phone}
               </div>
               <div className="text-[#828083] text-xs">
-                {vendorData.company?.name} • {vendorData.branch?.name}
+                {Array.isArray(vendorData.company) 
+                  ? vendorData.company.map(c => c?.name || c).join(", ") || "N/A"
+                  : vendorData.company?.name || "N/A"} • {Array.isArray(vendorData.branch)
+                  ? vendorData.branch.map(b => b?.name || b).join(", ") || "N/A"
+                  : vendorData.branch?.name || "N/A"}
               </div>
             </div>
           </div>
@@ -215,11 +376,19 @@ const VendorDetail = () => {
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <Building2 className="w-4 h-4 text-[#828083]" />
-                <span className="text-sm text-[#828083]">{vendorData.company?.name || "N/A"}</span>
+                <span className="text-sm text-[#828083]">
+                  {Array.isArray(vendorData.company) 
+                    ? vendorData.company.map(c => c?.name || c).join(", ") || "N/A"
+                    : vendorData.company?.name || "N/A"}
+                </span>
               </div>
               <div className="flex items-center gap-3">
                 <MapPin className="w-4 h-4 text-[#828083]" />
-                <span className="text-sm text-[#828083]">{vendorData.branch?.name || "N/A"}</span>
+                <span className="text-sm text-[#828083]">
+                  {Array.isArray(vendorData.branch)
+                    ? vendorData.branch.map(b => b?.name || b).join(", ") || "N/A"
+                    : vendorData.branch?.name || "N/A"}
+                </span>
               </div>
             </div>
           </Card>
@@ -322,8 +491,30 @@ const VendorDetail = () => {
                     )}
                   </div>
 
-                  <div className="text-xs text-[#828083]">
+                  <div className="text-xs text-[#828083] mb-3">
                     Maintenance Records: {vehicle.maintenanceHistory?.length || 0}
+                  </div>
+
+                  {/* Edit and Delete Buttons */}
+                  <div className="flex gap-2 mt-3">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 bg-[#FFD249]/10 hover:bg-[#FFD249]/20 text-[#202020] border-[#FFD249]/30"
+                      onClick={() => handleEditVehicle(vehicle)}
+                    >
+                      <Edit className="w-4 h-4 mr-1" />
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
+                      onClick={() => setDeleteVehicleDialog({ open: true, vehicle })}
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" />
+                      Delete
+                    </Button>
                   </div>
                 </Card>
               ))}
@@ -414,6 +605,242 @@ const VendorDetail = () => {
             </div>
           )}
         </Card>
+
+        {/* Edit Vehicle Dialog */}
+        <Dialog open={editVehicleDialog.open} onOpenChange={(open) => setEditVehicleDialog({ open, vehicle: null })}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Vehicle</DialogTitle>
+            </DialogHeader>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit-vehicleNumber">Vehicle Number *</Label>
+                <Input
+                  id="edit-vehicleNumber"
+                  value={vehicleForm.vehicleNumber}
+                  onChange={(e) => {
+                    const cleaned = e.target.value.replace(/[\s-]/g, '').toUpperCase();
+                    const limited = cleaned.slice(0, 10);
+                    setVehicleForm((prev) => ({ ...prev, vehicleNumber: limited }));
+                  }}
+                  placeholder="e.g. CG04MM9576"
+                  maxLength={10}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="edit-type">Vehicle Type *</Label>
+                <Select value={vehicleForm.type} onValueChange={(value) => setVehicleForm((prev) => ({ ...prev, type: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select vehicle type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="14 Feet">14 Feet</SelectItem>
+                    <SelectItem value="17 Feet">17 Feet</SelectItem>
+                    <SelectItem value="19 Feet">19 Feet</SelectItem>
+                    <SelectItem value="20 Feet">20 Feet</SelectItem>
+                    <SelectItem value="22 Feet">22 Feet</SelectItem>
+                    <SelectItem value="24 Feet">24 Feet</SelectItem>
+                    <SelectItem value="32FTMXL-14MT">32FTMXL-14MT</SelectItem>
+                    <SelectItem value="32FTMXL-18MT">32FTMXL-18MT</SelectItem>
+                    <SelectItem value="32FTSXL-7MT">32FTSXL-7MT</SelectItem>
+                    <SelectItem value="32FTSXL-9MT">32FTSXL-9MT</SelectItem>
+                    <SelectItem value="Biker">Biker</SelectItem>
+                    <SelectItem value="BYHAND">BYHAND</SelectItem>
+                    <SelectItem value="FLAT BED TRAILER 20FT">FLAT BED TRAILER 20FT</SelectItem>
+                    <SelectItem value="FLAT BED TRAILER 40FT">FLAT BED TRAILER 40FT</SelectItem>
+                    <SelectItem value="SEMI FLAT BED TRAILER 40FT">SEMI FLAT BED TRAILER 40FT</SelectItem>
+                    <SelectItem value="Pickup">Pickup</SelectItem>
+                    <SelectItem value="TAURUS 16 TON">TAURUS 16 TON</SelectItem>
+                    <SelectItem value="TAURUS 18 TON">TAURUS 18 TON</SelectItem>
+                    <SelectItem value="TAURUS 21 TON">TAURUS 21 TON</SelectItem>
+                    <SelectItem value="TAURUS 25 TON">TAURUS 25 TON</SelectItem>
+                    <SelectItem value="TAURUS 30 TON">TAURUS 30 TON</SelectItem>
+                    <SelectItem value="Tata 407">Tata 407</SelectItem>
+                    <SelectItem value="TRUCK/LORRY">TRUCK/LORRY</SelectItem>
+                    <SelectItem value="SFBT40">SFBT40</SelectItem>
+                    <SelectItem value="TATA/EICHER 709">TATA/EICHER 709</SelectItem>
+                    <SelectItem value="TATA ACE">TATA ACE</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="edit-brand">Brand *</Label>
+                <Input
+                  id="edit-brand"
+                  value={vehicleForm.brand}
+                  onChange={(e) => setVehicleForm((prev) => ({ ...prev, brand: e.target.value }))}
+                  placeholder="e.g. Tata, Mahindra"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="edit-model">Model *</Label>
+                <Input
+                  id="edit-model"
+                  value={vehicleForm.model}
+                  onChange={(e) => setVehicleForm((prev) => ({ ...prev, model: e.target.value }))}
+                  placeholder="e.g. Ace, Bolero"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="edit-yearOfManufacture">Year of Manufacture</Label>
+                <Input
+                  id="edit-yearOfManufacture"
+                  type="number"
+                  value={vehicleForm.yearOfManufacture}
+                  onChange={(e) => setVehicleForm((prev) => ({ ...prev, yearOfManufacture: e.target.value }))}
+                  placeholder="e.g. 2020"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="edit-registrationDate">Registration Date</Label>
+                <Input
+                  id="edit-registrationDate"
+                  type="date"
+                  value={vehicleForm.registrationDate}
+                  onChange={(e) => setVehicleForm((prev) => ({ ...prev, registrationDate: e.target.value }))}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="edit-fitnessCertificateExpiry">Fitness Certificate Expiry</Label>
+                <Input
+                  id="edit-fitnessCertificateExpiry"
+                  type="date"
+                  value={vehicleForm.fitnessCertificateExpiry}
+                  onChange={(e) => setVehicleForm((prev) => ({ ...prev, fitnessCertificateExpiry: e.target.value }))}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="edit-insuranceExpiry">Insurance Expiry</Label>
+                <Input
+                  id="edit-insuranceExpiry"
+                  type="date"
+                  value={vehicleForm.insuranceExpiry}
+                  onChange={(e) => setVehicleForm((prev) => ({ ...prev, insuranceExpiry: e.target.value }))}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="edit-pollutionCertificateExpiry">Pollution Certificate Expiry</Label>
+                <Input
+                  id="edit-pollutionCertificateExpiry"
+                  type="date"
+                  value={vehicleForm.pollutionCertificateExpiry}
+                  onChange={(e) => setVehicleForm((prev) => ({ ...prev, pollutionCertificateExpiry: e.target.value }))}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="edit-fitnessNo">Fitness Number</Label>
+                <Input
+                  id="edit-fitnessNo"
+                  value={vehicleForm.fitnessNo}
+                  onChange={(e) => setVehicleForm((prev) => ({ ...prev, fitnessNo: e.target.value }))}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="edit-vehicleInsuranceNo">Insurance Number</Label>
+                <Input
+                  id="edit-vehicleInsuranceNo"
+                  value={vehicleForm.vehicleInsuranceNo}
+                  onChange={(e) => setVehicleForm((prev) => ({ ...prev, vehicleInsuranceNo: e.target.value }))}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="edit-status">Status</Label>
+                <Select value={vehicleForm.status} onValueChange={(value) => setVehicleForm((prev) => ({ ...prev, status: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="under_maintenance">Under Maintenance</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                    <SelectItem value="decommissioned">Decommissioned</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="edit-fitnessCertificateImage">Fitness Certificate Image</Label>
+                <Input
+                  id="edit-fitnessCertificateImage"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setVehicleFiles((prev) => ({ ...prev, fitnessCertificateImage: e.target.files[0] }))}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="edit-pollutionCertificateImage">Pollution Certificate Image</Label>
+                <Input
+                  id="edit-pollutionCertificateImage"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setVehicleFiles((prev) => ({ ...prev, pollutionCertificateImage: e.target.files[0] }))}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="edit-registrationCertificateImage">Registration Certificate Image</Label>
+                <Input
+                  id="edit-registrationCertificateImage"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setVehicleFiles((prev) => ({ ...prev, registrationCertificateImage: e.target.files[0] }))}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="edit-insuranceImage">Insurance Image</Label>
+                <Input
+                  id="edit-insuranceImage"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setVehicleFiles((prev) => ({ ...prev, insuranceImage: e.target.files[0] }))}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditVehicleDialog({ open: false, vehicle: null })}>
+                Cancel
+              </Button>
+              <Button onClick={handleUpdateVehicle} className="bg-[#FFD249] hover:bg-[#FFD249]/90 text-[#202020]">
+                Update Vehicle
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Vehicle Confirmation Dialog */}
+        <AlertDialog open={deleteVehicleDialog.open} onOpenChange={(open) => setDeleteVehicleDialog({ open, vehicle: null })}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the vehicle{" "}
+                <strong>{deleteVehicleDialog.vehicle?.vehicleNumber}</strong> from this vendor.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteVehicle}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

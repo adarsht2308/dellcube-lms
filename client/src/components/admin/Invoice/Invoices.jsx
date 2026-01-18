@@ -1777,7 +1777,7 @@ const Invoices = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white/70 dark:bg-gray-800/70 rounded-2xl shadow-md p-6 flex flex-col items-center border border-gray-100 dark:border-gray-700 hover:shadow-lg transition group">
             <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-              Total Invoices
+              Total Dockets
             </span>
             <span className="text-3xl font-bold text-blue-600 dark:text-blue-400 group-hover:scale-105 transition-transform">
               {data?.total || 0}
@@ -1799,10 +1799,11 @@ const Invoices = () => {
               Total Freight (₹)
             </span>
             <span className="text-3xl font-bold text-purple-600 dark:text-purple-400 group-hover:scale-105 transition-transform">
-              {data?.invoices?.reduce(
-                (sum, inv) => sum + (inv.freightCharges || 0),
-                0
-              )}
+              ₹{data?.invoices?.reduce((sum, inv) => {
+                const freight = Number(inv.freightCharges);
+                // Only add valid positive numbers (handle null, undefined, NaN, negative values)
+                return sum + (isNaN(freight) || freight < 0 ? 0 : freight);
+              }, 0).toLocaleString('en-IN')}
             </span>
           </div>
           <div className="bg-white/70 dark:bg-gray-800/70 rounded-2xl shadow-md p-6 flex flex-col items-center border border-gray-100 dark:border-gray-700 hover:shadow-lg transition group">

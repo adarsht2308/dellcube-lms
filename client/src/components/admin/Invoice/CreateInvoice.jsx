@@ -646,7 +646,7 @@ const CreateInvoice = () => {
   const [showAddVehicleDialog, setShowAddVehicleDialog] = useState(false);
   const [newVehicleData, setNewVehicleData] = useState({
     vehicleNumber: "",
-    type: "",
+    type: "14 Feet", // Default to a valid enum value
   });
 
   // Add driver creation mutation
@@ -1146,6 +1146,11 @@ const CreateInvoice = () => {
 
   // Handle vehicle creation
   const handleCreateVehicle = async () => {
+    // Prevent duplicate calls
+    if (isCreatingVehicle) {
+      return;
+    }
+
     if (!newVehicleData.vehicleNumber || !newVehicleData.type) {
       toast.error("Vehicle Number and Type are required");
       return;
@@ -1176,26 +1181,57 @@ const CreateInvoice = () => {
 
       const result = await createVehicle(payload).unwrap();
 
+      // Check if vehicle was created successfully
       if (result?.success && result?.vehicle) {
-        toast.success("Vehicle created successfully");
+        // Close dialog and reset form first
         setShowAddVehicleDialog(false);
-        setNewVehicleData({ vehicleNumber: "", type: "" });
+        setNewVehicleData({ vehicleNumber: "", type: "14 Feet" });
         
-        // Auto-select the newly created vehicle
-        const newVehicle = result.vehicle;
-        handleVehicleSelect({
-          _id: newVehicle._id,
-          vehicleNumber: newVehicle.vehicleNumber,
-          ownerType: "Dellcube",
-          type: newVehicle.type,
-          currentDriver: newVehicle.currentDriver,
-        });
+        // Show success toast
+        toast.success("Vehicle created successfully");
         
-        // Refresh vehicles list
-        refetchVehicles();
+        // Handle post-creation operations in a separate try-catch
+        // so errors here don't affect the success message
+        try {
+          // Auto-select the newly created vehicle
+          const newVehicle = result.vehicle;
+          handleVehicleSelect({
+            _id: newVehicle._id,
+            vehicleNumber: newVehicle.vehicleNumber,
+            ownerType: "Dellcube",
+            type: newVehicle.type,
+            currentDriver: newVehicle.currentDriver,
+          });
+        } catch (selectError) {
+          console.error("Error selecting vehicle:", selectError);
+          // Silently fail - vehicle was created successfully
+        }
+        
+        // Refresh vehicles list (don't show error if this fails)
+        try {
+          await refetchVehicles();
+        } catch (refetchError) {
+          console.error("Error refreshing vehicles list:", refetchError);
+          // Silently fail - vehicle was created successfully
+        }
+      } else {
+        // Vehicle creation didn't return success
+        toast.error(result?.message || "Failed to create vehicle");
       }
     } catch (error) {
-      toast.error(error?.data?.message || "Failed to create vehicle");
+      console.error("Vehicle creation error:", error);
+      // Check if this is actually an error or a successful response with error structure
+      // RTK Query unwrap() throws on non-2xx status codes
+      if (error?.data?.success === true && error?.data?.vehicle) {
+        // This shouldn't happen, but handle it just in case
+        toast.success("Vehicle created successfully");
+        setShowAddVehicleDialog(false);
+        setNewVehicleData({ vehicleNumber: "", type: "14 Feet" });
+      } else {
+        // Actual error - show error toast
+        const errorMessage = error?.data?.message || error?.message || "Failed to create vehicle";
+        toast.error(errorMessage);
+      }
     }
   };
 
@@ -1908,12 +1944,32 @@ const CreateInvoice = () => {
                             </SelectTrigger>
                             <SelectContent>
                               {[
-                                "7ft",
-                                "10ft",
-                                "14ft",
-                                "18ft",
-                                "24ft",
-                                "32ft",
+                                "14 Feet",
+                                "17 Feet",
+                                "19 Feet",
+                                "20 Feet",
+                                "22 Feet",
+                                "24 Feet",
+                                "32FTMXL-14MT",
+                                "Biker",
+                                "BYHAND",
+                                "FLAT BED TRAILER 20FT",
+                                "Pickup",
+                                "TAURUS 16 TON",
+                                "Tata 407",
+                                "TRUCK/LORRY",
+                                "SFBT40",
+                                "TATA/EICHER 709",
+                                "32FTMXL-18MT",
+                                "32FTSXL-7MT",
+                                "32FTSXL-9MT",
+                                "FLAT BED TRAILER 40FT",
+                                "SEMI FLAT BED TRAILER 40FT",
+                                "TAURUS 18 TON",
+                                "TAURUS 21 TON",
+                                "TAURUS 25 TON",
+                                "TAURUS 30 TON",
+                                "TATA ACE"
                               ].map((size) => (
                                 <SelectItem key={size} value={size}>
                                   {size}
@@ -2400,22 +2456,32 @@ const CreateInvoice = () => {
                 </SelectTrigger>
                 <SelectContent>
                   {[
-                    "6ft",
-                    "7ft",
-                    "8ft",
-                    "9ft",
-                    "10ft",
-                    "12ft",
-                    "14ft",
-                    "16ft",
-                    "17ft",
-                    "18ft",
-                    "19ft",
-                    "20ft",
-                    "22ft",
-                    "24ft",
-                    "28ft",
-                    "32ft",
+                    "14 Feet",
+                    "17 Feet",
+                    "19 Feet",
+                    "20 Feet",
+                    "22 Feet",
+                    "24 Feet",
+                    "32FTMXL-14MT",
+                    "32FTMXL-18MT",
+                    "32FTSXL-7MT",
+                    "32FTSXL-9MT",
+                    "Biker",
+                    "BYHAND",
+                    "FLAT BED TRAILER 20FT",
+                    "FLAT BED TRAILER 40FT",
+                    "SEMI FLAT BED TRAILER 40FT",
+                    "Pickup",
+                    "TAURUS 16 TON",
+                    "TAURUS 18 TON",
+                    "TAURUS 21 TON",
+                    "TAURUS 25 TON",
+                    "TAURUS 30 TON",
+                    "Tata 407",
+                    "TRUCK/LORRY",
+                    "SFBT40",
+                    "TATA/EICHER 709",
+                    "TATA ACE"
                   ].map((type) => (
                     <SelectItem key={type} value={type}>
                       {type}
@@ -2437,7 +2503,7 @@ const CreateInvoice = () => {
               variant="outline"
               onClick={() => {
                 setShowAddVehicleDialog(false);
-                setNewVehicleData({ vehicleNumber: "", type: "" });
+                setNewVehicleData({ vehicleNumber: "", type: "14 Feet" });
               }}
               className="flex-1"
             >

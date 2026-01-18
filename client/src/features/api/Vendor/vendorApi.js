@@ -169,6 +169,34 @@ export const vendorApi = createApi({
       invalidatesTags: ["Vendor"],
     }),
 
+    updateVendorVehicle: builder.mutation({
+      query: ({ vehicle }) => {
+        if (vehicle instanceof FormData) {
+          return {
+            url: "/vendor/vehicle/update",
+            method: "PUT",
+            body: vehicle,
+          };
+        } else {
+          return {
+            url: "/vendor/vehicle/update",
+            method: "PUT",
+            body: vehicle,
+          };
+        }
+      },
+      invalidatesTags: ["Vendor"],
+    }),
+
+    deleteVendorVehicle: builder.mutation({
+      query: ({ vendorId, vehicleId }) => ({
+        url: "/vendor/vehicle/delete",
+        method: "DELETE",
+        body: { vendorId, vehicleId },
+      }),
+      invalidatesTags: ["Vendor"],
+    }),
+
     getVendorInvoices: builder.query({
       query: () => ({
         url: "/my-invoices",
@@ -220,6 +248,8 @@ export const {
   useAddVehicleMutation,
   useUpdateVendorVehicleStatusMutation,
   useAddVendorVehicleMaintenanceMutation,
+  useUpdateVendorVehicleMutation,
+  useDeleteVendorVehicleMutation,
   useGetVendorInvoicesQuery,
   useGetVendorVehiclesQuery,
   useGetVendorProfileQuery,

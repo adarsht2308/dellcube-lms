@@ -1227,7 +1227,7 @@ export default Vendors;
 const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
   const [form, setForm] = useState({
     vehicleNumber: "",
-    type: "7ft",
+    type: "14 Feet",
     brand: "",
     model: "",
     yearOfManufacture: "",
@@ -1293,7 +1293,7 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
     // Reset form
     setForm({
       vehicleNumber: "",
-      type: "7ft",
+      type: "14 Feet",
       brand: "",
       model: "",
       yearOfManufacture: "",
@@ -1381,12 +1381,38 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
                     <SelectValue placeholder="Select vehicle type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="7ft">7ft</SelectItem>
-                    <SelectItem value="10ft">10ft</SelectItem>
-                    <SelectItem value="14ft">14ft</SelectItem>
-                    <SelectItem value="18ft">18ft</SelectItem>
-                    <SelectItem value="24ft">24ft</SelectItem>
-                    <SelectItem value="32ft">32ft</SelectItem>
+                    {[
+                      "14 Feet",
+                      "17 Feet",
+                      "19 Feet",
+                      "20 Feet",
+                      "22 Feet",
+                      "24 Feet",
+                      "32FTMXL-14MT",
+                      "Biker",
+                      "BYHAND",
+                      "FLAT BED TRAILER 20FT",
+                      "Pickup",
+                      "TAURUS 16 TON",
+                      "Tata 407",
+                      "TRUCK/LORRY",
+                      "SFBT40",
+                      "TATA/EICHER 709",
+                      "32FTMXL-18MT",
+                      "32FTSXL-7MT",
+                      "32FTSXL-9MT",
+                      "FLAT BED TRAILER 40FT",
+                      "SEMI FLAT BED TRAILER 40FT",
+                      "TAURUS 18 TON",
+                      "TAURUS 21 TON",
+                      "TAURUS 25 TON",
+                      "TAURUS 30 TON",
+                      "TATA ACE"
+                    ].map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

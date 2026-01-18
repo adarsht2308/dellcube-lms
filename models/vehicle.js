@@ -9,7 +9,7 @@ const vehicleSchema = new mongoose.Schema(
       unique: true,
       trim: true,
       validate: {
-        validator: function(v) {
+        validator: function (v) {
           // Format: 2 letters + 2 digits + 2 letters + 4 digits (e.g., CG04MM9576)
           const cleaned = v.replace(/[\s-]/g, '').toUpperCase();
           return /^[A-Z]{2}[0-9]{2}[A-Z]{2}[0-9]{4}$/.test(cleaned);
@@ -27,7 +27,34 @@ const vehicleSchema = new mongoose.Schema(
     type: {
       type: String,
       required: true,
-      enum: ["6ft", "7ft", "8ft", "9ft", "10ft", "12ft", "14ft", "16ft", "17ft", "18ft", "19ft", "20ft", "22ft", "24ft", "28ft", "32ft"],
+      enum: [
+        "14 Feet",
+        "17 Feet",
+        "19 Feet",
+        "20 Feet",
+        "22 Feet",
+        "24 Feet",
+        "32FTMXL-14MT",
+        "Biker",
+        "BYHAND",
+        "FLAT BED TRAILER 20FT",
+        "Pickup",
+        "TAURUS 16 TON",
+        "Tata 407",
+        "TRUCK/LORRY",
+        "SFBT40",
+        "TATA/EICHER 709",
+        "32FTMXL-18MT",
+        "32FTSXL-7MT",
+        "32FTSXL-9MT",
+        "FLAT BED TRAILER 40FT",
+        "SEMI FLAT BED TRAILER 40FT",
+        "TAURUS 18 TON",
+        "TAURUS 21 TON",
+        "TAURUS 25 TON",
+        "TAURUS 30 TON",
+        "TATA ACE"
+      ],
     },
     cargoType: {
       type: String,

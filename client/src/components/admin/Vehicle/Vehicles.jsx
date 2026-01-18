@@ -623,12 +623,6 @@ const Vehicles = () => {
                     Cargo Type
                   </th>
                   <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                    Insurance No
-                  </th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                    Fitness No
-                  </th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
                     Expiry Status
                   </th>
                   <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
@@ -648,7 +642,7 @@ const Vehicles = () => {
               <tbody className="divide-y divide-gray-200 text-center">
                 {isLoading ? (
                   <tr>
-                    <td colSpan="11" className="text-center py-6">
+                    <td colSpan="9" className="text-center py-6">
                       <Loader2 className="animate-spin mx-auto text-[#FFD249]" />{" "}
                       Loading...
                     </td>
@@ -675,16 +669,6 @@ const Vehicles = () => {
                       </td>
                       <td className="p-3 text-[#202020] dark:text-[#FFD249]">
                         {veh.cargoType || (
-                          <span className="text-gray-400">N/A</span>
-                        )}
-                      </td>
-                      <td className="p-3 text-[#202020] dark:text-[#FFD249]">
-                        {veh.vehicleInsuranceNo || (
-                          <span className="text-gray-400">N/A</span>
-                        )}
-                      </td>
-                      <td className="p-3 text-[#202020] dark:text-[#FFD249]">
-                        {veh.fitnessNo || (
                           <span className="text-gray-400">N/A</span>
                         )}
                       </td>
@@ -861,12 +845,6 @@ const Vehicles = () => {
                   </th>
                   <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
                     Cargo Type
-                  </th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                    Insurance No
-                  </th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                    Fitness No
                   </th>
                   <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
                     Expiry Status

@@ -2373,12 +2373,32 @@ const UpdateInvoice = () => {
                             </SelectTrigger>
                             <SelectContent>
                               {[
-                                "7ft",
-                                "10ft",
-                                "14ft",
-                                "18ft",
-                                "24ft",
-                                "32ft",
+                                "14 Feet",
+                                "17 Feet",
+                                "19 Feet",
+                                "20 Feet",
+                                "22 Feet",
+                                "24 Feet",
+                                "32FTMXL-14MT",
+                                "Biker",
+                                "BYHAND",
+                                "FLAT BED TRAILER 20FT",
+                                "Pickup",
+                                "TAURUS 16 TON",
+                                "Tata 407",
+                                "TRUCK/LORRY",
+                                "SFBT40",
+                                "TATA/EICHER 709",
+                                "32FTMXL-18MT",
+                                "32FTSXL-7MT",
+                                "32FTSXL-9MT",
+                                "FLAT BED TRAILER 40FT",
+                                "SEMI FLAT BED TRAILER 40FT",
+                                "TAURUS 18 TON",
+                                "TAURUS 21 TON",
+                                "TAURUS 25 TON",
+                                "TAURUS 30 TON",
+                                "TATA ACE"
                               ].map((size) => (
                                 <SelectItem key={size} value={size}>
                                   {size}

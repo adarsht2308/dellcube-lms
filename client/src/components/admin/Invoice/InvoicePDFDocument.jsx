@@ -32,7 +32,7 @@ const FieldInputView = ({ value, style }) => (
   </View>
 );
 
-const renderMultiValue = (value, fallback = "-") => {
+const renderMultiValue = (value, fallback = "") => {
   if (Array.isArray(value)) {
     return value.length ? value.join("\n") : fallback;
   }
@@ -83,65 +83,67 @@ const styles = StyleSheet.create({
   headerSection: {
     flexDirection: "row",
     alignItems: "stretch",
-    marginBottom: "0.8mm",
-    paddingBottom: "0.2mm",
+    marginBottom: "0.3mm",
+    paddingBottom: "0.1mm",
   },
   logoSection: {
     width: "15%",
     alignItems: "center",
+    paddingRight: "2mm",
   },
   companyLogo: {
     width: 90,
     height: 35,
   },
   companySection: {
-    width: "60%",
+    width: "65%",
     alignItems: "center",
     paddingHorizontal: "0.8mm",
   },
   companyName: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "bold",
     textAlign: "center",
-    marginBottom: "0.3mm",
+    marginBottom: "0.2mm",
     textTransform: "uppercase",
     lineHeight: 1.2,
   },
-  companyAddress: {
-    fontSize: 8,
+  companyContact: {
+    fontSize: 7.5,
     textAlign: "center",
     lineHeight: 1.2,
-    marginBottom: "0.2mm",
+    marginBottom: "0.15mm",
   },
-  companyContact: {
-    fontSize: 7,
+  companyAddress: {
+    fontSize: 8.5,
     textAlign: "center",
-    lineHeight: 1.1,
+    lineHeight: 1.2,
+    marginBottom: "0.15mm",
   },
  
   copyTypeSection: {
-    width: "25%",
+    width: "20%",
     flexDirection: "column",
     alignItems: "stretch",
     justifyContent: "flex-start",
-    paddingLeft: "1mm",
+    paddingLeft: "0.8mm",
   },
   copyType: {
-    fontSize: 9,
+    fontSize: 8.5,
     fontWeight: "bold",
     border: "1px solid #000",
-    padding: "0.5mm",
+    padding: "0.4mm",
     textAlign: "center",
     backgroundColor: "#f0f0f0",
   },
   docketNumber: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "bold",
     border: "2px solid #000",
-    paddingVertical: "1.5mm",
-    paddingHorizontal: "1.5mm",
+    paddingVertical: "1.2mm",
+    paddingHorizontal: "1.2mm",
     textAlign: "center",
-    marginTop: "0.5mm",
+    marginTop: "0.4mm",
     backgroundColor: "#fff",
     letterSpacing: 0,
     width: "100%",
@@ -149,36 +151,45 @@ const styles = StyleSheet.create({
     lineHeight: 1.3,
     flexWrap: "wrap",
   },
+  dateInHeader: {
+    fontSize: 9.5,
+    fontWeight: "bold",
+    textAlign: "right",
+    marginTop: "0.3mm",
+  },
 
-  // Company Details Row - Updated layout
+  // Company Details Row - Updated layout (kept for potential future use, but not displayed)
   companyDetailsRow: {
     flexDirection: "row",
-    marginBottom: "0.6mm",
-    marginTop: "0.2mm",
+    marginBottom: "0mm",
+    marginTop: "0mm",
+    height: 0,
+    display: "none",
   },
   leftDetails: {
-    width: "15%",
+    width: "65%",
     flexDirection: "row",
     alignItems: "center",
     gap: "0.8mm",
     justifyContent: "flex-start",
   },
   centerDetails: {
-    width: "70%",
+    width: "15%",
   },
   rightDetails: {
-    width: "15%",
-    alignItems: "center",
+    width: "20%",
+    alignItems: "flex-end",
+    justifyContent: "center",
   },
   panGstText: {
-    fontSize: 8,
+    fontSize: 8.5,
     fontWeight: "bold",
     textAlign: "left",
   },
   dateText: {
-    fontSize: 8,
+    fontSize: 9.5,
     fontWeight: "bold",
-    textAlign: "left",
+    textAlign: "right",
   },
 
   // Risk Notice Container
@@ -189,7 +200,8 @@ const styles = StyleSheet.create({
     fontSize: 8,
     textAlign: "center",
     fontWeight: "bold",
-    marginBottom: "0.8mm",
+    marginBottom: "0.6mm",
+    marginTop: "0.1mm",
   },
   riskTitle: {
     fontSize: 9,
@@ -237,6 +249,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: "0.8mm",
     marginBottom: "0.8mm",
+    marginTop: "0.1mm",
     flexShrink: 1,
   },
   leftColumn: {
@@ -252,7 +265,7 @@ const styles = StyleSheet.create({
   // Vehicle and Goods Table - Updated structure
   mainTable: {
     border: "1px solid #000",
-    fontSize: 8,
+    fontSize: 8.5,
   },
   tableHeader: {
     flexDirection: "row",
@@ -260,8 +273,8 @@ const styles = StyleSheet.create({
     borderBottom: "1px solid #000",
   },
   tableHeaderCell: {
-    padding: "0.6mm",
-    fontSize: 8,
+    padding: "0.7mm",
+    fontSize: 8.5,
     fontWeight: "bold",
     textAlign: "center",
     borderRight: "1px solid #000",
@@ -271,13 +284,13 @@ const styles = StyleSheet.create({
     borderBottom: "1px solid #000",
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 20,
+    minHeight: 22,
   },
   tableCell: {
-    padding: "0.6mm",
-    fontSize: 8,
+    padding: "0.7mm",
+    fontSize: 8.5,
     borderRight: "1px solid #000",
-    minHeight: "3.5mm",
+    minHeight: "4mm",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -493,13 +506,73 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
   console.log("=== End InvoiceCopy Component - Invoice Received ===");
 
   const safeFormatDate = (dateString, options = { time: false }) => {
-    if (!dateString) return "-";
+    if (!dateString) return "";
     const date = new Date(dateString);
-    if (isNaN(date.getTime())) return "-";
+    if (isNaN(date.getTime())) return "";
     if (options.time) {
       return date.toLocaleString("en-IN");
     }
     return date.toLocaleDateString("en-IN");
+  };
+
+  const formatDateWithOrdinal = (dateString) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "";
+    
+    const day = date.getDate();
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const month = monthNames[date.getMonth()];
+    const year = date.getFullYear();
+    
+    // Add ordinal suffix
+    const getOrdinalSuffix = (n) => {
+      const s = ["th", "st", "nd", "rd"];
+      const v = n % 100;
+      return s[(v - 20) % 10] || s[v] || s[0];
+    };
+    
+    return `${day}${getOrdinalSuffix(day)} ${month} ${year}`;
+  };
+
+  const formatAddressTwoLines = (address) => {
+    if (!address) {
+      return {
+        line1: "Ground Floor Unit No. 10 Building No. A-4 Babosa Industrial Park",
+        line2: "Saravali Village Bhiwandi - 421302"
+      };
+    }
+    
+    // Try to split at a logical point (e.g., before "Saravali" or "Bhiwandi")
+    const addressStr = address.toString();
+    const saravaliIndex = addressStr.indexOf("Saravali");
+    const bhiwandiIndex = addressStr.indexOf("Bhiwandi");
+    
+    if (saravaliIndex > 0) {
+      return {
+        line1: addressStr.substring(0, saravaliIndex).trim(),
+        line2: addressStr.substring(saravaliIndex).trim()
+      };
+    } else if (bhiwandiIndex > 0) {
+      return {
+        line1: addressStr.substring(0, bhiwandiIndex).trim(),
+        line2: addressStr.substring(bhiwandiIndex).trim()
+      };
+    } else {
+      // Fallback: split at middle if no logical break point
+      const midPoint = Math.floor(addressStr.length / 2);
+      const lastSpaceBeforeMid = addressStr.lastIndexOf(" ", midPoint);
+      if (lastSpaceBeforeMid > 0) {
+        return {
+          line1: addressStr.substring(0, lastSpaceBeforeMid).trim(),
+          line2: addressStr.substring(lastSpaceBeforeMid).trim()
+        };
+      }
+      return {
+        line1: addressStr,
+        line2: ""
+      };
+    }
   };
 
   const formatAddress = (addressObj, pickupAddress, postOfficeComputed) => {
@@ -519,7 +592,7 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
         postOfficeComputed.country,
       ].filter(Boolean);
       const address = parts.join(", ");
-      return address || "-";
+      return address || "";
     }
 
     const parts = [
@@ -534,7 +607,7 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
     const pincode = addressObj?.pincode?.code
       ? ` - ${addressObj.pincode.code}`
       : "";
-    return address + pincode || "-";
+    return address + pincode || "";
   };
 
   const fromFull = formatAddress(
@@ -595,7 +668,7 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
   console.log("=== End PDF Signature Debug ===");
 
   const renderCurrency = (value) =>
-    value ? `₹${parseFloat(value).toFixed(2)}` : "-";
+    value ? `₹${parseFloat(value).toFixed(2)}` : "";
 
   const freightCharges = [
     { label: "Rate/Kg", value: invoice?.ratePerKg },
@@ -628,36 +701,39 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
             {invoice?.company?.name ||
               "DELLCUBE INTEGRATED SOLUTIONS PVT. LTD."}
           </Text>
-          <Text style={styles.companyAddress}>
-            {invoice?.company?.address ||
-              "Babosa Industrial Park, Bldg. No. A-4, Gr. Floor, Unit No. 10, Saravali Village, Bhiwandi - 421 302, Dist. Thane."}
-          </Text>
+          {(() => {
+            const addressLines = formatAddressTwoLines(invoice?.company?.address);
+            return (
+              <>
+                <Text style={styles.companyAddress}>
+                  {addressLines.line1}
+                </Text>
+                {addressLines.line2 && (
+                  <Text style={styles.companyAddress}>
+                    {addressLines.line2}
+                  </Text>
+                )}
+              </>
+            );
+          })()}
           <Text style={styles.companyContact}>
             Ph: {invoice?.company?.contactPhone || "02522-280222"} | Website:{" "}
             {invoice?.company?.website || "www.dellcube.com"} | Email:{" "}
             {invoice?.company?.email || "info@dellcube.com"}
+          </Text>
+          
+          <Text style={styles.companyContact}>
+          GSTIN: {invoice?.company?.gstNumber || ""} | PAN: {invoice?.company?.pan || ""}
           </Text>
         </View>
 
         <View style={styles.copyTypeSection}>
           <Text style={styles.copyType}>{copyType}</Text>
           <Text style={styles.docketNumber}>
-            {invoice?.docketNumber || "-"}
+            {invoice?.docketNumber || ""}
           </Text>
-        </View>
-      </View>
-
-      {/* Company Details Row - New Layout */}
-      <View style={styles.companyDetailsRow}>
-        <View style={styles.leftDetails}>
-          <Text style={styles.panGstText}>
-            GSTIN: {invoice?.company?.gstNumber || "-"} | PAN: {invoice?.company?.pan || "-"}
-          </Text>
-        </View>
-        <View style={styles.centerDetails}></View>
-        <View style={styles.rightDetails}>
-          <Text style={styles.dateText}>
-            Date: {safeFormatDate(invoice?.invoiceDate || invoice?.createdAt)}
+          <Text style={styles.dateInHeader}>
+            Date: {formatDateWithOrdinal(invoice?.invoiceDate || invoice?.createdAt)}
           </Text>
         </View>
       </View>
@@ -679,11 +755,11 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
           <View style={styles.deliveryColumn}>
             <Text style={styles.deliveryLabel}>CONSIGNOR:</Text>
             <View style={styles.deliveryInput}>
-              <Text>{invoice?.consignor || "-"}</Text>
+              <Text>{invoice?.consignor || ""}</Text>
             </View>
             <Text style={styles.deliveryLabel}>CONSIGNEE:</Text>
             <View style={styles.deliveryInput}>
-              <Text>{invoice?.consignee || "-"}</Text>
+              <Text>{invoice?.consignee || ""}</Text>
             </View>
           </View>
           <View style={styles.deliveryColumn}>
@@ -735,25 +811,25 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
                   value={
                     invoice?.vehicle?.vehicleNumber ||
                     invoice?.vendorVehicle?.vehicleNumber ||
-                    "-"
+                    ""
                   }
                 />
               </View>
               <View style={[styles.tableCell, { width: "15%" }]}>
                 {/* <Text style={styles.fieldLabel}>QTY:</Text> */}
-                <FieldInputView value={invoice?.numberOfPackages || "-"} />
+                <FieldInputView value={invoice?.numberOfPackages || ""} />
               </View>
               <View style={[styles.tableCell, { width: "40%" }]}>
                 {/* <Text style={styles.fieldLabel}>GOODS:</Text> */}
                 <FieldInputView
-                  value={`${invoice?.goodsType?.name || "-"}`}
+                  value={`${invoice?.goodsType?.name || ""}`}
                 />
               </View>
               <View style={[styles.tableCell, { width: "15%" }]}>
                 {/* <Text style={styles.fieldLabel}>WEIGHT:</Text> */}
                 <FieldInputView
                   value={
-                    invoice?.totalWeight ? `${invoice.totalWeight} kg` : "-"
+                    invoice?.totalWeight ? `${invoice.totalWeight} kg` : ""
                   }
                 />
               </View>
@@ -772,7 +848,7 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
             <View style={styles.tableRow}>
               <View style={[styles.tableCell, { width: "25%" }]}>
                 <Text style={styles.fieldLabel}>VEHICLE TYPE:</Text>
-                <FieldInputView value={invoice?.vehicleSize || "-"} />
+                <FieldInputView value={invoice?.vehicleSize || ""} />
               </View>
               <View style={[styles.tableCell, { width: "15%" }]}>
                 <Text style={styles.fieldLabel}>INV NO:</Text>
@@ -802,19 +878,19 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
             <View style={styles.tableRow}>
               <View style={[styles.tableCell, { width: "25%" }]}>
                 <Text style={styles.fieldLabel}>DRIVER NAME:</Text>
-                <FieldInputView value={invoice?.driver?.name || "-"} />
+                <FieldInputView value={invoice?.driver?.name || ""} />
               </View>
               <View style={[styles.tableCell, { width: "15%" }]}>
                 <Text style={styles.fieldLabel}>SITE ID:</Text>
-                <FieldInputView value={invoice?.siteId || "-"} />
+                <FieldInputView value={invoice?.siteId || ""} />
               </View>
               <View style={[styles.tableCell, { width: "40%" }]}>
                 <Text style={styles.fieldLabel}>SITE TYPE:</Text>
-                <FieldInputView value={invoice?.siteType?.name || "-"} />
+                <FieldInputView value={invoice?.siteType?.name || ""} />
               </View>
               <View style={[styles.tableCell, { width: "15%" }]}>
                 <Text style={styles.fieldLabel}>ORDER:</Text>
-                <FieldInputView value={invoice?.orderNumber || "-"} />
+                <FieldInputView value={invoice?.orderNumber || ""} />
               </View>
               <View
                 style={[
@@ -823,7 +899,7 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
                 ]}
               >
                 <Text style={styles.fieldLabel}>PAYMENT:</Text>
-                <FieldInputView value={invoice?.paymentType || "-"} />
+                <FieldInputView value={invoice?.paymentType || ""} />
               </View>
             </View>
 
@@ -831,19 +907,19 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
             <View style={styles.tableRow}>
               <View style={[styles.tableCell, { width: "25%" }]}>
                 <Text style={styles.fieldLabel}>DRIVER PHONE:</Text>
-                <FieldInputView value={invoice?.driverContactNumber || "-"} />
+                <FieldInputView value={invoice?.driverContactNumber || ""} />
               </View>
               <View style={[styles.tableCell, { width: "15%" }]}>
                 <Text style={styles.fieldLabel}>SEAL NO:</Text>
-                <FieldInputView value={invoice?.sealNo || "-"} />
+                <FieldInputView value={invoice?.sealNo || ""} />
               </View>
               <View style={[styles.tableCell, { width: "40%" }]}>
                 <Text style={styles.fieldLabel}>TRANSPORT MODE:</Text>
-                <FieldInputView value={invoice?.transportMode?.name || "-"} />
+                <FieldInputView value={invoice?.transportMode?.name || ""} />
               </View>
               <View style={[styles.tableCell, { width: "15%" }]}>
                 <Text style={styles.fieldLabel}>PAYMENT:</Text>
-                <FieldInputView value={invoice?.paymentType || "-"} />
+                <FieldInputView value={invoice?.paymentType || ""} />
               </View>
               <View
                 style={[
@@ -903,7 +979,7 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
                 <Text style={styles.receiverValue}>
                   {invoice?.deliveryProof?.receiverName ||
                     invoice?.receiverName ||
-                    "-"}
+                    ""}
                 </Text>
               </View>
               <View style={styles.receiverRow}>
@@ -911,13 +987,13 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
                 <Text style={styles.receiverValue}>
                   {invoice?.deliveryProof?.receiverMobile ||
                     invoice?.receiverMobile ||
-                    "-"}
+                    ""}
                 </Text>
               </View>
               <View style={styles.receiverRow}>
                 <Text style={styles.receiverLabel}>Floor:</Text>
                 <Text style={styles.receiverValue}>
-                  {invoice?.deliveryProof?.floor || "-"}
+                  {invoice?.deliveryProof?.floor || ""}
                 </Text>
               </View>
               <View style={styles.receiverRowLast}>
@@ -936,7 +1012,7 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
                 <Text style={styles.receiverRightLabel}>Remark:</Text>
                 <View style={{ width: "65%", paddingLeft: "0.3mm", paddingRight: "0.2mm" }}>
                   <Text style={[styles.receiverRightValue, { width: "100%" }]}>
-                    {invoice?.deliveryProof?.remarks?.replace(/\|/g, '') || "-"}
+                    {invoice?.deliveryProof?.remarks?.replace(/\|/g, '') || ""}
                   </Text>
                 </View>
               </View>
@@ -951,9 +1027,7 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
                       style={styles.signatureImg}
                       cache={false}
                     />
-                  ) : (
-                    <Text style={{ color: "#666", fontSize: 6 }}>Signature Required</Text>
-                  )}
+                  ) : null}
                 </View>
               </View>
             </View>
@@ -975,7 +1049,7 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
               />
             ) : (
               <Text style={{ fontSize: 5, color: "#555" }}>
-                Signature Not Available
+                
               </Text>
             )}
           </View>

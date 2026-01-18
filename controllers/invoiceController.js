@@ -246,7 +246,7 @@ export const createInvoice = async (req, res) => {
               continue;
             }
             if (parsedNumber > maxDocketNumber) {
-              maxDocketNumber = parsedNumber;
+          maxDocketNumber = parsedNumber;
             }
           }
         }
@@ -737,7 +737,7 @@ export const createReservedInvoices = async (req, res) => {
               continue;
             }
             if (parsedNumber > maxDocketNumber) {
-              maxDocketNumber = parsedNumber;
+          maxDocketNumber = parsedNumber;
             }
           }
         }
@@ -881,7 +881,64 @@ export const getAllInvoices = async (req, res) => {
       }
     }
 
-    const invoices = await Invoice.find(query)
+    // Use aggregation with allowDiskUse to handle large sorts efficiently
+    // Convert string IDs in query to ObjectIds for proper matching
+    const mongoQuery = {};
+    Object.keys(query).forEach(key => {
+      if (key === '_id' && query[key].$in) {
+        mongoQuery[key] = {
+          $in: query[key].$in.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id)
+        };
+      } else if (mongoose.Types.ObjectId.isValid(query[key])) {
+        mongoQuery[key] = new mongoose.Types.ObjectId(query[key]);
+      } else {
+        mongoQuery[key] = query[key];
+      }
+    });
+    
+    // First, get the invoice IDs with sorting and pagination
+    // Get total count first (no sorting needed)
+    const total = await Invoice.countDocuments(mongoQuery);
+    
+    // Get invoice IDs without sorting to avoid memory limits
+    // We'll fetch all matching IDs, sort in memory, then paginate
+    const allInvoiceIds = await Invoice.find(mongoQuery)
+      .select('_id createdAt')
+      .lean();
+    
+    // Sort in memory by createdAt descending
+    allInvoiceIds.sort((a, b) => {
+      const dateA = new Date(a.createdAt || 0).getTime();
+      const dateB = new Date(b.createdAt || 0).getTime();
+      return dateB - dateA; // Descending order
+    });
+    
+    // Apply pagination after sorting
+    const paginatedIds = allInvoiceIds.slice(skip, skip + limit);
+    
+    // If no IDs found, return empty array
+    if (!paginatedIds || paginatedIds.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: "Invoices fetched successfully",
+        invoices: [],
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      });
+    }
+    
+    const ids = paginatedIds.map(doc => doc._id);
+    
+    // Create a map to preserve order
+    const orderMap = new Map();
+    paginatedIds.forEach((doc, index) => {
+      orderMap.set(doc._id.toString(), index);
+    });
+    
+    // Now fetch the invoices with all populates
+    const invoices = await Invoice.find({ _id: { $in: ids } })
       .populate("company", "name address contactPhone gstNumber pan")
       .populate("branch", "name")
       .populate("customer", "name phone email consignors consignees")
@@ -897,9 +954,20 @@ export const getAllInvoices = async (req, res) => {
       )
       .populate("siteType", "name desc")
       .populate("transportMode", "name desc")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+      .lean();
+    
+    // Sort the results to match the original order (by createdAt descending)
+    invoices.sort((a, b) => {
+      const orderA = orderMap.get(a._id.toString());
+      const orderB = orderMap.get(b._id.toString());
+      if (orderA && orderB) {
+        return orderA.index - orderB.index;
+      }
+      // Fallback to createdAt if order map doesn't have entry
+      const dateA = new Date(a.createdAt || 0).getTime();
+      const dateB = new Date(b.createdAt || 0).getTime();
+      return dateB - dateA;
+    });
 
     // Helper function to build full formatted address from components
     const buildFullAddress = (addressObj) => {
@@ -941,16 +1009,15 @@ export const getAllInvoices = async (req, res) => {
     };
 
     // Add computed fields to each invoice
+    // Note: invoices are already plain objects (lean), so no need for toObject()
     const invoicesWithComputedFields = invoices.map(inv => {
-      const invObj = inv.toObject();
+      const invObj = { ...inv }; // Create a copy
       invObj.consignorAddress = getConsignorAddress(inv);
       invObj.consigneeAddress = getConsigneeAddress(inv);
       invObj.fromFullAddress = buildFullAddress(inv.fromAddress);
       invObj.toFullAddress = buildFullAddress(inv.toAddress);
       return invObj;
     });
-
-    const total = await Invoice.countDocuments(query);
 
     return res.status(200).json({
       success: true,
@@ -1362,22 +1429,205 @@ export const exportInvoicesCSV = async (req, res) => {
       }
     }
 
-    const invoices = await Invoice.find(query)
-      .populate("company", "name companyCode address contactPhone emailId website gstNumber gstValue pan sacHsnCode companyType")
-      .populate("branch", "name branchCode address gstNo branchNo")
-      .populate("customer", "name phone email gstNumber address companyName companyContactName companyContactInfo taxType taxValue misFields consignors consignees")
-      .populate("goodsType", "name items")
-      .populate("vehicle", "vehicleNumber type model brand cargoType yearOfManufacture")
-      .populate("vendor", "name phone email availableVehicles")
-      .populate("driver", "name mobile email")
-      .populate("siteType", "name desc")
-      .populate("transportMode", "name desc")
-      .populate(
-        "fromAddress.country fromAddress.state fromAddress.city fromAddress.locality"
-      )
-      .populate(
-        "toAddress.country toAddress.state toAddress.city toAddress.locality"
-      );
+    // Use lean() and cursor to avoid memory issues with large datasets
+    // Convert ObjectIds in query to proper format for MongoDB
+    const mongoQuery = {};
+    Object.keys(query).forEach(key => {
+      if (key === '_id' && query[key].$in) {
+        mongoQuery[key] = {
+          $in: query[key].$in.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id)
+        };
+      } else if (mongoose.Types.ObjectId.isValid(query[key])) {
+        mongoQuery[key] = new mongoose.Types.ObjectId(query[key]);
+      } else {
+        mongoQuery[key] = query[key];
+      }
+    });
+
+    // Use aggregation with allowDiskUse to handle large datasets efficiently
+    // This avoids memory limits when sorting/populating large result sets
+    // Execute aggregation using cursor to process in batches and avoid memory issues
+    const invoices = [];
+    const invoicesAggregation = Invoice.aggregate([
+      { $match: mongoQuery },
+      // Lookup company
+      {
+        $lookup: {
+          from: "companies",
+          localField: "company",
+          foreignField: "_id",
+          as: "company",
+        },
+      },
+      // Lookup branch
+      {
+        $lookup: {
+          from: "branches",
+          localField: "branch",
+          foreignField: "_id",
+          as: "branch",
+        },
+      },
+      // Lookup customer
+      {
+        $lookup: {
+          from: "customers",
+          localField: "customer",
+          foreignField: "_id",
+          as: "customer",
+        },
+      },
+      // Lookup goodsType
+      {
+        $lookup: {
+          from: "goods",
+          localField: "goodsType",
+          foreignField: "_id",
+          as: "goodsType",
+        },
+      },
+      // Lookup vehicle
+      {
+        $lookup: {
+          from: "vehicles",
+          localField: "vehicle",
+          foreignField: "_id",
+          as: "vehicle",
+        },
+      },
+      // Lookup vendor
+      {
+        $lookup: {
+          from: "users",
+          localField: "vendor",
+          foreignField: "_id",
+          as: "vendor",
+        },
+      },
+      // Lookup driver
+      {
+        $lookup: {
+          from: "users",
+          localField: "driver",
+          foreignField: "_id",
+          as: "driver",
+        },
+      },
+      // Lookup siteType
+      {
+        $lookup: {
+          from: "sitetypes",
+          localField: "siteType",
+          foreignField: "_id",
+          as: "siteType",
+        },
+      },
+      // Lookup transportMode
+      {
+        $lookup: {
+          from: "transportmodes",
+          localField: "transportMode",
+          foreignField: "_id",
+          as: "transportMode",
+        },
+      },
+      // Lookup fromAddress fields
+      {
+        $lookup: {
+          from: "countries",
+          localField: "fromAddress.country",
+          foreignField: "_id",
+          as: "fromAddressCountry",
+        },
+      },
+      {
+        $lookup: {
+          from: "states",
+          localField: "fromAddress.state",
+          foreignField: "_id",
+          as: "fromAddressState",
+        },
+      },
+      {
+        $lookup: {
+          from: "cities",
+          localField: "fromAddress.city",
+          foreignField: "_id",
+          as: "fromAddressCity",
+        },
+      },
+      {
+        $lookup: {
+          from: "localities",
+          localField: "fromAddress.locality",
+          foreignField: "_id",
+          as: "fromAddressLocality",
+        },
+      },
+      // Lookup toAddress fields
+      {
+        $lookup: {
+          from: "countries",
+          localField: "toAddress.country",
+          foreignField: "_id",
+          as: "toAddressCountry",
+        },
+      },
+      {
+        $lookup: {
+          from: "states",
+          localField: "toAddress.state",
+          foreignField: "_id",
+          as: "toAddressState",
+        },
+      },
+      {
+        $lookup: {
+          from: "cities",
+          localField: "toAddress.city",
+          foreignField: "_id",
+          as: "toAddressCity",
+        },
+      },
+      {
+        $lookup: {
+          from: "localities",
+          localField: "toAddress.locality",
+          foreignField: "_id",
+          as: "toAddressLocality",
+        },
+      },
+      // Reshape the data to match populate format
+      {
+        $addFields: {
+          company: { $arrayElemAt: ["$company", 0] },
+          branch: { $arrayElemAt: ["$branch", 0] },
+          customer: { $arrayElemAt: ["$customer", 0] },
+          goodsType: { $arrayElemAt: ["$goodsType", 0] },
+          vehicle: { $arrayElemAt: ["$vehicle", 0] },
+          vendor: { $arrayElemAt: ["$vendor", 0] },
+          driver: { $arrayElemAt: ["$driver", 0] },
+          siteType: { $arrayElemAt: ["$siteType", 0] },
+          transportMode: { $arrayElemAt: ["$transportMode", 0] },
+          "fromAddress.country": { $arrayElemAt: ["$fromAddressCountry", 0] },
+          "fromAddress.state": { $arrayElemAt: ["$fromAddressState", 0] },
+          "fromAddress.city": { $arrayElemAt: ["$fromAddressCity", 0] },
+          "fromAddress.locality": { $arrayElemAt: ["$fromAddressLocality", 0] },
+          "toAddress.country": { $arrayElemAt: ["$toAddressCountry", 0] },
+          "toAddress.state": { $arrayElemAt: ["$toAddressState", 0] },
+          "toAddress.city": { $arrayElemAt: ["$toAddressCity", 0] },
+          "toAddress.locality": { $arrayElemAt: ["$toAddressLocality", 0] },
+        },
+      },
+    ], {
+      allowDiskUse: true
+    });
+    
+    // Process results using cursor to stream data and avoid memory issues
+    const cursor = invoicesAggregation.cursor({ batchSize: 100 });
+    for await (const invoice of cursor) {
+      invoices.push(invoice);
+    }
 
     // Collect all unique MIS field names and labels across all invoices
     const allMisFields = new Map(); // Map of fieldName -> fieldLabel
@@ -1553,9 +1803,9 @@ export const exportInvoicesCSV = async (req, res) => {
         VendorVehicle: inv.vendorVehicle?.vehicleNumber || "",
         // Driver Information
         Driver: inv.driver?.name || "",
-        DriverPhone: inv.driver?.mobile || "",
+        DriverPhone: inv.driverContactNumber || inv.driver?.mobile || "",
         DriverEmail: inv.driver?.email || "",
-        DriverContactNumber: inv.driverContactNumber || "",
+        DriverContactNumber: inv.driverContactNumber || inv.driver?.mobile || "",
         // Status and Dates
         Status: inv.status || "",
         InvoiceDate: inv.invoiceDate
@@ -1564,21 +1814,13 @@ export const exportInvoicesCSV = async (req, res) => {
         DispatchDateTime: inv.dispatchDateTime
           ? new Date(inv.dispatchDateTime).toLocaleString()
           : "",
-        // From Address (Pickup Location)
-        FromCountry: inv.fromAddress?.country?.name || inv.fromAddress?.countryName || "",
-        FromState: inv.fromAddress?.state?.name || inv.fromAddress?.stateName || "",
-        FromCity: inv.fromAddress?.city?.name || "",
-        FromLocality: inv.fromAddress?.locality?.name || "",
+        // From Address (Pickup Location) - Using new fields (taluk, district, post office)
         FromPincode: inv.fromAddress?.pincode || "",
         FromPostOffice: inv.fromAddress?.postOfficeName || "",
         FromDistrict: inv.fromAddress?.district || "",
         FromTaluk: inv.fromAddress?.taluk || "",
         FromFullAddress: buildFullAddress(inv.fromAddress) || inv.pickupAddress || "",
-        // To Address (Delivery Location)
-        ToCountry: inv.toAddress?.country?.name || inv.toAddress?.countryName || "",
-        ToState: inv.toAddress?.state?.name || inv.toAddress?.stateName || "",
-        ToCity: inv.toAddress?.city?.name || "",
-        ToLocality: inv.toAddress?.locality?.name || "",
+        // To Address (Delivery Location) - Using new fields (taluk, district, post office)
         ToPincode: inv?.toAddress?.pincode || "",
         ToPostOffice: inv.toAddress?.postOfficeName || "",
         ToDistrict: inv.toAddress?.district || "",
