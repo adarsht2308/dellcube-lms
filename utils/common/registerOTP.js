@@ -43,11 +43,11 @@ export const testSMTPConnection = async () => {
 };
 
 // Create Brevo SMTP transporter (shared for all emails)
-const createBrevoTransporter = () => {
+const createBrevoTransporter = (options = {}) => {
   console.log("\n=== DEBUG: Creating SMTP Transporter ===");
   
-  const smtpHost = process.env.SMTP_HOST || "smtp-relay.brevo.com";
-  const smtpPort = parseInt(process.env.SMTP_PORT || "587");
+  const smtpHost = options.host || process.env.SMTP_HOST || "smtp-relay.brevo.com";
+  const smtpPort = options.port || parseInt(process.env.SMTP_PORT || "587");
   
   console.log(`DEBUG: SMTP_HOST = ${smtpHost}`);
   console.log(`DEBUG: SMTP_PORT = ${smtpPort}`);
@@ -83,18 +83,29 @@ const createBrevoTransporter = () => {
   console.log(`DEBUG: Password starts with: ${trimmedPass.substring(0, 10)}...`);
   console.log(`DEBUG: Attempting SMTP connection to ${smtpHost}:${smtpPort} with user: ${smtpUser}`);
 
+  // Determine if using SSL (port 465) or STARTTLS (port 587)
+  const isSecure = smtpPort === 465;
+  
   const transporter = nodemailer.createTransport({
     host: smtpHost,
     port: smtpPort,
-    secure: false, // Port 587 uses STARTTLS, not SSL
+    secure: isSecure, // true for 465, false for other ports
     auth: {
       user: smtpUser,
       pass: trimmedPass,
     },
+    connectionTimeout: 60000, // 60 seconds connection timeout
+    greetingTimeout: 30000, // 30 seconds greeting timeout
+    socketTimeout: 60000, // 60 seconds socket timeout
     tls: {
-      rejectUnauthorized: false,
-      ciphers: 'SSLv3',
+      rejectUnauthorized: false, // Allow self-signed certificates
+      minVersion: 'TLSv1.2', // Use modern TLS version
     },
+    pool: true, // Use connection pooling
+    maxConnections: 5, // Maximum number of connections in pool
+    maxMessages: 100, // Maximum messages per connection
+    rateDelta: 1000, // Rate limiting
+    rateLimit: 5, // Max 5 messages per rateDelta
     debug: true, // Always enable debug for troubleshooting
     logger: true, // Always enable logger for troubleshooting
   });
@@ -105,11 +116,62 @@ const createBrevoTransporter = () => {
   return transporter;
 };
 
+// Helper function to send email with retry and fallback ports
+const sendEmailWithRetry = async (mailOptions, maxRetries = 2) => {
+  const smtpHost = process.env.SMTP_HOST || "smtp-relay.brevo.com";
+  const defaultPort = parseInt(process.env.SMTP_PORT || "587");
+  
+  // Try configurations in order: default port, then 465 (SSL), then 2525 (alternative)
+  const configs = [
+    { port: defaultPort, description: `default port ${defaultPort}` },
+    { port: 465, description: "port 465 (SSL)" },
+    { port: 2525, description: "port 2525 (alternative)" },
+  ];
+  
+  // Remove duplicate if default port is already 465 or 2525
+  const uniqueConfigs = configs.filter((config, index, self) => 
+    index === self.findIndex(c => c.port === config.port)
+  );
+  
+  let lastError = null;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    for (const config of uniqueConfigs) {
+      try {
+        console.log(`DEBUG: Attempt ${attempt + 1}/${maxRetries} - Trying ${config.description}...`);
+        const transporter = createBrevoTransporter({ 
+          host: smtpHost, 
+          port: config.port 
+        });
+        
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`✅ SUCCESS: Email sent using ${config.description}`);
+        return info;
+      } catch (error) {
+        console.error(`❌ FAILED: ${config.description} - ${error.code || error.message}`);
+        lastError = error;
+        
+        // If it's not a connection/timeout error, don't try other ports
+        if (error.code !== 'ETIMEDOUT' && error.code !== 'ECONNECTION' && error.code !== 'ESOCKET') {
+          throw error;
+        }
+      }
+    }
+    
+    // Wait before retry (exponential backoff)
+    if (attempt < maxRetries - 1) {
+      const waitTime = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s...
+      console.log(`DEBUG: Waiting ${waitTime}ms before retry...`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+  }
+  
+  throw lastError || new Error("Failed to send email after all retries");
+};
+
 // Function to send OTP via email
 export const sendOTPEmail = async (name, email, otp) => {
   try {
-    const transporter = createBrevoTransporter();
-    
     // Use the specified sender email (default to verified Brevo account email)
     const senderEmail = process.env.SMTP_FROM || "Dellcube <dellcubexservora@gmail.com>";
 
@@ -121,7 +183,7 @@ export const sendOTPEmail = async (name, email, otp) => {
     };
 
     console.log(`Sending registration OTP email from: ${senderEmail} to: ${email}`);
-    await transporter.sendMail(mailOptions);
+    await sendEmailWithRetry(mailOptions);
     console.log(`OTP email sent successfully to ${email}`);
   } catch (error) {
     console.error("Error sending OTP email:", error);
@@ -158,8 +220,7 @@ export const sendPasswordResetOTPEmail = async (name, email, otp) => {
   console.log(`DEBUG: OTP: ${otp}`);
   
   try {
-    console.log("DEBUG: Step 1 - Creating transporter...");
-    const transporter = createBrevoTransporter();
+    console.log("DEBUG: Step 1 - Preparing email...");
     
     // Use the specified sender email (default to verified Brevo account email)
     const senderEmail = process.env.SMTP_FROM || "Dellcube <dellcubexservora@gmail.com>";
@@ -182,13 +243,9 @@ export const sendPasswordResetOTPEmail = async (name, email, otp) => {
     console.log("DEBUG: Step 3 - Attempting to send email...");
     console.log(`Sending password reset email from: ${senderEmail} to: ${email}`);
     
-    // Verify connection before sending
-    console.log("DEBUG: Step 3a - Verifying SMTP connection...");
-    await transporter.verify();
-    console.log("DEBUG: SMTP connection verified successfully!");
-    
-    console.log("DEBUG: Step 3b - Sending email...");
-    const info = await transporter.sendMail(mailOptions);
+    // Send email with retry and fallback ports
+    console.log("DEBUG: Sending email with retry mechanism...");
+    const info = await sendEmailWithRetry(mailOptions);
     
     console.log("DEBUG: Step 4 - Email sent successfully!");
     console.log(`DEBUG: Message ID: ${info.messageId}`);
@@ -225,13 +282,16 @@ export const sendPasswordResetOTPEmail = async (name, email, otp) => {
     }
     
     // Handle connection errors
-    if (error.code === 'ECONNECTION' || error.code === 'ETIMEDOUT') {
+    if (error.code === 'ECONNECTION' || error.code === 'ETIMEDOUT' || error.code === 'ESOCKET') {
       console.error("\n=== SMTP CONNECTION ERROR ===");
       console.error("Cannot connect to SMTP server. Check:");
-      console.error("1. Internet connection");
-      console.error("2. SMTP_HOST is correct: smtp-relay.brevo.com");
-      console.error("3. SMTP_PORT is correct: 587");
-      console.error("4. Firewall is not blocking port 587");
+      console.error("1. Internet connection and network access");
+      console.error(`2. SMTP_HOST is correct: ${smtpHost}`);
+      console.error(`3. SMTP_PORT is correct: ${smtpPort}`);
+      console.error("4. Firewall/security groups allow outbound connections on port " + smtpPort);
+      console.error("5. Try using port 465 with SSL if port 587 is blocked");
+      console.error("6. Check if production environment has network restrictions");
+      console.error("7. Consider using Brevo API instead of SMTP if SMTP is blocked");
       console.error("================================\n");
     }
     
@@ -253,8 +313,6 @@ export const sendPasswordResetOTPEmail = async (name, email, otp) => {
 // Function to send Welcome email to new users
 export const sendWelcomeEmail = async (name, email, role) => {
   try {
-    const transporter = createBrevoTransporter();
-    
     // Use the specified sender email (default to verified Brevo account email)
     const senderEmail = process.env.SMTP_FROM || "Dellcube <dellcubexservora@gmail.com>";
 
@@ -266,7 +324,7 @@ export const sendWelcomeEmail = async (name, email, role) => {
     };
 
     console.log(`Sending welcome email from: ${senderEmail} to: ${email}`);
-    await transporter.sendMail(mailOptions);
+    await sendEmailWithRetry(mailOptions);
     console.log(`Welcome email sent successfully to ${email}`);
   } catch (error) {
     console.error("Error sending welcome email:", error);
