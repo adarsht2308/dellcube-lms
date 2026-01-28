@@ -247,9 +247,9 @@ export const createInvoice = async (req, res) => {
             }
             if (parsedNumber > maxDocketNumber) {
           maxDocketNumber = parsedNumber;
-            }
-          }
         }
+      }
+    }
       }
     }
 
@@ -450,19 +450,37 @@ export const createInvoice = async (req, res) => {
 
     if (vehicleData) {
       invoicePayload.vehicleType = ownerType;
+
+      // Always try to set a human‑readable vehicle size for use in dockets/exports
+      if (vehicleData.type) {
+        invoicePayload.vehicleSize = vehicleData.type;
+      }
+
       if (ownerType === "Dellcube") {
         invoicePayload.vehicle = vehicleData._id;
         // Only set driver from vehicle if not already provided in request body
         if (!req.body.driver) {
           invoicePayload.driver = vehicleData.currentDriver?._id;
         }
-        invoicePayload.vehicleSize = vehicleData.type;
+        // Prefer explicit driver contact provided from UI, then vehicle's current driver mobile
+        if (!invoicePayload.driverContactNumber) {
+          invoicePayload.driverContactNumber =
+            req.body.driverContactNumber ||
+            vehicleData.currentDriver?.mobile ||
+            "";
+        }
         delete invoicePayload.vendor;
         delete invoicePayload.vendorVehicle;
       } else if (ownerType === "Vendor") {
         invoicePayload.vendor = vehicleData.vendor;
         invoicePayload.vendorVehicle = vehicleData;
         delete invoicePayload.vehicle;
+
+        // For vendor vehicles, use explicit contact from UI if provided
+        if (!invoicePayload.driverContactNumber) {
+          invoicePayload.driverContactNumber =
+            req.body.driverContactNumber || "";
+        }
 
         // If using a vendor vehicle, validate customer is in vendor's assigned clients
         if (vehicleData.vendor) {
@@ -738,9 +756,9 @@ export const createReservedInvoices = async (req, res) => {
             }
             if (parsedNumber > maxDocketNumber) {
           maxDocketNumber = parsedNumber;
-            }
-          }
         }
+      }
+    }
       }
     }
 
@@ -881,71 +899,47 @@ export const getAllInvoices = async (req, res) => {
       }
     }
 
-    // Use aggregation with allowDiskUse to handle large sorts efficiently
     // Convert string IDs in query to ObjectIds for proper matching
     const mongoQuery = {};
-    Object.keys(query).forEach(key => {
-      if (key === '_id' && query[key].$in) {
+    Object.keys(query).forEach((key) => {
+      const value = query[key];
+      if (
+        value &&
+        typeof value === "object" &&
+        value.$in &&
+        Array.isArray(value.$in)
+      ) {
+        // Handle {_id: {$in: [...]}} and similar cases
         mongoQuery[key] = {
-          $in: query[key].$in.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id)
+          $in: value.$in.map((id) =>
+            mongoose.Types.ObjectId.isValid(id)
+              ? new mongoose.Types.ObjectId(id)
+              : id
+          ),
         };
-      } else if (mongoose.Types.ObjectId.isValid(query[key])) {
-        mongoQuery[key] = new mongoose.Types.ObjectId(query[key]);
+      } else if (mongoose.Types.ObjectId.isValid(value)) {
+        mongoQuery[key] = new mongoose.Types.ObjectId(value);
       } else {
-        mongoQuery[key] = query[key];
+        mongoQuery[key] = value;
       }
     });
-    
-    // First, get the invoice IDs with sorting and pagination
-    // Get total count first (no sorting needed)
+
+    // Count total documents for pagination
     const total = await Invoice.countDocuments(mongoQuery);
-    
-    // Get invoice IDs without sorting to avoid memory limits
-    // We'll fetch all matching IDs, sort in memory, then paginate
-    const allInvoiceIds = await Invoice.find(mongoQuery)
-      .select('_id createdAt')
-      .lean();
-    
-    // Sort in memory by createdAt descending
-    allInvoiceIds.sort((a, b) => {
-      const dateA = new Date(a.createdAt || 0).getTime();
-      const dateB = new Date(b.createdAt || 0).getTime();
-      return dateB - dateA; // Descending order
-    });
-    
-    // Apply pagination after sorting
-    const paginatedIds = allInvoiceIds.slice(skip, skip + limit);
-    
-    // If no IDs found, return empty array
-    if (!paginatedIds || paginatedIds.length === 0) {
-      return res.status(200).json({
-        success: true,
-        message: "Invoices fetched successfully",
-        invoices: [],
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      });
-    }
-    
-    const ids = paginatedIds.map(doc => doc._id);
-    
-    // Create a map to preserve order
-    const orderMap = new Map();
-    paginatedIds.forEach((doc, index) => {
-      orderMap.set(doc._id.toString(), index);
-    });
-    
-    // Now fetch the invoices with all populates
-    const invoices = await Invoice.find({ _id: { $in: ids } })
+
+    // Fetch paginated invoices sorted by _id desc (correlates with creation time and is indexed)
+    const invoices = await Invoice.find(mongoQuery)
+      .sort({ _id: -1 })
+      .skip(skip)
+      .limit(limit)
       .populate("company", "name address contactPhone gstNumber pan")
       .populate("branch", "name")
       .populate("customer", "name phone email consignors consignees")
       .populate("goodsType", "name items")
       .populate("vehicle", "vehicleNumber")
       .populate("vendor", "name")
-      .populate("driver", "name phone")
+      // Include both mobile (for drivers) and phone (for vendors) so exports and dockets can show driver number
+      .populate("driver", "name mobile phone")
       .populate(
         "fromAddress.country fromAddress.state fromAddress.city fromAddress.locality"
       )
@@ -955,19 +949,6 @@ export const getAllInvoices = async (req, res) => {
       .populate("siteType", "name desc")
       .populate("transportMode", "name desc")
       .lean();
-    
-    // Sort the results to match the original order (by createdAt descending)
-    invoices.sort((a, b) => {
-      const orderA = orderMap.get(a._id.toString());
-      const orderB = orderMap.get(b._id.toString());
-      if (orderA && orderB) {
-        return orderA.index - orderB.index;
-      }
-      // Fallback to createdAt if order map doesn't have entry
-      const dateA = new Date(a.createdAt || 0).getTime();
-      const dateB = new Date(b.createdAt || 0).getTime();
-      return dateB - dateA;
-    });
 
     // Helper function to build full formatted address from components
     const buildFullAddress = (addressObj) => {
@@ -1198,16 +1179,30 @@ export const updateInvoice = async (req, res) => {
       }
       // Set vehicle-related fields
       invoice.vehicleType = ownerType;
+      if (vehicleData.type) {
+        invoice.vehicleSize = vehicleData.type;
+      }
+
       if (ownerType === "Dellcube") {
         invoice.vehicle = vehicleData._id;
         invoice.driver = vehicleData.currentDriver?._id;
-        invoice.vehicleSize = vehicleData.type;
+        // Prefer explicit driver contact from updates, then vehicle's current driver mobile
+        invoice.driverContactNumber =
+          updates.driverContactNumber ||
+          invoice.driverContactNumber ||
+          vehicleData.currentDriver?.mobile ||
+          "";
         invoice.vendor = undefined;
         invoice.vendorVehicle = undefined;
       } else if (ownerType === "Vendor") {
         invoice.vendor = vehicleData.vendor;
         invoice.vendorVehicle = vehicleData;
         invoice.vehicle = undefined;
+
+        // For vendor vehicles, keep any explicitly provided driver contact
+        if (updates.driverContactNumber) {
+          invoice.driverContactNumber = updates.driverContactNumber;
+        }
 
         // If using a vendor vehicle, validate customer is in vendor's assigned clients
         if (vehicleData.vendor) {
@@ -1855,10 +1850,14 @@ export const exportInvoicesCSV = async (req, res) => {
         DeliveredAt: inv.deliveredAt
           ? new Date(inv.deliveredAt).toLocaleString()
           : "",
-        DeliveryProofReceiverName: inv.deliveryProof?.receiverName || "",
-        DeliveryProofReceiverMobile: inv.deliveryProof?.receiverMobile || "",
-        DeliveryProofFloor: inv.deliveryProof?.floor || "",
-        DeliveryProofRemarks: inv.deliveryProof?.remarks || "",
+        // Delivery Confirmation (match docket footer labels)
+        "Receiver Name": inv.deliveryProof?.receiverName || inv.receiverName || "",
+        "Mobile No": inv.deliveryProof?.receiverMobile || inv.receiverMobile || "",
+        Floor: inv.deliveryProof?.floor || "",
+        "Date & Time": inv.deliveredAt
+          ? new Date(inv.deliveredAt).toLocaleString()
+          : "",
+        Remark: inv.deliveryProof?.remarks || "",
         DeliveryProofSignature: inv.deliveryProof?.signature ? "Yes" : "",
         // Additional Data
         DeliveryAttempts: JSON.stringify(inv.deliveryAttempts || []),

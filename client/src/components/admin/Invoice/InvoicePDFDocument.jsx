@@ -284,7 +284,8 @@ const styles = StyleSheet.create({
     borderBottom: "1px solid #000",
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 22,
+    // Slightly taller rows to better utilize vertical space
+    minHeight: 26,
   },
   tableCell: {
     padding: "0.7mm",
@@ -610,16 +611,25 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
     return address + pincode || "";
   };
 
-  const fromFull = formatAddress(
-    invoice?.fromAddress,
-    invoice?.pickupAddress,
-    invoice?.fromPostOfficeComputed
-  );
-  const toFull = formatAddress(
-    invoice?.toAddress,
-    invoice?.deliveryAddress,
-    invoice?.toPostOfficeComputed
-  );
+  const fromFull =
+    invoice?.consignorAddress ||
+    invoice?.pickupAddress ||
+    invoice?.fromFullAddress ||
+    formatAddress(
+      invoice?.fromAddress,
+      invoice?.pickupAddress,
+      invoice?.fromPostOfficeComputed
+    );
+
+  const toFull =
+    invoice?.consigneeAddress ||
+    invoice?.deliveryAddress ||
+    invoice?.toFullAddress ||
+    formatAddress(
+      invoice?.toAddress,
+      invoice?.deliveryAddress,
+      invoice?.toPostOfficeComputed
+    );
 
   const signature = invoice?.deliveryProof?.signature;
   const isValidSignature =
@@ -705,9 +715,9 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
             const addressLines = formatAddressTwoLines(invoice?.company?.address);
             return (
               <>
-                <Text style={styles.companyAddress}>
+          <Text style={styles.companyAddress}>
                   {addressLines.line1}
-                </Text>
+          </Text>
                 {addressLines.line2 && (
                   <Text style={styles.companyAddress}>
                     {addressLines.line2}
@@ -781,31 +791,23 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
         <View style={styles.leftColumn}>
           <View style={styles.mainTable}>
             <View style={styles.tableHeader}>
-              <Text style={[styles.tableHeaderCell, { width: "25%" }]}>
+              <Text style={[styles.tableHeaderCell, { width: "30%" }]}>
                 VEHICLE DETAILS
               </Text>
-              <Text style={[styles.tableHeaderCell, { width: "15%" }]}>
+              <Text style={[styles.tableHeaderCell, { width: "20%" }]}>
                 QTY
               </Text>
-              <Text style={[styles.tableHeaderCell, { width: "40%" }]}>
+              <Text style={[styles.tableHeaderCell, { width: "30%" }]}>
                 GOODS DESCRIPTION
               </Text>
-              <Text style={[styles.tableHeaderCell, { width: "15%" }]}>
+              <Text style={[styles.tableHeaderCell, { width: "20%", borderRight: "none" }]}>
                 WEIGHT
-              </Text>
-              <Text
-                style={[
-                  styles.tableHeaderCell,
-                  { width: "10%", borderRight: "none" },
-                ]}
-              >
-                VALUE
               </Text>
             </View>
 
             {/* Vehicle Number Row */}
             <View style={styles.tableRow}>
-              <View style={[styles.tableCell, { width: "25%" }]}>
+              <View style={[styles.tableCell, { width: "30%" }]}>
                 <Text style={styles.fieldLabel}>VEHICLE NUMBER:</Text>
                 <FieldInputView
                   value={
@@ -815,17 +817,22 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
                   }
                 />
               </View>
-              <View style={[styles.tableCell, { width: "15%" }]}>
+              <View style={[styles.tableCell, { width: "20%" }]}>
                 {/* <Text style={styles.fieldLabel}>QTY:</Text> */}
                 <FieldInputView value={invoice?.numberOfPackages || ""} />
               </View>
-              <View style={[styles.tableCell, { width: "40%" }]}>
+              <View style={[styles.tableCell, { width: "30%" }]}>
                 {/* <Text style={styles.fieldLabel}>GOODS:</Text> */}
                 <FieldInputView
                   value={`${invoice?.goodsType?.name || ""}`}
                 />
               </View>
-              <View style={[styles.tableCell, { width: "15%" }]}>
+              <View
+                style={[
+                  styles.tableCell,
+                  { width: "20%", borderRight: "none" },
+                ]}
+              >
                 {/* <Text style={styles.fieldLabel}>WEIGHT:</Text> */}
                 <FieldInputView
                   value={
@@ -833,32 +840,34 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
                   }
                 />
               </View>
-              <View
-                style={[
-                  styles.tableCell,
-                  { width: "10%", borderRight: "none" },
-                ]}
-              >
-                {/* <Text style={styles.fieldLabel}>VALUE:</Text> */}
-                <FieldInputView value={renderCurrency(invoice?.goodsValue)} />
-              </View>
             </View>
 
             {/* Vehicle Type Row */}
             <View style={styles.tableRow}>
-              <View style={[styles.tableCell, { width: "25%" }]}>
+              <View style={[styles.tableCell, { width: "30%" }]}>
                 <Text style={styles.fieldLabel}>VEHICLE TYPE:</Text>
                 <FieldInputView value={invoice?.vehicleSize || ""} />
               </View>
-              <View style={[styles.tableCell, { width: "15%" }]}>
+              <View style={[styles.tableCell, { width: "20%" }]}>
                 <Text style={styles.fieldLabel}>INV NO:</Text>
                 <FieldInputView value={renderMultiValue(invoice?.invoiceNumber)} />
               </View>
-              <View style={[styles.tableCell, { width: "40%" }]}>
+              <View style={[styles.tableCell, { width: "30%" }]}>
                 <Text style={styles.fieldLabel}>INVOICE VALUE:</Text>
-                <FieldInputView value={renderCurrency(invoice?.invoiceBill)} />
+                <FieldInputView
+                  value={renderCurrency(
+                    invoice?.invoiceBill ||
+                      invoice?.total ||
+                      invoice?.freightCharges
+                  )}
+                />
               </View>
-              <View style={[styles.tableCell, { width: "15%" }]}>
+              <View
+                style={[
+                  styles.tableCell,
+                  { width: "20%", borderRight: "none" },
+                ]}
+              >
                 <Text style={styles.fieldLabel}>E-WAY BILL:</Text>
                 <FieldInputView
                   value={renderMultiValue(
@@ -866,69 +875,54 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
                   )}
                 />
               </View>
-              <View
-                style={[
-                  styles.tableCell,
-                  { width: "10%", borderRight: "none" },
-                ]}
-              />
             </View>
 
             {/* Driver Row */}
             <View style={styles.tableRow}>
-              <View style={[styles.tableCell, { width: "25%" }]}>
+              <View style={[styles.tableCell, { width: "30%" }]}>
                 <Text style={styles.fieldLabel}>DRIVER NAME:</Text>
                 <FieldInputView value={invoice?.driver?.name || ""} />
               </View>
-              <View style={[styles.tableCell, { width: "15%" }]}>
+              <View style={[styles.tableCell, { width: "20%" }]}>
                 <Text style={styles.fieldLabel}>SITE ID:</Text>
                 <FieldInputView value={invoice?.siteId || ""} />
               </View>
-              <View style={[styles.tableCell, { width: "40%" }]}>
+              <View style={[styles.tableCell, { width: "30%" }]}>
                 <Text style={styles.fieldLabel}>SITE TYPE:</Text>
                 <FieldInputView value={invoice?.siteType?.name || ""} />
-              </View>
-              <View style={[styles.tableCell, { width: "15%" }]}>
-                <Text style={styles.fieldLabel}>ORDER:</Text>
-                <FieldInputView value={invoice?.orderNumber || ""} />
               </View>
               <View
                 style={[
                   styles.tableCell,
-                  { width: "10%", borderRight: "none" },
+                  { width: "20%", borderRight: "none" },
                 ]}
               >
-                <Text style={styles.fieldLabel}>PAYMENT:</Text>
-                <FieldInputView value={invoice?.paymentType || ""} />
+                <Text style={styles.fieldLabel}>ORDER:</Text>
+                <FieldInputView value={invoice?.orderNumber || ""} />
               </View>
             </View>
 
             {/* Driver Contact Row */}
             <View style={styles.tableRow}>
-              <View style={[styles.tableCell, { width: "25%" }]}>
+              <View style={[styles.tableCell, { width: "30%" }]}>
                 <Text style={styles.fieldLabel}>DRIVER PHONE:</Text>
                 <FieldInputView value={invoice?.driverContactNumber || ""} />
               </View>
-              <View style={[styles.tableCell, { width: "15%" }]}>
+              <View style={[styles.tableCell, { width: "20%" }]}>
                 <Text style={styles.fieldLabel}>SEAL NO:</Text>
                 <FieldInputView value={invoice?.sealNo || ""} />
               </View>
-              <View style={[styles.tableCell, { width: "40%" }]}>
+              <View style={[styles.tableCell, { width: "30%" }]}>
                 <Text style={styles.fieldLabel}>TRANSPORT MODE:</Text>
                 <FieldInputView value={invoice?.transportMode?.name || ""} />
-              </View>
-              <View style={[styles.tableCell, { width: "15%" }]}>
-                <Text style={styles.fieldLabel}>PAYMENT:</Text>
-                <FieldInputView value={invoice?.paymentType || ""} />
               </View>
               <View
                 style={[
                   styles.tableCell,
-                  { width: "10%", borderRight: "none" },
+                  { width: "20%", borderRight: "none" },
                 ]}
               >
-                {/* <Text style={styles.fieldLabel}>NONE:</Text>
-                <FieldInputView value={invoice?.paymentType || "-"} /> */}
+                {/* Intentionally left blank to keep grid alignment after removing PAYMENT column */}
               </View>
             </View>
           </View>
@@ -1084,6 +1078,21 @@ export default function InvoicePDFDocument({ invoice, logoBase64 }) {
             invoice={invoice}
             logoBase64={logoBase64}
             copyType="CONSIGNEE COPY"
+          />
+        </View>
+      </Page>
+      {/* Additional page for Driver and Office copies */}
+      <Page size="A4" style={styles.page}>
+        <View style={styles.pageContainer}>
+          <InvoiceCopy
+            invoice={invoice}
+            logoBase64={logoBase64}
+            copyType="DRIVER COPY"
+          />
+          <InvoiceCopy
+            invoice={invoice}
+            logoBase64={logoBase64}
+            copyType="OFFICE COPY"
           />
         </View>
       </Page>

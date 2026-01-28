@@ -163,6 +163,7 @@ const CSV_COLUMNS = [
   { key: "GoodsType", label: "Goods Type" },
   { key: "GoodsItems", label: "Goods Items" },
   { key: "VehicleType", label: "Vehicle Type" },
+  { key: "VehicleSize", label: "Vehicle Size" },
   { key: "VehicleNumber", label: "Vehicle Number" },
   { key: "Vendor", label: "Vendor" },
   { key: "Driver", label: "Driver" },
@@ -990,11 +991,16 @@ const Invoices = () => {
         ? inv.goodsType.items.join("; ")
         : "",
       VehicleType: inv.vehicleType || "",
+      VehicleSize: inv.vehicle?.type || inv.vehicleSize || "",
       VehicleNumber:
         inv.vehicle?.vehicleNumber || inv.vendorVehicle?.vehicleNumber || "",
       Vendor: inv.vendor?.name || "",
       Driver: inv.driver?.name || "",
-      DriverPhone: inv.driver?.mobile || inv.driver?.phone || "",
+      DriverPhone:
+        inv.driverContactNumber ||
+        inv.driver?.mobile ||
+        inv.driver?.phone ||
+        "",
       Status: inv.status || "",
       InvoiceDate: formatDateField(inv.invoiceDate),
       DispatchDateTime: formatDateField(inv.dispatchDateTime),

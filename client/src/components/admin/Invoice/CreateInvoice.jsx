@@ -1193,15 +1193,15 @@ const CreateInvoice = () => {
         // Handle post-creation operations in a separate try-catch
         // so errors here don't affect the success message
         try {
-          // Auto-select the newly created vehicle
-          const newVehicle = result.vehicle;
-          handleVehicleSelect({
-            _id: newVehicle._id,
-            vehicleNumber: newVehicle.vehicleNumber,
-            ownerType: "Dellcube",
-            type: newVehicle.type,
-            currentDriver: newVehicle.currentDriver,
-          });
+        // Auto-select the newly created vehicle
+        const newVehicle = result.vehicle;
+        handleVehicleSelect({
+          _id: newVehicle._id,
+          vehicleNumber: newVehicle.vehicleNumber,
+          ownerType: "Dellcube",
+          type: newVehicle.type,
+          currentDriver: newVehicle.currentDriver,
+        });
         } catch (selectError) {
           console.error("Error selecting vehicle:", selectError);
           // Silently fail - vehicle was created successfully

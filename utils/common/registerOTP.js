@@ -85,7 +85,7 @@ const createBrevoTransporter = (options = {}) => {
 
   // Determine if using SSL (port 465) or STARTTLS (port 587)
   const isSecure = smtpPort === 465;
-  
+
   const transporter = nodemailer.createTransport({
     host: smtpHost,
     port: smtpPort,

@@ -90,22 +90,22 @@ const VendorDetail = () => {
     insuranceImage: null,
   });
 
-  const fetchVendor = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const { data } = await getVendorById(vendorId);
-      if (data?.success) {
-        setVendorData(data.vendor);
-      } else {
-        setError("Vendor not found");
+    const fetchVendor = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const { data } = await getVendorById(vendorId);
+        if (data?.success) {
+          setVendorData(data.vendor);
+        } else {
+          setError("Vendor not found");
+        }
+      } catch (err) {
+        setError("Failed to fetch vendor data");
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      setError("Failed to fetch vendor data");
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
   useEffect(() => {
     fetchVendor();

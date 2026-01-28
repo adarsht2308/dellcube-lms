@@ -135,7 +135,7 @@ const CreateOperationUser = () => {
       }));
     }
   }, [isBranchAdmin, companyId, branchId]);
-
+  
   // Initialize branches for branchAdmin's company
   useEffect(() => {
     if (isBranchAdmin && companyId) {
