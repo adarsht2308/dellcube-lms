@@ -101,9 +101,9 @@ const createBrevoTransporter = (options = {}) => {
       user: smtpUser,
       pass: trimmedPass,
     },
-    connectionTimeout: 60000, // 60 seconds connection timeout
-    greetingTimeout: 30000, // 30 seconds greeting timeout
-    socketTimeout: 60000, // 60 seconds socket timeout
+    connectionTimeout: 5000, // 5 seconds connection timeout
+    greetingTimeout: 5000, // 5 seconds greeting timeout
+    socketTimeout: 5000, // 5 seconds socket timeout
     tls: {
       rejectUnauthorized: false, // Allow self-signed certificates
       minVersion: 'TLSv1.2', // Use modern TLS version
@@ -113,8 +113,8 @@ const createBrevoTransporter = (options = {}) => {
     maxMessages: 100, // Maximum messages per connection
     rateDelta: 1000, // Rate limiting
     rateLimit: 5, // Max 5 messages per rateDelta
-    debug: true, // Always enable debug for troubleshooting
-    logger: true, // Always enable logger for troubleshooting
+    debug: false, // Disable debug in production (can be noisy)
+    logger: false, // Disable logger in production (can be noisy)
   });
 
   console.log("DEBUG: Transporter created successfully");
@@ -123,19 +123,41 @@ const createBrevoTransporter = (options = {}) => {
   return transporter;
 };
 
+// Helper function to send email with timeout wrapper
+const sendEmailWithTimeout = async (transporter, mailOptions, timeoutMs = 8000) => {
+  const startTime = Date.now();
+  try {
+    const result = await Promise.race([
+      transporter.sendMail(mailOptions),
+      new Promise((_, reject) => 
+        setTimeout(() => {
+          const elapsed = Date.now() - startTime;
+          reject(new Error(`Email sending timed out after ${elapsed}ms`));
+        }, timeoutMs)
+      )
+    ]);
+    const elapsed = Date.now() - startTime;
+    console.log(`DEBUG: Email sent in ${elapsed}ms`);
+    return result;
+  } catch (error) {
+    const elapsed = Date.now() - startTime;
+    console.error(`DEBUG: Email sending failed after ${elapsed}ms`);
+    throw error;
+  }
+};
+
 // Helper function to send email with retry and fallback ports
-const sendEmailWithRetry = async (mailOptions, maxRetries = 2) => {
+const sendEmailWithRetry = async (mailOptions, maxRetries = 1) => {
   const smtpHost = process.env.SMTP_HOST || "smtp-relay.brevo.com";
   const defaultPort = parseInt(process.env.SMTP_PORT || "587");
   
-  // Try configurations in order: default port, then 465 (SSL), then 2525 (alternative)
+  // Try configurations in order: default port, then 465 (SSL)
   const configs = [
     { port: defaultPort, description: `default port ${defaultPort}` },
     { port: 465, description: "port 465 (SSL)" },
-    { port: 2525, description: "port 2525 (alternative)" },
   ];
   
-  // Remove duplicate if default port is already 465 or 2525
+  // Remove duplicate if default port is already 465
   const uniqueConfigs = configs.filter((config, index, self) => 
     index === self.findIndex(c => c.port === config.port)
   );
@@ -151,7 +173,8 @@ const sendEmailWithRetry = async (mailOptions, maxRetries = 2) => {
           port: config.port 
         });
         
-        const info = await transporter.sendMail(mailOptions);
+        // Use timeout wrapper to fail fast (8 seconds max)
+        const info = await sendEmailWithTimeout(transporter, mailOptions, 8000);
         console.log(`✅ SUCCESS: Email sent using ${config.description}`);
         return info;
       } catch (error) {
@@ -159,15 +182,15 @@ const sendEmailWithRetry = async (mailOptions, maxRetries = 2) => {
         lastError = error;
         
         // If it's not a connection/timeout error, don't try other ports
-        if (error.code !== 'ETIMEDOUT' && error.code !== 'ECONNECTION' && error.code !== 'ESOCKET') {
+        if (error.code !== 'ETIMEDOUT' && error.code !== 'ECONNECTION' && error.code !== 'ESOCKET' && !error.message?.includes('timed out')) {
           throw error;
         }
       }
     }
     
-    // Wait before retry (exponential backoff)
+    // Wait before retry (shorter wait time)
     if (attempt < maxRetries - 1) {
-      const waitTime = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s...
+      const waitTime = 1000; // 1 second wait
       console.log(`DEBUG: Waiting ${waitTime}ms before retry...`);
       await new Promise(resolve => setTimeout(resolve, waitTime));
     }
@@ -235,9 +258,25 @@ export const sendPasswordResetOTPEmail = async (name, email, otp) => {
     // Remove quotes if present (common in production env vars)
     let senderEmail = process.env.SMTP_FROM || "Dellcube <dellcubexservora@gmail.com>";
     senderEmail = senderEmail.replace(/^["']|["']$/g, ''); // Remove surrounding quotes
+    
+    // Validate sender email format
+    if (!senderEmail.includes('<') || !senderEmail.includes('>')) {
+      // If format is just email, wrap it properly
+      const emailMatch = senderEmail.match(/([^<>\s]+@[^<>\s]+)/);
+      if (emailMatch) {
+        senderEmail = `Dellcube <${emailMatch[1]}>`;
+        console.log(`DEBUG: Wrapped sender email in proper format: ${senderEmail}`);
+      }
+    }
+    
     console.log(`DEBUG: Sender email: ${senderEmail}`);
     console.log(`DEBUG: SMTP_FROM env var (raw): ${process.env.SMTP_FROM || 'NOT SET (using default)'}`);
     console.log(`DEBUG: SMTP_FROM env var (processed): ${senderEmail}`);
+    
+    // Extract just the email address for validation
+    const emailMatch = senderEmail.match(/<([^>]+)>/);
+    const senderEmailAddress = emailMatch ? emailMatch[1] : senderEmail;
+    console.log(`DEBUG: Sender email address (extracted): ${senderEmailAddress}`);
 
     let mailOptions = {
       from: senderEmail,
@@ -255,14 +294,37 @@ export const sendPasswordResetOTPEmail = async (name, email, otp) => {
     console.log("DEBUG: Step 3 - Attempting to send email...");
     console.log(`Sending password reset email from: ${senderEmail} to: ${email}`);
     
+    const sendStartTime = Date.now();
+    
     // Send email with retry and fallback ports
     console.log("DEBUG: Sending email with retry mechanism...");
     const info = await sendEmailWithRetry(mailOptions);
     
+    const sendDuration = Date.now() - sendStartTime;
     console.log("DEBUG: Step 4 - Email sent successfully!");
-    console.log(`DEBUG: Message ID: ${info.messageId}`);
-    console.log(`DEBUG: Response: ${info.response}`);
-    console.log(`Password reset OTP email sent successfully to ${email}`);
+    console.log(`DEBUG: Message ID: ${info.messageId || 'N/A'}`);
+    console.log(`DEBUG: Response: ${info.response || 'N/A'}`);
+    console.log(`DEBUG: Accepted recipients: ${info.accepted?.join(', ') || 'N/A'}`);
+    console.log(`DEBUG: Rejected recipients: ${info.rejected?.join(', ') || 'N/A'}`);
+    console.log(`DEBUG: Pending recipients: ${info.pending?.join(', ') || 'N/A'}`);
+    console.log(`DEBUG: Email sending took ${sendDuration}ms`);
+    
+    // Verify email was accepted
+    if (info.accepted && info.accepted.length > 0) {
+      console.log(`✅ Email accepted by SMTP server for: ${info.accepted.join(', ')}`);
+    } else {
+      console.warn(`⚠️ WARNING: Email may not have been accepted by SMTP server`);
+    }
+    
+    if (info.rejected && info.rejected.length > 0) {
+      console.error(`❌ Email rejected by SMTP server for: ${info.rejected.join(', ')}`);
+    }
+    
+    console.log(`✅ Password reset OTP email sent successfully to ${email}`);
+    console.log(`📧 NOTE: If email is not received, please check:`);
+    console.log(`   1. Spam/Junk folder`);
+    console.log(`   2. Sender email (${senderEmailAddress}) is verified in Brevo dashboard`);
+    console.log(`   3. Email address (${email}) is correct`);
     console.log("==========================================\n");
     
     return info;

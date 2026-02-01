@@ -3112,19 +3112,30 @@ export const sendPasswordResetOTPController = async (req, res) => {
       sentAt: Date.now(),
     });
 
-    // Send OTP email
-    try {
-      await sendPasswordResetOTPEmail(user.name, email, otp);
-    } catch (emailError) {
-      console.error("Error sending password reset OTP email:", emailError);
-      // Don't reveal if user exists or not for security
-      // Return success message even if email fails (to prevent email enumeration)
-      return res.status(200).json({
-        success: true,
-        message: "If an account exists with this email, a password reset OTP has been sent.",
+    // Send OTP email asynchronously (non-blocking) to respond quickly
+    // This allows the API to respond immediately while email is sent in background
+    const emailStartTime = Date.now();
+    sendPasswordResetOTPEmail(user.name, email, otp)
+      .then((info) => {
+        const emailDuration = Date.now() - emailStartTime;
+        console.log(`✅ Password reset OTP email sent successfully to ${email} (took ${emailDuration}ms)`);
+        if (info?.accepted && info.accepted.length > 0) {
+          console.log(`✅ Email accepted by SMTP server`);
+        }
+        if (info?.rejected && info.rejected.length > 0) {
+          console.error(`❌ Email rejected by SMTP server: ${info.rejected.join(', ')}`);
+        }
+      })
+      .catch((emailError) => {
+        const emailDuration = Date.now() - emailStartTime;
+        console.error(`❌ Error sending password reset OTP email after ${emailDuration}ms:`, emailError);
+        console.error(`Error code: ${emailError.code || 'N/A'}`);
+        console.error(`Error message: ${emailError.message || 'N/A'}`);
+        // Email sending failed, but we don't block the response
+        // The OTP is still stored, so user can try again if needed
       });
-    }
 
+    // Respond immediately without waiting for email to be sent
     return res.status(200).json({
       success: true,
       message: "Password reset OTP has been sent to your email.",
