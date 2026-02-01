@@ -371,28 +371,159 @@ const VendorDetail = () => {
               <div className="p-2 bg-green-100 rounded-full">
                 <Building2 className="w-5 h-5 text-green-600" />
               </div>
-              <h3 className="text-lg font-semibold text-[#202020]">Company & Branch</h3>
+              <h3 className="text-lg font-semibold text-[#202020]">Companies & Branches</h3>
             </div>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <Building2 className="w-4 h-4 text-[#828083]" />
-                <span className="text-sm text-[#828083]">
-                  {Array.isArray(vendorData.company) 
-                    ? vendorData.company.map(c => c?.name || c).join(", ") || "N/A"
-                    : vendorData.company?.name || "N/A"}
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <MapPin className="w-4 h-4 text-[#828083]" />
-                <span className="text-sm text-[#828083]">
-                  {Array.isArray(vendorData.branch)
-                    ? vendorData.branch.map(b => b?.name || b).join(", ") || "N/A"
-                    : vendorData.branch?.name || "N/A"}
-                </span>
-              </div>
+            <div className="space-y-4">
+              {(() => {
+                // Group branches by company
+                const companies = Array.isArray(vendorData.company) 
+                  ? vendorData.company 
+                  : vendorData.company ? [vendorData.company] : [];
+                const branches = Array.isArray(vendorData.branch)
+                  ? vendorData.branch
+                  : vendorData.branch ? [vendorData.branch] : [];
+                
+                // Create a map of company to branches
+                const companyBranchMap = new Map();
+                
+                // First, add all companies
+                companies.forEach((company) => {
+                  const companyId = company?._id || company;
+                  const companyName = typeof company === 'object' ? (company?.name || 'Unknown') : company;
+                  
+                  if (!companyBranchMap.has(String(companyId))) {
+                    companyBranchMap.set(String(companyId), {
+                      company: companyName,
+                      branches: []
+                    });
+                  }
+                });
+                
+                // Then, try to match branches to companies
+                branches.forEach((branch) => {
+                  const branchName = typeof branch === 'object' ? (branch?.name || 'Unknown') : branch;
+                  const branchCompanyId = branch?.company?._id || branch?.company;
+                  
+                  if (branchCompanyId && companyBranchMap.has(String(branchCompanyId))) {
+                    companyBranchMap.get(String(branchCompanyId)).branches.push(branchName);
+                  } else {
+                    // If branch doesn't have company reference, add to first company or create a standalone entry
+                    if (companyBranchMap.size > 0) {
+                      const firstCompany = Array.from(companyBranchMap.values())[0];
+                      firstCompany.branches.push(branchName);
+                    }
+                  }
+                });
+                
+                if (companyBranchMap.size === 0) {
+                  return <p className="text-sm text-[#828083]">No companies or branches assigned</p>;
+                }
+                
+                return Array.from(companyBranchMap.entries()).map(([companyId, item], idx) => (
+                  <div key={companyId || idx} className="border-l-4 border-green-400 pl-4 py-2 bg-green-50/50 rounded-r-md">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Building2 className="w-4 h-4 text-green-600" />
+                      <span className="font-semibold text-sm text-[#202020]">{item.company}</span>
+                    </div>
+                    {item.branches.length > 0 ? (
+                      <div className="ml-6 space-y-1">
+                        {item.branches.map((branchName, branchIdx) => (
+                          <div key={branchIdx} className="flex items-center gap-2">
+                            <MapPin className="w-3 h-3 text-[#828083]" />
+                            <span className="text-xs text-[#828083]">{branchName}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="ml-6">
+                        <span className="text-xs text-[#828083] italic">No branches assigned</span>
+                      </div>
+                    )}
+                  </div>
+                ));
+              })()}
             </div>
           </Card>
         </div>
+
+        {/* Assigned Customers */}
+        <Card className="p-6 rounded-2xl shadow-lg border-0 bg-white/90 mb-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-orange-100 rounded-full">
+              <Users className="w-5 h-5 text-orange-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-[#202020]">Assigned Customers</h3>
+            <Badge variant="outline" className="text-[#828083]">
+              {vendorData.assignedClients?.length || 0} customer(s)
+            </Badge>
+          </div>
+          {vendorData.assignedClients && vendorData.assignedClients.length > 0 ? (
+            <div className="space-y-4">
+              {(() => {
+                // Group customers by company and branch
+                const groupedCustomers = {};
+                
+                vendorData.assignedClients.forEach((customer) => {
+                  const companyId = customer?.company?._id || customer?.company || 'unknown';
+                  const branchId = customer?.branch?._id || customer?.branch || 'unknown';
+                  const companyName = customer?.company?.name || 'Unknown Company';
+                  const branchName = customer?.branch?.name || 'Unknown Branch';
+                  const key = `${companyId}-${branchId}`;
+                  
+                  if (!groupedCustomers[key]) {
+                    groupedCustomers[key] = {
+                      companyName,
+                      branchName,
+                      companyId,
+                      branchId,
+                      customers: []
+                    };
+                  }
+                  groupedCustomers[key].customers.push(customer);
+                });
+
+                return Object.values(groupedCustomers).map((group, idx) => (
+                  <div key={idx} className="border-l-4 border-orange-400 pl-4 py-3 bg-orange-50/50 rounded-r-md">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Building2 className="w-4 h-4 text-orange-600" />
+                      <span className="font-semibold text-sm text-[#202020]">{group.companyName}</span>
+                      <span className="text-xs text-[#828083]">→</span>
+                      <MapPin className="w-3 h-3 text-orange-600" />
+                      <span className="font-medium text-xs text-[#202020]">{group.branchName}</span>
+                      <Badge variant="outline" className="ml-auto text-xs">
+                        {group.customers.length} customer(s)
+                      </Badge>
+                    </div>
+                    <div className="ml-6 grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {group.customers.map((customer, customerIdx) => (
+                        <div 
+                          key={customerIdx} 
+                          className="flex items-center gap-2 p-2 bg-white rounded-md border border-orange-100 hover:border-orange-300 transition-colors"
+                        >
+                          <Users className="w-3 h-3 text-orange-600 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-[#202020] truncate">
+                              {customer?.name || customer}
+                            </p>
+                            {customer?.email && (
+                              <p className="text-xs text-[#828083] truncate">{customer.email}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-[#828083]">
+              <Users className="w-12 h-12 mx-auto mb-3 text-[#828083] opacity-50" />
+              <p>No customers assigned to this vendor</p>
+              <p className="text-sm mt-1">Customers can be assigned when creating or updating the vendor</p>
+            </div>
+          )}
+        </Card>
 
         {/* Financial Information */}
         <Card className="p-6 rounded-2xl shadow-lg border-0 bg-white/90 mb-6">

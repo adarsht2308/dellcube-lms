@@ -54,10 +54,12 @@ const createBrevoTransporter = (options = {}) => {
   
   // For Brevo, the username can be just the ID or the full email
   let smtpUser = process.env.SMTP_USER || "9fbd25001@smtp-brevo.com";
+  // Remove quotes if present (common in production env vars)
+  smtpUser = smtpUser.replace(/^["']|["']$/g, '').trim();
   console.log(`DEBUG: SMTP_USER = ${smtpUser}`);
   
   // Try SMTP_PASS first, then BREVO_SMTP_KEY, then BREVO_API_KEY
-  const smtpPass = process.env.SMTP_PASS || process.env.BREVO_SMTP_KEY || process.env.BREVO_API_KEY;
+  let smtpPass = process.env.SMTP_PASS || process.env.BREVO_SMTP_KEY || process.env.BREVO_API_KEY;
   
   if (process.env.SMTP_PASS) {
     console.log(`DEBUG: Using SMTP_PASS (length: ${process.env.SMTP_PASS.length})`);
@@ -67,6 +69,11 @@ const createBrevoTransporter = (options = {}) => {
     console.log(`DEBUG: Using BREVO_API_KEY (length: ${process.env.BREVO_API_KEY.length})`);
   } else {
     console.log(`DEBUG: No SMTP password found in environment variables!`);
+  }
+  
+  // Remove quotes and trim password if present
+  if (smtpPass) {
+    smtpPass = smtpPass.replace(/^["']|["']$/g, '').trim();
   }
 
   if (!smtpUser || !smtpPass) {
@@ -173,7 +180,9 @@ const sendEmailWithRetry = async (mailOptions, maxRetries = 2) => {
 export const sendOTPEmail = async (name, email, otp) => {
   try {
     // Use the specified sender email (default to verified Brevo account email)
-    const senderEmail = process.env.SMTP_FROM || "Dellcube <dellcubexservora@gmail.com>";
+    // Remove quotes if present (common in production env vars)
+    let senderEmail = process.env.SMTP_FROM || "Dellcube <dellcubexservora@gmail.com>";
+    senderEmail = senderEmail.replace(/^["']|["']$/g, ''); // Remove surrounding quotes
 
     let mailOptions = {
       from: senderEmail,
@@ -223,9 +232,12 @@ export const sendPasswordResetOTPEmail = async (name, email, otp) => {
     console.log("DEBUG: Step 1 - Preparing email...");
     
     // Use the specified sender email (default to verified Brevo account email)
-    const senderEmail = process.env.SMTP_FROM || "Dellcube <dellcubexservora@gmail.com>";
+    // Remove quotes if present (common in production env vars)
+    let senderEmail = process.env.SMTP_FROM || "Dellcube <dellcubexservora@gmail.com>";
+    senderEmail = senderEmail.replace(/^["']|["']$/g, ''); // Remove surrounding quotes
     console.log(`DEBUG: Sender email: ${senderEmail}`);
-    console.log(`DEBUG: SMTP_FROM env var: ${process.env.SMTP_FROM || 'NOT SET (using default)'}`);
+    console.log(`DEBUG: SMTP_FROM env var (raw): ${process.env.SMTP_FROM || 'NOT SET (using default)'}`);
+    console.log(`DEBUG: SMTP_FROM env var (processed): ${senderEmail}`);
 
     let mailOptions = {
       from: senderEmail,
@@ -283,6 +295,8 @@ export const sendPasswordResetOTPEmail = async (name, email, otp) => {
     
     // Handle connection errors
     if (error.code === 'ECONNECTION' || error.code === 'ETIMEDOUT' || error.code === 'ESOCKET') {
+      const smtpHost = process.env.SMTP_HOST || "smtp-relay.brevo.com";
+      const smtpPort = parseInt(process.env.SMTP_PORT || "587");
       console.error("\n=== SMTP CONNECTION ERROR ===");
       console.error("Cannot connect to SMTP server. Check:");
       console.error("1. Internet connection and network access");
@@ -312,9 +326,21 @@ export const sendPasswordResetOTPEmail = async (name, email, otp) => {
 
 // Function to send Welcome email to new users
 export const sendWelcomeEmail = async (name, email, role) => {
+  console.log("\n=== DEBUG: Starting Welcome Email ===");
+  console.log(`DEBUG: Recipient name: ${name}`);
+  console.log(`DEBUG: Recipient email: ${email}`);
+  console.log(`DEBUG: User role: ${role}`);
+  
   try {
+    console.log("DEBUG: Step 1 - Preparing email...");
+    
     // Use the specified sender email (default to verified Brevo account email)
-    const senderEmail = process.env.SMTP_FROM || "Dellcube <dellcubexservora@gmail.com>";
+    // Remove quotes if present (common in production env vars)
+    let senderEmail = process.env.SMTP_FROM || "Dellcube <dellcubexservora@gmail.com>";
+    senderEmail = senderEmail.replace(/^["']|["']$/g, ''); // Remove surrounding quotes
+    console.log(`DEBUG: Sender email: ${senderEmail}`);
+    console.log(`DEBUG: SMTP_FROM env var (raw): ${process.env.SMTP_FROM || 'NOT SET (using default)'}`);
+    console.log(`DEBUG: SMTP_FROM env var (processed): ${senderEmail}`);
 
     let mailOptions = {
       from: senderEmail,
@@ -323,16 +349,80 @@ export const sendWelcomeEmail = async (name, email, role) => {
       html: welcomeEmailTemplate(name, role),
     };
 
+    console.log("DEBUG: Step 2 - Mail options prepared");
+    console.log(`DEBUG: From: ${mailOptions.from}`);
+    console.log(`DEBUG: To: ${mailOptions.to}`);
+    console.log(`DEBUG: Subject: ${mailOptions.subject}`);
+    console.log(`DEBUG: HTML template length: ${mailOptions.html.length} characters`);
+
+    console.log("DEBUG: Step 3 - Attempting to send email...");
     console.log(`Sending welcome email from: ${senderEmail} to: ${email}`);
-    await sendEmailWithRetry(mailOptions);
+    
+    // Send email with retry and fallback ports
+    console.log("DEBUG: Sending email with retry mechanism...");
+    const info = await sendEmailWithRetry(mailOptions);
+    
+    console.log("DEBUG: Step 4 - Email sent successfully!");
+    console.log(`DEBUG: Message ID: ${info.messageId}`);
+    console.log(`DEBUG: Response: ${info.response}`);
     console.log(`Welcome email sent successfully to ${email}`);
+    console.log("=====================================\n");
+    
+    return info;
   } catch (error) {
-    console.error("Error sending welcome email:", error);
+    console.error("\n=== ERROR: Failed to send welcome email ===");
+    console.error(`Error code: ${error.code}`);
+    console.error(`Error message: ${error.message}`);
+    console.error(`Response code: ${error.responseCode}`);
+    console.error(`Response: ${error.response}`);
+    console.error(`Command: ${error.command}`);
+    
+    if (error.stack) {
+      console.error("\nStack trace:");
+      console.error(error.stack);
+    }
+    
+    // Provide helpful error message for authentication failures
+    if (error.code === 'EAUTH' || error.responseCode === 535) {
+      console.error("\n=== SMTP AUTHENTICATION ERROR ===");
+      console.error("The SMTP authentication failed. This usually means:");
+      console.error("1. You are using the API key instead of the SMTP key");
+      console.error("2. The SMTP key is incorrect or expired");
+      console.error("3. The SMTP_USER might be wrong");
+      console.error("4. To fix: Get your SMTP key from Brevo dashboard:");
+      console.error("   Settings → SMTP & API → SMTP section");
+      console.error("   Use that key as SMTP_PASS in your .env file");
+      console.error("   Make sure SMTP_USER matches your Brevo account");
+      console.error("===================================\n");
+    }
+    
+    // Handle connection errors
+    if (error.code === 'ECONNECTION' || error.code === 'ETIMEDOUT' || error.code === 'ESOCKET') {
+      const smtpHost = process.env.SMTP_HOST || "smtp-relay.brevo.com";
+      const smtpPort = parseInt(process.env.SMTP_PORT || "587");
+      console.error("\n=== SMTP CONNECTION ERROR ===");
+      console.error("Cannot connect to SMTP server. Check:");
+      console.error("1. Internet connection and network access");
+      console.error(`2. SMTP_HOST is correct: ${smtpHost}`);
+      console.error(`3. SMTP_PORT is correct: ${smtpPort}`);
+      console.error("4. Firewall/security groups allow outbound connections on port " + smtpPort);
+      console.error("5. Try using port 465 with SSL if port 587 is blocked");
+      console.error("6. Check if production environment has network restrictions");
+      console.error("7. Consider using Brevo API instead of SMTP if SMTP is blocked");
+      console.error("================================\n");
+    }
     
     // Handle sender verification errors
-    if (error.responseCode === 550 || error.message?.includes('sender')) {
-      console.error("Note: Sender email needs to be verified in Brevo dashboard");
+    if (error.responseCode === 550 || error.message?.includes('sender') || error.message?.includes('550')) {
+      console.error("\n=== SENDER EMAIL VERIFICATION ERROR ===");
+      console.error("The sender email address needs to be verified in Brevo:");
+      console.error("1. Go to Brevo dashboard → Settings → Senders");
+      console.error("2. Add and verify: dellcubexservora@gmail.com (if not already verified)");
+      console.error("3. Or use a verified sender email address");
+      console.error("==========================================\n");
     }
+    
+    console.error("=====================================\n");
     
     // Don't throw error for welcome emails to avoid breaking user creation
     // Log it but continue with user creation

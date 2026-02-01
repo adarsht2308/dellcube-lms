@@ -284,14 +284,14 @@ const styles = StyleSheet.create({
     borderBottom: "1px solid #000",
     alignItems: "center",
     justifyContent: "center",
-    // Slightly taller rows to better utilize vertical space
-    minHeight: 26,
+    // Increased height to better match freight table
+    minHeight: 32,
   },
   tableCell: {
-    padding: "0.7mm",
+    padding: "0.9mm",
     fontSize: 8.5,
     borderRight: "1px solid #000",
-    minHeight: "4mm",
+    minHeight: "5mm",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -313,6 +313,9 @@ const styles = StyleSheet.create({
   freightSection: {
     border: "1px solid #000",
     fontSize: 7,
+    flex: 1, // Stretch to fill available height in rightColumn
+    display: "flex",
+    flexDirection: "column",
   },
   freightHeader: {
     backgroundColor: "#e8e8e8",
@@ -321,11 +324,24 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     textAlign: "center",
     borderBottom: "1px solid #000",
+    flexShrink: 0, // Don't shrink the header
+  },
+  freightBody: {
+    flex: 1, // Fill remaining space in freightSection
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "space-between", // Push TOTAL to bottom
   },
   freightRow: {
     flexDirection: "row",
     borderBottom: "1px solid #000",
     minHeight: "3mm",
+  },
+  freightTotalRow: {
+    flexDirection: "row",
+    borderBottom: "1px solid #000",
+    minHeight: "3mm",
+    marginTop: "auto", // Push to bottom
   },
   freightLabel: {
     width: "60%",
@@ -350,9 +366,9 @@ const styles = StyleSheet.create({
   footerSection: {
     flexDirection: "row",
     borderTop: "1px solid #000",
-    paddingTop: "0.5mm",
+    // paddingTop: "0.5mm",
     gap: "0.8mm",
-    marginTop: "0.5mm",
+    // marginTop: "0.5mm",
     marginBottom: "0",
   },
   receiverSection: {
@@ -932,29 +948,31 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
         <View style={styles.rightColumn}>
           <View style={styles.freightSection}>
             <Text style={styles.freightHeader}>FREIGHT CHARGES</Text>
-            {freightCharges
-              .filter((c) => c.label !== "Freight")
-              .map((charge, index) => (
-                <View key={index} style={styles.freightRow}>
-                  <Text style={styles.freightLabel}>{charge.label}</Text>
-                  <Text style={styles.freightValue}>
-                    {renderCurrency(charge.value)}
-                  </Text>
-                </View>
-              ))}
-            <View style={[styles.freightRow, styles.freightTotal]}>
-              <Text style={[styles.freightLabel, styles.freightTotal]}>
-                TOTAL
-              </Text>
-              <Text
-                style={[
-                  styles.freightValue,
-                  styles.freightTotal,
-                  { fontWeight: "bold" },
-                ]}
-              >
-                {renderCurrency(invoice?.total)}
-              </Text>
+            <View style={styles.freightBody}>
+              {freightCharges
+                .filter((c) => c.label !== "Freight")
+                .map((charge, index) => (
+                  <View key={index} style={styles.freightRow}>
+                    <Text style={styles.freightLabel}>{charge.label}</Text>
+                    <Text style={styles.freightValue}>
+                      {renderCurrency(charge.value)}
+                    </Text>
+                  </View>
+                ))}
+              <View style={[styles.freightTotalRow, styles.freightTotal]}>
+                <Text style={[styles.freightLabel, styles.freightTotal]}>
+                  TOTAL
+                </Text>
+                <Text
+                  style={[
+                    styles.freightValue,
+                    styles.freightTotal,
+                    { fontWeight: "bold" },
+                  ]}
+                >
+                  {renderCurrency(invoice?.total)}
+                </Text>
+              </View>
             </View>
           </View>
         </View>

@@ -42,41 +42,76 @@ export const createVendor = async (req, res) => {
     const finalCompany = company || (req.user?.role !== "superAdmin" ? req.companyId : null);
     const finalBranch = branch || (req.user?.role !== "superAdmin" ? req.branchId : null);
 
-    // Basic validation
-    if (!name || !email || !phone || !finalBranch || !finalCompany) {
+    // Basic validation - email is optional for vendors
+    // Support multiple companies and branches (arrays)
+    let finalCompanies = [];
+    let finalBranches = [];
+    
+    if (Array.isArray(company)) {
+      finalCompanies = company.filter(Boolean);
+    } else if (company) {
+      finalCompanies = [company];
+    } else if (req.user?.role !== "superAdmin" && req.companyId) {
+      finalCompanies = [req.companyId];
+    }
+    
+    if (Array.isArray(branch)) {
+      finalBranches = branch.filter(Boolean);
+    } else if (branch) {
+      finalBranches = [branch];
+    } else if (req.user?.role !== "superAdmin" && req.branchId) {
+      finalBranches = [req.branchId];
+    }
+
+    if (!name || !phone || finalBranches.length === 0 || finalCompanies.length === 0) {
       return res.status(400).json({
         success: false,
-        message: "Name, email, phone, branch, and company are required fields for a vendor.",
+        message: "Name, phone, at least one branch, and at least one company are required fields for a vendor.",
       });
     }
 
-    // Check if vendor with this email or name already exists
+    // Check if vendor with this phone already exists in the same company/branch combination
+    // Allow same vendor in different companies/branches
     const existingVendor = await User.findOne({
-      $or: [{ email }, { phone }],
+      phone,
       role: "vendor",
+      $or: [
+        { company: { $in: finalCompanies } },
+        { branch: { $in: finalBranches } }
+      ]
     });
+    
     if (existingVendor) {
-      return res.status(400).json({
-        success: false,
-        message: "Vendor with this email or phone already exists.",
-      });
+      // Check if there's an overlap in companies or branches
+      const existingCompanies = Array.isArray(existingVendor.company) 
+        ? existingVendor.company.map(c => c.toString())
+        : [existingVendor.company?.toString()].filter(Boolean);
+      const existingBranches = Array.isArray(existingVendor.branch)
+        ? existingVendor.branch.map(b => b.toString())
+        : [existingVendor.branch?.toString()].filter(Boolean);
+      
+      const companyOverlap = finalCompanies.some(c => existingCompanies.includes(c.toString()));
+      const branchOverlap = finalBranches.some(b => existingBranches.includes(b.toString()));
+      
+      if (companyOverlap && branchOverlap) {
+        return res.status(400).json({
+          success: false,
+          message: "Vendor with this phone number already exists in the selected company and branch combination.",
+        });
+      }
     }
 
     const hashedPassword = password
       ? await bcrypt.hash(password, 10)
       : await bcrypt.hash("Vendor@123", 10);
 
-    // Convert company and branch to arrays (User model expects arrays)
-    const companyArray = Array.isArray(finalCompany) ? finalCompany : [finalCompany].filter(Boolean);
-    const branchArray = Array.isArray(finalBranch) ? finalBranch : [finalBranch].filter(Boolean);
-
     const vendorDoc = await User.create({
       name,
       email,
       password: hashedPassword,
       role: "vendor",
-      company: companyArray,
-      branch: branchArray,
+      company: finalCompanies,
+      branch: finalBranches,
       phone,
       address,
       gstNumber,
@@ -190,7 +225,14 @@ export const getVendorById = async (req, res) => {
     const vendor = await User.findOne({ _id: id, role: "vendor" })
       .populate("company", "name")
       .populate("branch", "name")
-      .populate("assignedClients", "name email");
+      .populate({
+        path: "assignedClients",
+        select: "name email",
+        populate: [
+          { path: "company", select: "name" },
+          { path: "branch", select: "name" }
+        ]
+      });
 
     if (!vendor) {
       return res.status(404).json({
@@ -1106,7 +1148,14 @@ export const getVendorProfile = async (req, res) => {
     const vendor = await User.findOne({ _id: vendorId, role: "vendor" })
       .populate("company", "name")
       .populate("branch", "name")
-      .populate("assignedClients", "name email")
+      .populate({
+        path: "assignedClients",
+        select: "name email",
+        populate: [
+          { path: "company", select: "name" },
+          { path: "branch", select: "name" }
+        ]
+      })
       .select("-password");
 
     if (!vendor) {

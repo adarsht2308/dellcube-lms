@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import {
   User,
   Mail,
@@ -15,16 +16,20 @@ import {
   CreditCard,
   Save,
   Edit,
+  Users,
 } from "lucide-react";
 import {
   useGetVendorProfileQuery,
   useUpdateVendorProfileMutation,
 } from "../../../features/api/Vendor/vendorApi.js";
+import { getTokenData } from "@/utils/getTokenData";
 
 const VendorProfile = () => {
   const { user } = useSelector((store) => store.auth);
   const [isEditing, setIsEditing] = useState(false);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [activeBranch, setActiveBranch] = useState(null);
+  const [activeCompany, setActiveCompany] = useState(null);
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
     newPassword: "",
@@ -65,9 +70,34 @@ const VendorProfile = () => {
         bankName: vendor.bankName || "",
         accountNumber: vendor.accountNumber || "",
         ifsc: vendor.ifsc || "",
-        assignedClients: vendor.assignedClients?.map((c) => c.name || c) || [],
+        assignedClients: vendor.assignedClients || [],
         vendorStatus: vendor.vendorStatus || "active",
       });
+
+      // Get active branch and company from token
+      const { branchId: tokenBranchId, companyId: tokenCompanyId } = getTokenData();
+      
+      // Find the active branch from vendor's branches
+      if (tokenBranchId && vendor.branch) {
+        const branches = Array.isArray(vendor.branch) ? vendor.branch : [vendor.branch];
+        const activeBranchData = branches.find(
+          (b) => String(b?._id || b) === String(tokenBranchId)
+        );
+        if (activeBranchData) {
+          setActiveBranch(activeBranchData);
+        }
+      }
+
+      // Find the active company from vendor's companies
+      if (tokenCompanyId && vendor.company) {
+        const companies = Array.isArray(vendor.company) ? vendor.company : [vendor.company];
+        const activeCompanyData = companies.find(
+          (c) => String(c?._id || c) === String(tokenCompanyId)
+        );
+        if (activeCompanyData) {
+          setActiveCompany(activeCompanyData);
+        }
+      }
     }
   }, [profileResponse]);
 
@@ -150,7 +180,7 @@ const VendorProfile = () => {
         bankName: user.bankName || "",
         accountNumber: user.accountNumber || "",
         ifsc: user.ifsc || "",
-        assignedClients: user.assignedClients?.map((c) => c.name || c) || [],
+        assignedClients: user.assignedClients || [],
         vendorStatus: user.vendorStatus || "active",
       });
     }
@@ -175,6 +205,44 @@ const VendorProfile = () => {
 
   return (
     <div className="p-6 space-y-6">
+      {/* Active Branch/Company Badge */}
+      {(activeBranch || activeCompany) && (
+        <div className="bg-gradient-to-r from-[#FFD249]/10 to-[#FFD249]/5 border border-[#FFD249]/30 rounded-lg p-4 flex items-center gap-4">
+          <div className="p-2 bg-[#FFD249]/20 rounded-full">
+            <Building className="h-5 w-5 text-[#FFD249]" />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-3 flex-wrap">
+              {activeCompany && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    Company:
+                  </span>
+                  <Badge variant="outline" className="bg-white dark:bg-gray-800 border-[#FFD249]/50">
+                    <Building className="h-3 w-3 mr-1 text-[#FFD249]" />
+                    {typeof activeCompany === 'object' ? activeCompany.name : activeCompany}
+                  </Badge>
+                </div>
+              )}
+              {activeBranch && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    Active Branch:
+                  </span>
+                  <Badge variant="outline" className="bg-white dark:bg-gray-800 border-[#FFD249]/50">
+                    <MapPin className="h-3 w-3 mr-1 text-[#FFD249]" />
+                    {typeof activeBranch === 'object' ? activeBranch.name : activeBranch}
+                  </Badge>
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              You are currently logged in to this branch
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
@@ -256,17 +324,94 @@ const VendorProfile = () => {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="assignedClients">Assigned Clients</Label>
-              <Input
-                id="assignedClients"
-                value={Array.isArray(profileData.assignedClients) && profileData.assignedClients.length > 0
-                  ? profileData.assignedClients.join(", ")
-                  : "Not assigned"}
-                disabled={true}
-                className="bg-gray-100"
-              />
-            </div>
+          </CardContent>
+        </Card>
+
+        {/* Assigned Clients - Separate Card with Better UI */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Users className="h-5 w-5" />
+              <span>Assigned Clients</span>
+              {Array.isArray(profileData.assignedClients) && profileData.assignedClients.length > 0 && (
+                <Badge variant="outline" className="ml-2">
+                  {profileData.assignedClients.length} {profileData.assignedClients.length === 1 ? 'client' : 'clients'}
+                </Badge>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {Array.isArray(profileData.assignedClients) && profileData.assignedClients.length > 0 ? (
+              <div className="space-y-4">
+                {(() => {
+                  // Group customers by company and branch
+                  const groupedCustomers = {};
+                  
+                  profileData.assignedClients.forEach((customer) => {
+                    const companyId = customer?.company?._id || customer?.company || 'unknown';
+                    const branchId = customer?.branch?._id || customer?.branch || 'unknown';
+                    const companyName = customer?.company?.name || 'Unknown Company';
+                    const branchName = customer?.branch?.name || 'Unknown Branch';
+                    const key = `${companyId}-${branchId}`;
+                    
+                    if (!groupedCustomers[key]) {
+                      groupedCustomers[key] = {
+                        companyName,
+                        branchName,
+                        companyId,
+                        branchId,
+                        customers: []
+                      };
+                    }
+                    groupedCustomers[key].customers.push(customer);
+                  });
+
+                  return Object.values(groupedCustomers).map((group, idx) => (
+                    <div key={idx} className="border-l-4 border-[#FFD249] pl-4 py-3 bg-gradient-to-r from-[#FFD249]/5 to-transparent rounded-r-md">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Building className="w-4 h-4 text-[#FFD249]" />
+                        <span className="font-semibold text-sm text-gray-900 dark:text-white">{group.companyName}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">→</span>
+                        <MapPin className="w-3 h-3 text-[#FFD249]" />
+                        <span className="font-medium text-xs text-gray-700 dark:text-gray-300">{group.branchName}</span>
+                        <Badge variant="outline" className="ml-auto text-xs">
+                          {group.customers.length} {group.customers.length === 1 ? 'client' : 'clients'}
+                        </Badge>
+                      </div>
+                      <div className="ml-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {group.customers.map((customer, customerIdx) => (
+                          <div 
+                            key={customerIdx} 
+                            className="flex items-center gap-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-[#FFD249] hover:shadow-md transition-all duration-200"
+                          >
+                            <div className="p-2 bg-[#FFD249]/10 rounded-full">
+                              <Users className="w-4 h-4 text-[#FFD249]" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                {customer?.name || customer}
+                              </p>
+                              {customer?.email && (
+                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate flex items-center gap-1 mt-1">
+                                  <Mail className="w-3 h-3" />
+                                  {customer.email}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p>No clients assigned</p>
+                <p className="text-sm mt-1">Clients will appear here when assigned by an administrator</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 

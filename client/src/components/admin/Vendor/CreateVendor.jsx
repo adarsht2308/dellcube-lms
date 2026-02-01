@@ -32,8 +32,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useCreateVendorMutation } from "@/features/api/Vendor/vendorApi";
 import { useGetAllCompaniesQuery } from "@/features/api/Company/companyApi";
 import { useGetBranchesByCompanyMutation } from "@/features/api/Branch/branchApi";
-import { useGetAllCustomersQuery } from "@/features/api/Customer/customerApi";
 import { getTokenData } from "@/utils/getTokenData";
+import { BASE_URL } from "@/utils/BaseUrl";
 
 const CreateVendor = () => {
   const navigate = useNavigate();
@@ -74,8 +74,8 @@ const CreateVendor = () => {
     accountNumber: "",
     ifsc: "",
     status: "active",
-    company: "",
-    branch: "",
+    companies: isBranchAdmin && user?.company?._id ? [user.company._id] : [],
+    branches: isBranchAdmin && user?.branch?._id ? [user.branch._id] : [],
     assignedClients: [],
     password: "",
     confirmPassword: "",
@@ -83,22 +83,18 @@ const CreateVendor = () => {
   const [signatureFile, setSignatureFile] = useState(null);
   const [signaturePreview, setSignaturePreview] = useState("");
 
-  const [branches, setBranches] = useState([]);
+  // Store branches for each selected company
+  const [branchesByCompany, setBranchesByCompany] = useState({});
   const { data: companies = [] } = useGetAllCompaniesQuery({ status: "true" });
-  
-  // Use token values as fallback for customer query
-  const finalCompanyIdForQuery = vendorFormData.company || tokenCompanyId || "";
-  const finalBranchIdForQuery = vendorFormData.branch || tokenBranchId || "";
-  
-  const { data: customers = [] } = useGetAllCustomersQuery(
-    { companyId: finalCompanyIdForQuery, branchId: finalBranchIdForQuery, status: "true" },
-    { skip: !finalCompanyIdForQuery || !finalBranchIdForQuery }
-  );
   const [getBranchesByCompany] = useGetBranchesByCompanyMutation();
+  
+  // Fetch customers for all selected companies and branches
+  const [allCustomers, setAllCustomers] = useState([]);
+  const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
   const [createVendor, { isLoading, isSuccess, isError, error, data }] =
     useCreateVendorMutation();
 
-  // Initialize companyId and branchId from token if empty
+  // Initialize companies and branches from token if empty
   useEffect(() => {
     if (shouldHideCompanyBranch) {
       // For operation, branchAdmin, vendor - use profile data
@@ -107,45 +103,159 @@ const CreateVendor = () => {
       if (companyId && branchId) {
         setVendorFormData((prev) => ({
           ...prev,
-          company: String(companyId),
-          branch: String(branchId),
+          companies: prev.companies.length > 0 ? prev.companies : [String(companyId)],
+          branches: prev.branches.length > 0 ? prev.branches : [String(branchId)],
         }));
+        // Fetch branches for the company
+        if (companyId) {
+          getBranchesByCompany(companyId).then((res) => {
+            if (res?.data?.branches) {
+              setBranchesByCompany((prev) => ({
+                ...prev,
+                [companyId]: res.data.branches,
+              }));
+            }
+          });
+        }
       }
-    } else if (tokenCompanyId && tokenBranchId) {
-      // For superAdmin - use token values as fallback
-      setVendorFormData((prev) => ({
-        ...prev,
-        company: prev.company || tokenCompanyId,
-        branch: prev.branch || tokenBranchId,
-      }));
     }
   }, [user, shouldHideCompanyBranch, tokenCompanyId, tokenBranchId]);
 
-  const handleCompanyChange = async (companyId) => {
+  // Handle company selection (multiple)
+  const handleCompanyToggle = async (companyId) => {
     // Don't allow changing company for operation, branchAdmin, vendor
     if (shouldHideCompanyBranch) {
       return;
     }
 
-    setVendorFormData((prev) => ({
-      ...prev,
-      company: companyId,
-      branch: "",
-    }));
-
-    const res = await getBranchesByCompany(companyId);
-    if (res?.data?.branches) {
-      setBranches(res?.data?.branches);
+    const isSelected = vendorFormData.companies.includes(companyId);
+    let newCompanies = [];
+    
+    if (isSelected) {
+      // Remove company
+      newCompanies = vendorFormData.companies.filter(id => id !== companyId);
+      // Remove branches for this company
+      const newBranchesByCompany = { ...branchesByCompany };
+      delete newBranchesByCompany[companyId];
+      setBranchesByCompany(newBranchesByCompany);
+      // Remove branches that belong to this company
+      const companyBranches = branchesByCompany[companyId] || [];
+      const companyBranchIds = companyBranches.map(b => b._id);
+      const newBranches = vendorFormData.branches.filter(bId => !companyBranchIds.includes(bId));
+      setVendorFormData(prev => ({ ...prev, companies: newCompanies, branches: newBranches }));
     } else {
-      setBranches([]);
+      // Add company
+      newCompanies = [...vendorFormData.companies, companyId];
+      setVendorFormData(prev => ({ ...prev, companies: newCompanies }));
+      // Fetch branches for this company
+      try {
+        const result = await getBranchesByCompany(companyId);
+        const branches = result?.data?.branches || [];
+        setBranchesByCompany(prev => ({
+          ...prev,
+          [companyId]: branches
+        }));
+      } catch (err) {
+        toast.error("Failed to fetch branches for selected company");
+      }
     }
   };
 
-  useEffect(() => {
-    if (!shouldHideCompanyBranch && vendorFormData.company) {
-      handleCompanyChange(vendorFormData.company);
+  // Handle branch selection (multiple)
+  const handleBranchToggle = (branchId) => {
+    const isSelected = vendorFormData.branches.includes(branchId);
+    if (isSelected) {
+      setVendorFormData(prev => ({
+        ...prev,
+        branches: prev.branches.filter(id => id !== branchId)
+      }));
+    } else {
+      setVendorFormData(prev => ({
+        ...prev,
+        branches: [...prev.branches, branchId]
+      }));
     }
-  }, []);
+  };
+
+  // Fetch customers for all selected companies and branches
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      if (vendorFormData.companies.length === 0 || vendorFormData.branches.length === 0) {
+        setAllCustomers([]);
+        setIsLoadingCustomers(false);
+        return;
+      }
+
+      setIsLoadingCustomers(true);
+      try {
+        // Fetch customers for each company/branch combination
+        const customerPromises = [];
+        for (const companyId of vendorFormData.companies) {
+          for (const branchId of vendorFormData.branches) {
+            // Fetch customers for this company/branch combination
+            // BASE_URL already includes /api, so we use /customers/all
+            // Use credentials: 'include' to send cookies (token is in cookies)
+            customerPromises.push(
+              fetch(`${BASE_URL}/customers/all?companyId=${companyId}&branchId=${branchId}&status=true&page=1&limit=1000`, {
+                method: 'GET',
+                credentials: 'include', // This sends cookies automatically
+                headers: {
+                  'Content-Type': 'application/json'
+                }
+              })
+              .then(async (res) => {
+                if (!res.ok) {
+                  const errorText = await res.text();
+                  console.error(`Failed to fetch customers for company ${companyId}, branch ${branchId}:`, res.status, errorText);
+                  return { success: false, customers: [] };
+                }
+                const data = await res.json();
+                console.log(`Customers fetched for company ${companyId}, branch ${branchId}:`, data);
+                return data;
+              })
+              .catch((error) => {
+                console.error(`Error fetching customers for company ${companyId}, branch ${branchId}:`, error);
+                return { success: false, customers: [] };
+              })
+            );
+          }
+        }
+
+        const results = await Promise.all(customerPromises);
+        const allCustomersList = [];
+        const customerMap = new Map();
+
+        console.log("Customer fetch results:", results);
+        
+        results.forEach((result, index) => {
+          console.log(`Processing result ${index}:`, result);
+          if (result.success && result.customers && Array.isArray(result.customers)) {
+            console.log(`Found ${result.customers.length} customers in result ${index}`);
+            result.customers.forEach((customer) => {
+              // Avoid duplicates based on customer ID
+              if (customer._id && !customerMap.has(customer._id)) {
+                customerMap.set(customer._id, customer);
+                allCustomersList.push(customer);
+              }
+            });
+          } else {
+            console.warn(`Result ${index} is not valid:`, result);
+          }
+        });
+
+        console.log("Total unique customers found:", allCustomersList.length);
+        setAllCustomers(allCustomersList);
+      } catch (error) {
+        console.error("Error fetching customers:", error);
+        toast.error("Failed to fetch customers");
+        setAllCustomers([]);
+      } finally {
+        setIsLoadingCustomers(false);
+      }
+    };
+
+    fetchCustomers();
+  }, [vendorFormData.companies, vendorFormData.branches]);
 
   useEffect(() => {
     if (isSuccess && data) {
@@ -183,16 +293,13 @@ const CreateVendor = () => {
     } = vendorFormData;
 
     // Detailed validation with specific error messages
-    if (!email?.trim()) {
-      toast.error("Email is required");
-      return;
-    }
-
-    // Email format validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      toast.error("Please enter a valid email address");
-      return;
+    // Email is optional for vendors - only validate format if provided
+    if (email?.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        toast.error("Please enter a valid email address");
+        return;
+      }
     }
 
     if (!phone?.trim()) {
@@ -207,25 +314,28 @@ const CreateVendor = () => {
     }
 
     // For superAdmin, use form values; for others, use profile/token
-    let finalCompany, finalBranch;
+    let finalCompanies = [];
+    let finalBranches = [];
     
     if (shouldHideCompanyBranch) {
       // For operation, branchAdmin, vendor - use profile data
-      finalCompany = getUserCompanyId() || tokenCompanyId || "";
-      finalBranch = getUserBranchId() || tokenBranchId || "";
+      const companyId = getUserCompanyId() || tokenCompanyId || "";
+      const branchId = getUserBranchId() || tokenBranchId || "";
+      if (companyId) finalCompanies = [companyId];
+      if (branchId) finalBranches = [branchId];
     } else {
-      // For superAdmin - use form values or token
-      finalCompany = company || tokenCompanyId || "";
-      finalBranch = branch || tokenBranchId || "";
+      // For superAdmin - use form values
+      finalCompanies = vendorFormData.companies || [];
+      finalBranches = vendorFormData.branches || [];
     }
 
-    if (!finalCompany) {
-      toast.error("Company is required");
+    if (finalCompanies.length === 0) {
+      toast.error("At least one company is required");
       return;
     }
 
-    if (!finalBranch) {
-      toast.error("Branch is required");
+    if (finalBranches.length === 0) {
+      toast.error("At least one branch is required");
       return;
     }
 
@@ -271,8 +381,9 @@ const CreateVendor = () => {
       payload.append("accountNumber", vendorFormData.accountNumber);
       payload.append("ifsc", vendorFormData.ifsc);
       payload.append("status", vendorFormData.status);
-      payload.append("company", finalCompany);
-      payload.append("branch", finalBranch);
+      // Append companies and branches as arrays
+      finalCompanies.forEach(compId => payload.append("company", compId));
+      finalBranches.forEach(branchId => payload.append("branch", branchId));
       // Append each assigned client
       vendorFormData.assignedClients.forEach((clientId) => {
         payload.append("assignedClients", clientId);
@@ -353,14 +464,14 @@ const CreateVendor = () => {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="email">Email *</Label>
+                  <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
                     name="email"
                     type="email"
                     value={vendorFormData.email}
                     onChange={handleChange}
-                    placeholder="Email Address"
+                    placeholder="Email Address (Optional)"
                   />
                 </div>
                 <div>
@@ -388,8 +499,8 @@ const CreateVendor = () => {
                     placeholder="Address"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="company">Company *</Label>
+                <div className="md:col-span-2">
+                  <Label>Companies *</Label>
                   {shouldHideCompanyBranch ? (
                     <Input
                       value={user?.company?.name || (Array.isArray(user?.company) && user.company.length > 0 ? user.company[0].name : "")}
@@ -397,25 +508,38 @@ const CreateVendor = () => {
                       className="bg-gray-100 cursor-not-allowed dark:bg-gray-800"
                     />
                   ) : (
-                    <Select
-                      value={vendorFormData.company}
-                      onValueChange={handleCompanyChange}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select company" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(companies?.companies || []).map((comp) => (
-                          <SelectItem key={comp._id} value={comp._id}>
-                            {comp.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <>
+                      <div className="mt-2 space-y-2 max-h-48 overflow-y-auto border rounded-md p-3">
+                        {companies?.companies?.length > 0 ? (
+                          companies.companies.map((c) => (
+                            <div key={c._id} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`company-${c._id}`}
+                                checked={vendorFormData.companies.includes(c._id)}
+                                onCheckedChange={() => handleCompanyToggle(c._id)}
+                              />
+                              <label
+                                htmlFor={`company-${c._id}`}
+                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                              >
+                                {c.name} ({c.companyCode})
+                              </label>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm text-gray-500">No companies available</p>
+                        )}
+                      </div>
+                      {vendorFormData.companies.length > 0 && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          {vendorFormData.companies.length} company(s) selected
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
-                <div>
-                  <Label htmlFor="branch">Branch *</Label>
+                <div className="md:col-span-2">
+                  <Label>Branches *</Label>
                   {shouldHideCompanyBranch ? (
                     <Input
                       value={user?.branch?.name || (Array.isArray(user?.branch) && user.branch.length > 0 ? user.branch[0].name : "")}
@@ -423,73 +547,142 @@ const CreateVendor = () => {
                       className="bg-gray-100 cursor-not-allowed dark:bg-gray-800"
                     />
                   ) : (
-                    <Select
-                      value={vendorFormData.branch}
-                      onValueChange={(value) =>
-                        setVendorFormData({ ...vendorFormData, branch: value })
-                      }
-                      disabled={!vendorFormData.company}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select branch" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {branches?.map((branch) => (
-                          <SelectItem key={branch._id} value={branch._id}>
-                            {branch.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <>
+                      <div className="mt-2 space-y-2 max-h-48 overflow-y-auto border rounded-md p-3">
+                        {vendorFormData.companies.length === 0 ? (
+                          <p className="text-sm text-gray-500">Please select at least one company first</p>
+                        ) : Object.keys(branchesByCompany).length === 0 ? (
+                          <p className="text-sm text-gray-500">Loading branches...</p>
+                        ) : (
+                          Object.entries(branchesByCompany).map(([companyId, branches]) => {
+                            const company = companies?.companies?.find(c => c._id === companyId);
+                            return (
+                              <div key={companyId} className="space-y-2">
+                                {company && (
+                                  <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mt-2 first:mt-0">
+                                    {company.name}:
+                                  </p>
+                                )}
+                                {branches.map((b) => (
+                                  <div key={b._id} className="flex items-center space-x-2 ml-4">
+                                    <Checkbox
+                                      id={`branch-${b._id}`}
+                                      checked={vendorFormData.branches.includes(b._id)}
+                                      onCheckedChange={() => handleBranchToggle(b._id)}
+                                    />
+                                    <label
+                                      htmlFor={`branch-${b._id}`}
+                                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                    >
+                                      {b.name} ({b.branchCode})
+                                    </label>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                      {vendorFormData.branches.length > 0 && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          {vendorFormData.branches.length} branch(es) selected
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
-                <div>
+                <div className="md:col-span-2">
                   <Label htmlFor="assignedClients">Assigned Customers *</Label>
-                  <div className="mt-2 border rounded-md p-4 max-h-60 overflow-y-auto bg-gray-50 dark:bg-gray-800/50">
-                    {customers?.customers && customers.customers.length > 0 ? (
-                      <div className="space-y-3">
-                        {customers.customers.map((customer) => (
-                          <div
-                            key={customer._id}
-                            className="flex items-center space-x-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
-                          >
-                            <Checkbox
-                              id={`customer-${customer._id}`}
-                              checked={vendorFormData.assignedClients.includes(
-                                customer._id
-                              )}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setVendorFormData({
-                                    ...vendorFormData,
-                                    assignedClients: [
-                                      ...vendorFormData.assignedClients,
-                                      customer._id,
-                                    ],
-                                  });
-                                } else {
-                                  setVendorFormData({
-                                    ...vendorFormData,
-                                    assignedClients: vendorFormData.assignedClients.filter(
-                                      (id) => id !== customer._id
-                                    ),
-                                  });
-                                }
-                              }}
-                            />
-                            <label
-                              htmlFor={`customer-${customer._id}`}
-                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
-                            >
-                              {customer.name} - {customer.email}
-                            </label>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
+                  <div className="mt-2 border rounded-md p-4 max-h-80 overflow-y-auto bg-gray-50 dark:bg-gray-800/50">
+                    {isLoadingCustomers ? (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Loading customers...</p>
+                    ) : vendorFormData.companies.length === 0 || vendorFormData.branches.length === 0 ? (
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        No customers available
+                        Please select at least one company and branch to view customers
                       </p>
+                    ) : allCustomers.length === 0 ? (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        No customers available for selected companies and branches
+                      </p>
+                    ) : (
+                      <div className="space-y-4">
+                        {(() => {
+                          // Group customers by company and branch
+                          const groupedCustomers = {};
+                          allCustomers.forEach((customer) => {
+                            const companyId = customer.company?._id || customer.company || 'unknown';
+                            const branchId = customer.branch?._id || customer.branch || 'unknown';
+                            const companyName = customer.company?.name || 'Unknown Company';
+                            const branchName = customer.branch?.name || 'Unknown Branch';
+                            const key = `${companyId}-${branchId}`;
+                            
+                            if (!groupedCustomers[key]) {
+                              groupedCustomers[key] = {
+                                companyName,
+                                branchName,
+                                companyId,
+                                branchId,
+                                customers: []
+                              };
+                            }
+                            groupedCustomers[key].customers.push(customer);
+                          });
+
+                          return Object.values(groupedCustomers).map((group, idx) => (
+                            <div key={`${group.companyId}-${group.branchId}`} className="space-y-2">
+                              <div className="sticky top-0 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-md border border-blue-200 dark:border-blue-800">
+                                <p className="text-xs font-semibold text-blue-700 dark:text-blue-300">
+                                  {group.companyName} → {group.branchName}
+                                </p>
+                              </div>
+                              <div className="ml-2 space-y-2">
+                                {group.customers.map((customer) => (
+                                  <div
+                                    key={customer._id}
+                                    className="flex items-center space-x-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md border-l-2 border-blue-200 dark:border-blue-800"
+                                  >
+                                    <Checkbox
+                                      id={`customer-${customer._id}`}
+                                      checked={vendorFormData.assignedClients.includes(
+                                        customer._id
+                                      )}
+                                      onCheckedChange={(checked) => {
+                                        if (checked) {
+                                          setVendorFormData({
+                                            ...vendorFormData,
+                                            assignedClients: [
+                                              ...vendorFormData.assignedClients,
+                                              customer._id,
+                                            ],
+                                          });
+                                        } else {
+                                          setVendorFormData({
+                                            ...vendorFormData,
+                                            assignedClients: vendorFormData.assignedClients.filter(
+                                              (id) => id !== customer._id
+                                            ),
+                                          });
+                                        }
+                                      }}
+                                    />
+                                    <label
+                                      htmlFor={`customer-${customer._id}`}
+                                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
+                                    >
+                                      <span className="font-semibold">{customer.name}</span>
+                                      {customer.email && (
+                                        <span className="text-gray-500 dark:text-gray-400 ml-2">
+                                          ({customer.email})
+                                        </span>
+                                      )}
+                                    </label>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ));
+                        })()}
+                      </div>
                     )}
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">

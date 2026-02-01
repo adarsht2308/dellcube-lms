@@ -259,10 +259,15 @@ export const checkUserAssignmentsController = async (req, res) => {
       });
     }
 
-    // Find user by email or mobile
+    // Find user by email, mobile, or phone (vendors can use phone field)
     let user;
     if (mobile) {
+      // Try to find user by mobile first
       user = await User.findOne({ mobile }).select("company branch role");
+      // If not found and mobile is provided, also try phone field (for vendors)
+      if (!user) {
+        user = await User.findOne({ phone: mobile }).select("company branch role");
+      }
     } else if (email) {
       user = await User.findOne({ email }).select("company branch role");
     }
@@ -297,10 +302,15 @@ export const checkUserAssignmentsController = async (req, res) => {
         }
         return b.toString ? b.toString() : b;
       });
+      // Remove duplicates
+      branchIds = [...new Set(branchIds)];
     } else if (user.branch) {
       // Handle legacy single branch
       branchIds = [user.branch.toString ? user.branch.toString() : user.branch];
     }
+
+    console.log(`[checkUserAssignments] User ${user._id} (${user.role}) - Company IDs:`, companyIds);
+    console.log(`[checkUserAssignments] User ${user._id} (${user.role}) - Branch IDs:`, branchIds);
 
     // Fetch company details
     const companies = await Company.find({ _id: { $in: companyIds } }).select("name companyCode");
@@ -310,29 +320,63 @@ export const checkUserAssignmentsController = async (req, res) => {
       .populate("company", "name companyCode")
       .select("name branchCode company");
 
+    console.log(`[checkUserAssignments] Found ${branches.length} branches for user ${user._id}`);
+
     // Organize branches by company
     const branchesByCompany = {};
     branches.forEach(branch => {
-      const companyId = branch.company._id.toString();
-      if (!branchesByCompany[companyId]) {
-        branchesByCompany[companyId] = [];
+      // Handle cases where branch might not have company populated
+      if (branch.company && branch.company._id) {
+        const companyId = branch.company._id.toString();
+        if (!branchesByCompany[companyId]) {
+          branchesByCompany[companyId] = [];
+        }
+        // Check for duplicates before adding
+        const exists = branchesByCompany[companyId].some(b => b._id.toString() === branch._id.toString());
+        if (!exists) {
+          branchesByCompany[companyId].push({
+            _id: branch._id,
+            name: branch.name,
+            branchCode: branch.branchCode,
+          });
+        }
+      } else {
+        // If branch doesn't have company, try to match it to one of the user's companies
+        // This handles edge cases where branch-company relationship might be missing
+        console.warn(`Branch ${branch._id} does not have company populated. Attempting to match to user companies.`);
+        // Try to match to first company if only one company exists
+        if (companyIds.length === 1) {
+          const companyId = companyIds[0];
+          if (!branchesByCompany[companyId]) {
+            branchesByCompany[companyId] = [];
+          }
+          const exists = branchesByCompany[companyId].some(b => b._id.toString() === branch._id.toString());
+          if (!exists) {
+            branchesByCompany[companyId].push({
+              _id: String(branch._id), // Ensure ID is a string
+              name: branch.name,
+              branchCode: branch.branchCode,
+            });
+          }
+        }
       }
-      branchesByCompany[companyId].push({
-        _id: branch._id,
-        name: branch.name,
-        branchCode: branch.branchCode,
-      });
+    });
+
+    // Convert company IDs to strings for consistent frontend lookup
+    const branchesByCompanyStringKeys = {};
+    Object.keys(branchesByCompany).forEach(companyId => {
+      branchesByCompanyStringKeys[String(companyId)] = branchesByCompany[companyId];
     });
 
     return res.status(200).json({
       success: true,
       data: {
         companies: companies.map(c => ({
-          _id: c._id,
+          _id: String(c._id), // Ensure ID is a string
           name: c.name,
           companyCode: c.companyCode,
         })),
-        branchesByCompany,
+        branchesByCompany: branchesByCompanyStringKeys,
         hasMultipleCompanies: companies.length > 1,
         hasMultipleBranches: branches.length > 1,
       },
@@ -353,15 +397,19 @@ export const loginController = async (req, res) => {
     if ((!email && !mobile) || !password) {
       return res.status(400).json({
         success: false,
-        message: "Email or mobile and password are required",
+        message: "Email or mobile/phone and password are required",
       });
     }
 
-    // Support login with both email and mobile for all roles
+    // Support login with email, mobile, or phone for all roles
     let user;
     if (mobile) {
-      // Try to find user by mobile (all roles can have mobile)
+      // Try to find user by mobile first (for drivers and other roles)
       user = await User.findOne({ mobile });
+      // If not found and mobile is provided, also try phone field (for vendors)
+      if (!user) {
+        user = await User.findOne({ phone: mobile });
+      }
     } else if (email) {
       // Try to find user by email (all roles can have email)
       user = await User.findOne({ email });

@@ -162,6 +162,8 @@ const CSV_COLUMNS = [
   { key: "CustomerEmail", label: "Customer Email" },
   { key: "GoodsType", label: "Goods Type" },
   { key: "GoodsItems", label: "Goods Items" },
+  { key: "SiteType", label: "Site Type" },
+  { key: "TransportMode", label: "Transport Mode" },
   { key: "VehicleType", label: "Vehicle Type" },
   { key: "VehicleSize", label: "Vehicle Size" },
   { key: "VehicleNumber", label: "Vehicle Number" },
@@ -990,6 +992,8 @@ const Invoices = () => {
       GoodsItems: Array.isArray(inv.goodsType?.items)
         ? inv.goodsType.items.join("; ")
         : "",
+      SiteType: inv.siteType?.name || "",
+      TransportMode: inv.transportMode?.name || "",
       VehicleType: inv.vehicleType || "",
       VehicleSize: inv.vehicle?.type || inv.vehicleSize || "",
       VehicleNumber:

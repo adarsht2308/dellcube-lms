@@ -47,6 +47,17 @@ function Login() {
   const [checkAssignments, { isLoading: isCheckingAssignments }] = useCheckUserAssignmentsMutation();
   const navigate = useNavigate();
 
+  // Debug: Log assignments when they change
+  useEffect(() => {
+    if (assignments) {
+      console.log("[Login] Assignments updated:", assignments);
+      console.log("[Login] Selected company:", selectedCompany);
+      if (selectedCompany) {
+        console.log("[Login] Branches for selected company:", assignments.branchesByCompany[selectedCompany]);
+      }
+    }
+  }, [assignments, selectedCompany]);
+
   const inputHandler = (e) => {
     const { name, value } = e.target;
     setLoginInput({ ...loginInput, [name]: value });
@@ -79,12 +90,13 @@ function Login() {
         setAssignments(result.data);
         // Auto-select if only one company
         if (result.data.companies.length === 1) {
-          const companyId = result.data.companies[0]._id;
+          // Ensure companyId is a string for consistent lookup
+          const companyId = String(result.data.companies[0]._id);
           setSelectedCompany(companyId);
           // Auto-select branch if only one branch for this company
           const branches = result.data.branchesByCompany[companyId] || [];
           if (branches.length === 1) {
-            setSelectedBranch(branches[0]._id);
+            setSelectedBranch(String(branches[0]._id));
           }
         }
       }
@@ -98,7 +110,9 @@ function Login() {
 
   // Reset branch when company changes
   const handleCompanyChange = (companyId) => {
-    setSelectedCompany(companyId);
+    // Ensure companyId is a string for consistent lookup
+    const companyIdString = String(companyId);
+    setSelectedCompany(companyIdString);
     setSelectedBranch(""); // Reset branch selection
   };
 
@@ -275,7 +289,7 @@ function Login() {
                   <div className="relative">
                     <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#828083] w-4 h-4 z-10" />
                     <Select 
-                      value={selectedBranch || (assignments.branchesByCompany[selectedCompany || assignments.companies[0]._id]?.[0]?._id || "")} 
+                      value={selectedBranch || (assignments.branchesByCompany[selectedCompany || String(assignments.companies[0]._id)]?.[0]?._id || "")} 
                       onValueChange={setSelectedBranch}
                       disabled={!selectedCompany && assignments.companies.length > 1}
                     >
@@ -283,8 +297,8 @@ function Login() {
                         <SelectValue placeholder={!selectedCompany && assignments.companies.length > 1 ? "Select company first" : "Select a branch"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {assignments.branchesByCompany[selectedCompany || assignments.companies[0]._id]?.map((branch) => (
-                          <SelectItem key={branch._id} value={branch._id}>
+                        {(assignments.branchesByCompany[selectedCompany || String(assignments.companies[0]._id)] || []).map((branch) => (
+                          <SelectItem key={String(branch._id)} value={String(branch._id)}>
                             {branch.name} ({branch.branchCode})
                           </SelectItem>
                         ))}

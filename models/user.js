@@ -10,7 +10,7 @@ const user = new mongoose.Schema(
       type: String,
       sparse: true,
       required: function () {
-        return this.role !== "driver";
+        return this.role !== "driver" && this.role !== "vendor";
       },
     },
     password: {
