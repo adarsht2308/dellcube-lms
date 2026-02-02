@@ -221,6 +221,15 @@ const user = new mongoose.Schema(
             },
           },
         ],
+        // Associate vehicle with company and branch
+        company: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Company",
+        },
+        branch: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Branch",
+        },
       },
     ],
 

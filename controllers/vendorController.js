@@ -584,6 +584,17 @@ export const addVehicleController = async (req, res) => {
       JSON.stringify(vehicleData, null, 2)
     );
 
+    // Get company and branch from token (logged-in company/branch)
+    const companyId = req.companyId || req.body.company;
+    const branchId = req.branchId || req.body.branch;
+
+    if (!companyId || !branchId) {
+      return res.status(400).json({
+        success: false,
+        message: "Company and Branch are required. Please ensure you are logged into a specific company and branch.",
+      });
+    }
+
     // Create a new vehicle document using the schema
     const newVehicle = {
       vehicleNumber: vehicleData.vehicleNumber,
@@ -603,6 +614,8 @@ export const addVehicleController = async (req, res) => {
       registrationCertificateImage: vehicleData.registrationCertificateImage,
       insuranceImage: vehicleData.insuranceImage,
       maintenanceHistory: vehicleData.maintenanceHistory,
+      company: companyId,
+      branch: branchId,
     };
 
     console.log("New vehicle object:", JSON.stringify(newVehicle, null, 2));
@@ -833,6 +846,126 @@ export const addVendorVehicleMaintenance = async (req, res) => {
   }
 };
 
+// Get all vendor vehicles (for superadmin - shows all vehicles from all vendors regardless of branch)
+export const getAllVendorVehicles = async (req, res) => {
+  try {
+    if (req.user.role !== "superAdmin") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Only superAdmin can access this endpoint.",
+      });
+    }
+
+    // Get optional filters
+    const { companyId, branchId, search = "", status = "" } = req.query;
+
+    // Find all vendors
+    let vendorQuery = { role: "vendor" };
+    
+    // Filter vendors by company/branch if provided
+    if (companyId) {
+      vendorQuery.company = { $in: [companyId] };
+    }
+    if (branchId) {
+      vendorQuery.branch = { $in: [branchId] };
+    }
+
+    const vendors = await User.find(vendorQuery)
+      .populate("company", "name companyCode")
+      .populate("branch", "name branchCode")
+      .select("_id name email phone company branch availableVehicles");
+
+    // Extract all vehicles from all vendors
+    let allVendorVehicles = [];
+    
+    for (const vendor of vendors) {
+      if (vendor.availableVehicles && vendor.availableVehicles.length > 0) {
+        for (const vehicle of vendor.availableVehicles) {
+          const vehicleObj = vehicle.toObject ? vehicle.toObject() : vehicle;
+          
+          // Apply search filter
+          if (search && vehicleObj.vehicleNumber) {
+            if (!vehicleObj.vehicleNumber.toLowerCase().includes(search.toLowerCase())) {
+              continue;
+            }
+          }
+          
+          // Apply status filter
+          if (status && vehicleObj.status !== status) {
+            continue;
+          }
+          
+          // Apply company/branch filter on vehicle level
+          if (companyId) {
+            const vehicleCompanyId = vehicleObj.company?.toString() || vehicleObj.company;
+            if (vehicleCompanyId && vehicleCompanyId !== companyId) {
+              continue;
+            }
+          }
+          if (branchId) {
+            const vehicleBranchId = vehicleObj.branch?.toString() || vehicleObj.branch;
+            if (vehicleBranchId && vehicleBranchId !== branchId) {
+              continue;
+            }
+          }
+          
+          // Add vendor info and mark as vendor vehicle
+          allVendorVehicles.push({
+            ...vehicleObj,
+            ownerType: "Vendor",
+            vendor: {
+              _id: vendor._id,
+              name: vendor.name,
+              email: vendor.email,
+              phone: vendor.phone,
+            },
+            company: vehicleObj.company || (Array.isArray(vendor.company) ? vendor.company[0] : vendor.company),
+            branch: vehicleObj.branch || (Array.isArray(vendor.branch) ? vendor.branch[0] : vendor.branch),
+          });
+        }
+      }
+    }
+
+    // Populate company and branch for each vehicle
+    const { Company } = await import("../models/company.js");
+    const { Branch } = await import("../models/branch.js");
+    
+    const populatedVehicles = await Promise.all(
+      allVendorVehicles.map(async (vehicle) => {
+        try {
+          if (vehicle.company) {
+            const companyId = vehicle.company._id || vehicle.company;
+            const company = await Company.findById(companyId);
+            vehicle.company = company ? { _id: company._id, name: company.name, companyCode: company.companyCode } : null;
+          }
+          if (vehicle.branch) {
+            const branchId = vehicle.branch._id || vehicle.branch;
+            const branch = await Branch.findById(branchId);
+            vehicle.branch = branch ? { _id: branch._id, name: branch.name, branchCode: branch.branchCode } : null;
+          }
+        } catch (populateError) {
+          console.error("Error populating vehicle company/branch:", populateError);
+        }
+        return vehicle;
+      })
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "All vendor vehicles fetched successfully",
+      vehicles: populatedVehicles,
+      total: populatedVehicles.length,
+    });
+  } catch (error) {
+    console.error("Error fetching all vendor vehicles:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while fetching all vendor vehicles",
+      error: error.message,
+    });
+  }
+};
+
 // Get vendor's own vehicles
 export const getVendorVehicles = async (req, res) => {
   try {
@@ -842,6 +975,17 @@ export const getVendorVehicles = async (req, res) => {
       return res.status(403).json({
         success: false,
         message: "Access denied. Only vendors can access this endpoint.",
+      });
+    }
+
+    // Get company and branch from token (logged-in company/branch)
+    const companyId = req.companyId;
+    const branchId = req.branchId;
+
+    if (!companyId || !branchId) {
+      return res.status(400).json({
+        success: false,
+        message: "Company and Branch are required. Please ensure you are logged into a specific company and branch.",
       });
     }
 
@@ -857,10 +1001,54 @@ export const getVendorVehicles = async (req, res) => {
       });
     }
 
+    // Filter vehicles by logged-in company and branch
+    // For backward compatibility: if vehicle doesn't have company/branch, include it
+    // (old vehicles added before company/branch fields were added)
+    const filteredVehicles = (vendor.availableVehicles || []).filter(
+      (vehicle) => {
+        const vehicleCompanyId = vehicle.company?.toString() || vehicle.company;
+        const vehicleBranchId = vehicle.branch?.toString() || vehicle.branch;
+        
+        // If vehicle has no company/branch (old vehicle), include it for backward compatibility
+        if (!vehicleCompanyId && !vehicleBranchId) {
+          return true;
+        }
+        
+        // If vehicle has company/branch, filter by logged-in company/branch
+        return (
+          vehicleCompanyId === companyId.toString() &&
+          vehicleBranchId === branchId.toString()
+        );
+      }
+    );
+
+    // Populate company and branch for each vehicle
+    const { Company } = await import("../models/company.js");
+    const { Branch } = await import("../models/branch.js");
+    
+    const populatedVehicles = await Promise.all(
+      filteredVehicles.map(async (vehicle) => {
+        const vehicleObj = vehicle.toObject ? vehicle.toObject() : vehicle;
+        try {
+          if (vehicleObj.company) {
+            const company = await Company.findById(vehicleObj.company);
+            vehicleObj.company = company ? { _id: company._id, name: company.name } : null;
+          }
+          if (vehicleObj.branch) {
+            const branch = await Branch.findById(vehicleObj.branch);
+            vehicleObj.branch = branch ? { _id: branch._id, name: branch.name } : null;
+          }
+        } catch (populateError) {
+          console.error("Error populating vehicle company/branch:", populateError);
+        }
+        return vehicleObj;
+      })
+    );
+
     return res.status(200).json({
       success: true,
       message: "Vendor vehicles fetched successfully",
-      vehicles: vendor.availableVehicles || [],
+      vehicles: populatedVehicles,
       vendor: {
         name: vendor.name,
         email: vendor.email,
@@ -892,6 +1080,17 @@ export const getVendorInvoices = async (req, res) => {
       });
     }
 
+    // Get company and branch from token (logged-in company/branch)
+    const companyId = req.companyId;
+    const branchId = req.branchId;
+
+    if (!companyId || !branchId) {
+      return res.status(400).json({
+        success: false,
+        message: "Company and Branch are required. Please ensure you are logged into a specific company and branch.",
+      });
+    }
+
     // Get vendor details to check assigned client
     const vendor = await User.findOne({
       _id: vendorId,
@@ -908,22 +1107,22 @@ export const getVendorInvoices = async (req, res) => {
     // Import Invoice model
     const { Invoice } = await import("../models/invoice.js");
 
-    // Build query to get invoices for this vendor
-    let query = { vendor: vendorId };
+    // Build query to get invoices for this vendor, filtered by logged-in company/branch
+    let query = { vendor: vendorId, company: companyId, branch: branchId };
 
     // If vendor has assigned clients, show invoices for those clients
     // (even if vendor field is not set in the invoice)
     if (vendor.assignedClients && vendor.assignedClients.length > 0) {
       const customerIds = vendor.assignedClients.map((client) => client._id || client);
-      query = { customer: { $in: customerIds } };
+      query = { customer: { $in: customerIds }, company: companyId, branch: branchId };
     }
 
     console.log("Vendor ID:", vendorId);
     console.log("Vendor assigned clients:", vendor.assignedClients);
     console.log("Query for invoices:", query);
 
-    // First, let's check all invoices for this vendor without any filters
-    const allVendorInvoices = await Invoice.find({ vendor: vendorId })
+    // First, let's check all invoices for this vendor filtered by company/branch
+    const allVendorInvoices = await Invoice.find({ vendor: vendorId, company: companyId, branch: branchId })
       .populate("customer", "name email")
       .select("docketNumber customer vendor vehicleType createdAt")
       .limit(10);
@@ -945,6 +1144,8 @@ export const getVendorInvoices = async (req, res) => {
       const customerIds = vendor.assignedClients.map((client) => client._id || client);
       const clientInvoices = await Invoice.find({
         customer: { $in: customerIds },
+        company: companyId,
+        branch: branchId,
       })
         .populate("customer", "name email")
         .populate("vendor", "name email")
@@ -994,7 +1195,7 @@ export const getVendorInvoices = async (req, res) => {
       console.log(
         "No invoices found with customer filter, showing all vendor invoices as fallback..."
       );
-      const fallbackQuery = { vendor: vendorId };
+      const fallbackQuery = { vendor: vendorId, company: companyId, branch: branchId };
       const fallbackInvoices = await Invoice.find(fallbackQuery)
         .populate("customer", "name email")
         .populate("company", "name")
@@ -1294,7 +1495,18 @@ export const updateVendorVehicle = async (req, res) => {
   console.log("Body:", req.body);
   console.log("Files:", req.files);
 
-  const { vendorId, vehicleId } = req.body;
+  const { vehicleId } = req.body;
+  let vendorId = req.body.vendorId;
+
+  // For vendors, automatically use their own ID from token (more secure)
+  if (req.user?.role === "vendor") {
+    vendorId = req.user.userId;
+    console.log("Vendor updating vehicle - using token userId:", vendorId);
+  } else {
+    console.log("Non-vendor updating vehicle - using provided vendorId:", vendorId);
+  }
+
+  console.log("Update request - userId from token:", req.user?.userId, "vendorId to use:", vendorId);
 
   if (!vendorId || !vehicleId) {
     return res.status(400).json({
@@ -1310,6 +1522,9 @@ export const updateVendorVehicle = async (req, res) => {
       message: "Invalid vendor ID or vehicle ID format",
     });
   }
+
+  // Authorization: Since we already set vendorId = req.user.userId for vendors above,
+  // vendors can only update their own vehicles. SuperAdmin can update any vendor's vehicles.
 
   try {
     const vendor = await User.findOne({ _id: vendorId, role: "vendor" });

@@ -482,7 +482,7 @@ const appRouter = createBrowserRouter([
         path: "update-vehicle",
         element: (
           <RoleProtectedRoute
-            allowedRoles={["superAdmin", "branchAdmin", "operation"]}
+            allowedRoles={["superAdmin", "branchAdmin", "operation", "vendor"]}
           >
             <UpdateVehicle />
           </RoleProtectedRoute>

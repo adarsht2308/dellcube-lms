@@ -2118,7 +2118,7 @@ const UpdateInvoice = () => {
                       Number of Boxes/Packages
                     </Label>
                     <Input
-                      type="number"
+                      type="text"
                       value={numberOfPackages}
                       onChange={(e) => setNumberOfPackages(e.target.value)}
                       placeholder="Enter number of boxes/packages"

@@ -206,7 +206,7 @@ const invoiceSchema = new mongoose.Schema(
     },
 
     totalWeight: Number,
-    numberOfPackages: Number,
+    numberOfPackages: String,
     freightCharges: Number,
 
     paymentType: {

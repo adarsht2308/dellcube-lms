@@ -25,6 +25,7 @@ import {
   useGetAllVehiclesQuery,
   useGetVehicleByIdMutation,
 } from "@/features/api/Vehicle/vehicleApi";
+import { useGetAllVendorVehiclesQuery } from "@/features/api/Vendor/vendorApi";
 import { useGetAllCompaniesQuery } from "@/features/api/Company/companyApi.js";
 import { useGetBranchesByCompanyMutation } from "@/features/api/Branch/branchApi.js";
 import {
@@ -193,6 +194,40 @@ const Vehicles = () => {
     vendorId: isVendor ? user?._id : undefined,
   });
 
+  // Fetch vendor vehicles for superadmin (shows all vendor vehicles regardless of branch)
+  // Vendors should use their own vendor-vehicles page, not see vendor vehicles here
+  const { data: vendorVehiclesData, isLoading: isLoadingVendorVehicles } = useGetAllVendorVehiclesQuery(
+    {
+      companyId: companyId === "all" ? "" : companyId,
+      branchId: branchId === "all" ? "" : branchId,
+      search: debouncedSearch,
+      status: status === "all" ? "" : status,
+    },
+    { skip: !isSuperAdmin } // Only superadmin sees vendor vehicles in main vehicles page
+  );
+
+  // Combine Dellcube vehicles and vendor vehicles for superadmin
+  const allVehicles = React.useMemo(() => {
+    if (!isSuperAdmin) {
+      return data?.vehicles || [];
+    }
+    
+    const dellcubeVehicles = (data?.vehicles || []).map(v => ({ ...v, ownerType: "Dellcube" }));
+    const vendorVehicles = (vendorVehiclesData?.vehicles || []).map(v => ({ ...v, ownerType: "Vendor" }));
+    
+    // Combine and sort by vehicle number
+    return [...dellcubeVehicles, ...vendorVehicles].sort((a, b) => {
+      const aNum = a.vehicleNumber || "";
+      const bNum = b.vehicleNumber || "";
+      return aNum.localeCompare(bNum);
+    });
+  }, [data?.vehicles, vendorVehiclesData?.vehicles, isSuperAdmin]);
+
+  const combinedIsLoading = isLoading || (isSuperAdmin && isLoadingVendorVehicles);
+  const combinedTotal = isSuperAdmin 
+    ? (data?.total || 0) + (vendorVehiclesData?.total || 0)
+    : data?.total || 0;
+
   const [deleteVehicle, { isSuccess, isError }] = useDeleteVehicleMutation();
   const [getVehicleById] = useGetVehicleByIdMutation();
 
@@ -231,11 +266,16 @@ const Vehicles = () => {
   }, [isSuccess, isError, refetch]);
 
   const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= (data?.totalPages || 1)) setPage(newPage);
+    const totalPages = isSuperAdmin 
+      ? Math.ceil(combinedTotal / limit)
+      : (data?.totalPages || 1);
+    if (newPage >= 1 && newPage <= totalPages) setPage(newPage);
   };
 
   const getPageNumbers = () => {
-    const totalPages = data?.totalPages || 1;
+    const totalPages = isSuperAdmin 
+      ? Math.ceil(combinedTotal / limit)
+      : (data?.totalPages || 1);
     if (totalPages <= 5)
       return Array.from({ length: totalPages }, (_, i) => i + 1);
     let start = Math.max(1, Math.min(page - 2, totalPages - 4));
@@ -354,7 +394,7 @@ const Vehicles = () => {
                     Total Vehicles
                   </p>
                   <p className="text-2xl font-bold text-[#202020] dark:text-[#FFD249]">
-                    {data?.total || 0}
+                    {combinedTotal || 0}
                   </p>
                 </div>
                 <div className="p-3 bg-[#FFD249]/20 dark:bg-[#FFD249]/10 rounded-xl">
@@ -640,15 +680,15 @@ const Vehicles = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 text-center">
-                {isLoading ? (
+                {combinedIsLoading ? (
                   <tr>
                     <td colSpan="9" className="text-center py-6">
                       <Loader2 className="animate-spin mx-auto text-[#FFD249]" />{" "}
                       Loading...
                     </td>
                   </tr>
-                ) : data?.vehicles?.length ? (
-                  data.vehicles.map((veh, i) => (
+                ) : allVehicles?.length ? (
+                  allVehicles.map((veh, i) => (
                     <tr
                       key={veh._id}
                       className={
@@ -662,7 +702,14 @@ const Vehicles = () => {
                         {limit * (page - 1) + (i + 1)}
                       </td>
                       <td className="p-3 text-[#202020] dark:text-[#FFD249] font-semibold">
-                        {veh.vehicleNumber}
+                        <div className="flex items-center gap-2">
+                          {veh.vehicleNumber}
+                          {isSuperAdmin && veh.ownerType === "Vendor" && (
+                            <span className="px-2 py-0.5 text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 rounded-full font-medium">
+                              Vendor
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="p-3 text-[#202020] dark:text-[#FFD249]">
                         {veh.type}
@@ -745,8 +792,17 @@ const Vehicles = () => {
                         </div>
                       </td>
                       <td className="p-3 text-[#202020] dark:text-[#FFD249]">
-                        {veh.company?.name || (
-                          <span className="text-gray-400">N/A</span>
+                        {veh.ownerType === "Vendor" && veh.vendor ? (
+                          <div className="flex flex-col">
+                            <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">
+                              {veh.vendor.name}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {veh.company?.name || "N/A"}
+                            </span>
+                          </div>
+                        ) : (
+                          veh.company?.name || <span className="text-gray-400">N/A</span>
                         )}
                       </td>
                       <td className="p-3 text-[#202020] dark:text-[#FFD249]">
@@ -772,11 +828,18 @@ const Vehicles = () => {
                         </Button>
                         <Button
                           className="p-2 rounded-full bg-[#FFD249]/30 text-[#202020] hover:bg-[#FFD249]/60 dark:text-[#FFD249]"
-                          onClick={() =>
-                            navigate("/admin/update-vehicle", {
-                              state: { vehicleId: veh._id },
-                            })
-                          }
+                          onClick={() => {
+                            // If it's a vendor vehicle, redirect to vendor-vehicles page
+                            // Otherwise, use the regular update-vehicle route
+                            if (veh.ownerType === "Vendor" && isVendor) {
+                              navigate("/admin/vendor-vehicles");
+                              toast.info("Please edit vendor vehicles from the Vendor Vehicles page");
+                            } else {
+                              navigate("/admin/update-vehicle", {
+                                state: { vehicleId: veh._id },
+                              });
+                            }
+                          }}
                         >
                           <MdOutlineEdit className="w-4 h-4" />
                         </Button>
@@ -866,13 +929,13 @@ const Vehicles = () => {
             </table>
             <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800 text-sm text-[#202020] dark:text-[#FFD249] text-center lg:text-left">
               Showing{" "}
-              {data?.vehicles?.length ? (data?.page - 1) * data?.limit + 1 : 0}{" "}
-              to {Math.min(data?.page * data?.limit, data?.total || 0)} of{" "}
-              <span className="font-medium">{data?.total || 0}</span> entries
+              {allVehicles?.length ? (page - 1) * limit + 1 : 0}{" "}
+              to {Math.min(page * limit, combinedTotal || 0)} of{" "}
+              <span className="font-medium">{combinedTotal || 0}</span> entries
             </div>
           </div>
           {/* Pagination */}
-          {data?.totalPages > 1 && (
+          {((isSuperAdmin ? Math.ceil(combinedTotal / limit) : data?.totalPages) || 0) > 1 && (
             <div className="flex justify-center">
               <Pagination>
                 <PaginationContent>
@@ -901,7 +964,7 @@ const Vehicles = () => {
                     <PaginationNext
                       onClick={() => handlePageChange(page + 1)}
                       className={
-                        page === data.totalPages
+                        page === (isSuperAdmin ? Math.ceil(combinedTotal / limit) : data?.totalPages || 1)
                           ? "pointer-events-none opacity-50"
                           : "cursor-pointer hover:bg-[#FFD249]/10"
                       }

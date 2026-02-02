@@ -124,17 +124,33 @@ export const vendorApi = createApi({
 
     addVehicle: builder.mutation({
       query: ({ vehicle }) => {
+        // Get companyId and branchId from token
+        const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+        
         if (vehicle instanceof FormData) {
+          // Append company and branch to FormData if not already present
+          if (tokenCompanyId && !vehicle.has("company")) {
+            vehicle.append("company", tokenCompanyId);
+          }
+          if (tokenBranchId && !vehicle.has("branch")) {
+            vehicle.append("branch", tokenBranchId);
+          }
           return {
             url: "/vendor/vehicles",
             method: "PUT",
             body: vehicle,
           };
         } else {
+          // Add company and branch to object if not already present
+          const finalVehicle = {
+            ...vehicle,
+            ...(tokenCompanyId && !vehicle.company && { company: tokenCompanyId }),
+            ...(tokenBranchId && !vehicle.branch && { branch: tokenBranchId }),
+          };
           return {
             url: "/vendor/vehicles",
             method: "PUT",
-            body: vehicle,
+            body: finalVehicle,
           };
         }
       },
@@ -213,6 +229,15 @@ export const vendorApi = createApi({
       providesTags: ["Vendor"],
     }),
 
+    getAllVendorVehicles: builder.query({
+      query: ({ companyId = "", branchId = "", search = "", status = "" } = {}) => ({
+        url: "/all-vehicles",
+        method: "GET",
+        params: { companyId, branchId, search, status },
+      }),
+      providesTags: ["Vendor"],
+    }),
+
     getVendorProfile: builder.query({
       query: () => ({
         url: "/my-profile",
@@ -252,6 +277,7 @@ export const {
   useDeleteVendorVehicleMutation,
   useGetVendorInvoicesQuery,
   useGetVendorVehiclesQuery,
+  useGetAllVendorVehiclesQuery,
   useGetVendorProfileQuery,
   useUpdateVendorProfileMutation,
   useTestVendorInvoicesQuery,

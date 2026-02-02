@@ -99,11 +99,27 @@ const UpdateVehicle = () => {
   useEffect(() => {
     if (vehicleId) {
       getVehicleById(vehicleId);
+    } else if (isVendor) {
+      // If vendor tries to access update-vehicle without vehicleId, redirect
+      toast.error("Please edit vehicles from the Vendor Vehicles page");
+      navigate("/admin/vendor-vehicles");
     }
-  }, [vehicleId]);
+  }, [vehicleId, isVendor, navigate, getVehicleById]);
 
   useEffect(() => {
-    if (isSuccess && viewData?.vehicle) {
+    if (isSuccess) {
+      // If vehicle not found, check if it's a vendor trying to edit
+      if (!viewData?.vehicle) {
+        if (isVendor) {
+          toast.error("Vehicle not found. Vendor vehicles should be edited from the Vendor Vehicles page.");
+          navigate("/admin/vendor-vehicles");
+          return;
+        }
+        toast.error("Vehicle not found");
+        navigate("/admin/vehicles");
+        return;
+      }
+      
       const v = viewData.vehicle;
       setVehicleNumber(v.vehicleNumber || "");
       setType(v.type || "");

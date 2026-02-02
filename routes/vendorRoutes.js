@@ -13,6 +13,7 @@ import {
   updateVendorVehicle,
   deleteVendorVehicle,
   getVendorVehicles,
+  getAllVendorVehicles,
   getVendorInvoices,
   getVendorProfile,
   updateVendorProfile,
@@ -38,6 +39,7 @@ router.delete("/delete", isAuthenticated, deleteVendor);
 
 // Vendor-specific routes
 router.get("/my-vehicles", isAuthenticated, getVendorVehicles);
+router.get("/all-vehicles", isAuthenticated, getAllVendorVehicles); // For superadmin to see all vendor vehicles
 router.get("/my-invoices", isAuthenticated, getVendorInvoices);
 router.get("/my-profile", isAuthenticated, getVendorProfile);
 router.put("/my-profile", isAuthenticated, upload, updateVendorProfile);
