@@ -62,7 +62,13 @@ const RecentInvoices = () => {
     "Dispatched",
     "In Transit",
     "Arrived at Destination",
+    "Out for Delivery",
+    "Delivery Attempted",
+    "Access Issue",
+    "On Hold",
+    "Pending Pickup",
     "Delivered",
+    "Undelivered",
     "Cancelled",
     "Returned",
   ];

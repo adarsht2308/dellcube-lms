@@ -1648,6 +1648,11 @@ const Invoices = () => {
                   <SelectItem value="Arrived at Destination">
                     Arrived at Destination
                   </SelectItem>
+                  <SelectItem value="Out for Delivery">Out for Delivery</SelectItem>
+                  <SelectItem value="Delivery Attempted">Delivery Attempted</SelectItem>
+                  <SelectItem value="Access Issue">Access Issue</SelectItem>
+                  <SelectItem value="On Hold">On Hold</SelectItem>
+                  <SelectItem value="Pending Pickup">Pending Pickup</SelectItem>
                   <SelectItem value="Delivered">Delivered</SelectItem>
                   <SelectItem value="Undelivered">Undelivered</SelectItem>
                   <SelectItem value="Cancelled">Cancelled</SelectItem>

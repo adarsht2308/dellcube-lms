@@ -42,6 +42,14 @@ import { useGetInvoiceByIdMutation } from "@/features/api/Invoice/invoiceApi.js"
 import { getTokenData } from "@/utils/getTokenData";
 const statusOptions = [
   "Created",
+  "Dispatched",
+  "In Transit",
+  "Arrived at Destination",
+  "Out for Delivery",
+  "Delivery Attempted",
+  "Access Issue",
+  "On Hold",
+  "Pending Pickup",
   "Delivered",
   "Undelivered",
   "Cancelled",
@@ -598,8 +606,40 @@ const UpdateInvoice = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="GBT">GBT</SelectItem>
-                      <SelectItem value="RBT">RBT</SelectItem>
-                      <SelectItem value="G+Floors">G+Floors</SelectItem>
+                      <SelectItem value="G+1">G+1</SelectItem>
+                      <SelectItem value="G+2">G+2</SelectItem>
+                      <SelectItem value="G+3">G+3</SelectItem>
+                      <SelectItem value="G+4">G+4</SelectItem>
+                      <SelectItem value="G+5">G+5</SelectItem>
+                      <SelectItem value="G+6">G+6</SelectItem>
+                      <SelectItem value="G+7">G+7</SelectItem>
+                      <SelectItem value="G+8">G+8</SelectItem>
+                      <SelectItem value="G+9">G+9</SelectItem>
+                      <SelectItem value="G+10">G+10</SelectItem>
+                      <SelectItem value="G+11">G+11</SelectItem>
+                      <SelectItem value="G+12">G+12</SelectItem>
+                      <SelectItem value="G+13">G+13</SelectItem>
+                      <SelectItem value="G+14">G+14</SelectItem>
+                      <SelectItem value="G+15">G+15</SelectItem>
+                      <SelectItem value="G+16">G+16</SelectItem>
+                      <SelectItem value="G+17">G+17</SelectItem>
+                      <SelectItem value="G+18">G+18</SelectItem>
+                      <SelectItem value="G+19">G+19</SelectItem>
+                      <SelectItem value="G+20">G+20</SelectItem>
+                      <SelectItem value="G+21">G+21</SelectItem>
+                      <SelectItem value="G+22">G+22</SelectItem>
+                      <SelectItem value="G+23">G+23</SelectItem>
+                      <SelectItem value="G+24">G+24</SelectItem>
+                      <SelectItem value="G+25">G+25</SelectItem>
+                      <SelectItem value="G+26">G+26</SelectItem>
+                      <SelectItem value="G+27">G+27</SelectItem>
+                      <SelectItem value="G+28">G+28</SelectItem>
+                      <SelectItem value="G+29">G+29</SelectItem>
+                      <SelectItem value="G+30">G+30</SelectItem>
+                      <SelectItem value="RTT">RTT</SelectItem>
+                      <SelectItem value="Gbt ground floor">Gbt ground floor</SelectItem>
+                      <SelectItem value="RTP 1-3 floor">RTP 1-3 floor</SelectItem>
+                      <SelectItem value="RTT - 3 TO ABOVE">RTT - 3 TO ABOVE</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">

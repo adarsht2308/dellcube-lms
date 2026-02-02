@@ -826,6 +826,116 @@ export const createReservedInvoices = async (req, res) => {
   }
 };
 
+// Get next docket number for a company and branch
+export const getNextDocketNumber = async (req, res) => {
+  try {
+    const { companyId, branchId } = req.query;
+
+    if (!companyId || !branchId) {
+      return res.status(400).json({
+        success: false,
+        message: "Company ID and Branch ID are required",
+      });
+    }
+
+    // Get company and branch details
+    const companyDoc = await Company.findById(companyId);
+    const branchDoc = await Branch.findById(branchId);
+
+    if (!companyDoc || !branchDoc) {
+      return res.status(404).json({
+        success: false,
+        message: "Company or Branch not found",
+      });
+    }
+
+    const companyCode = companyDoc.companyCode;
+    const branchCode = branchDoc.branchCode;
+    const companyName = companyDoc.name || "";
+
+    // Helper function to determine starting docket number based on company ID or code
+    const getStartingDocketNumber = (companyId, companyCode, companyName) => {
+      const idStr = companyId?.toString() || "";
+      if (idStr === "693128338bcc0d6a2f75d16a") {
+        return 196451; // DISPL - Dellcube Integrated Solutions Pvt Ltd
+      } else if (idStr === "69312a928bcc0d6a2f75d1ac") {
+        return 5389; // DSCS - Dellcube Supply Chain
+      }
+      
+      const codeUpper = (companyCode || "").toUpperCase();
+      if (codeUpper === "DISPL") {
+        return 196451;
+      } else if (codeUpper === "DSCS") {
+        return 5389;
+      }
+      
+      const nameLower = (companyName || "").toLowerCase();
+      if (nameLower.includes("dellcube") && nameLower.includes("integrated")) {
+        return 196451;
+      } else if (nameLower.includes("supply chain")) {
+        return 5389;
+      }
+      
+      return 10000; // Default starting number
+    };
+
+    const startingDocketNumber = getStartingDocketNumber(companyId, companyCode, companyName);
+
+    // Generate date string (DDMMYYYY)
+    const now = new Date();
+    const yyyy = now.getFullYear().toString();
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const dd = String(now.getDate()).padStart(2, "0");
+    const dateStr = `${dd}${mm}${yyyy}`;
+
+    // Generate docketPrefix (CompanyCode-BranchCode-Date)
+    const docketPrefix = `${companyCode}-${branchCode}-${dateStr}`;
+
+    // Find the highest numeric docket number for this specific company
+    const invoices = await Invoice.find({ company: companyId })
+      .select("docketNumber")
+      .lean();
+
+    let maxDocketNumber = startingDocketNumber - 1;
+    
+    const shouldIgnoreOldNumbers = startingDocketNumber < 10000;
+    const oldNumberThreshold = 10000;
+    
+    for (const invoice of invoices) {
+      if (invoice?.docketNumber) {
+        const parsedNumber = parseInt(invoice.docketNumber, 10);
+        if (!isNaN(parsedNumber)) {
+          if (parsedNumber >= startingDocketNumber) {
+            if (shouldIgnoreOldNumbers && parsedNumber >= oldNumberThreshold) {
+              continue;
+            }
+            if (parsedNumber > maxDocketNumber) {
+              maxDocketNumber = parsedNumber;
+            }
+          }
+        }
+      }
+    }
+
+    const nextDocketNumber = Math.max(maxDocketNumber + 1, startingDocketNumber);
+    const docketNumber = String(nextDocketNumber);
+
+    return res.status(200).json({
+      success: true,
+      docketNumber,
+      docketPrefix,
+      nextDocketNumber,
+    });
+  } catch (error) {
+    console.error("Error getting next docket number:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong while getting next docket number",
+      error: error.message,
+    });
+  }
+};
+
 export const getAllInvoices = async (req, res) => {
   try {
     let {

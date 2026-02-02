@@ -43,7 +43,7 @@ import {
 import MultiValueInput from "./MultiValueInput.jsx";
 
 // API imports
-import { useCreateInvoiceMutation } from "@/features/api/Invoice/invoiceApi.js";
+import { useCreateInvoiceMutation, useGetNextDocketNumberQuery } from "@/features/api/Invoice/invoiceApi.js";
 import { useGetAllCompaniesQuery } from "@/features/api/Company/companyApi.js";
 import { useGetBranchesByCompanyMutation } from "@/features/api/Branch/branchApi.js";
 import { useGetAllCustomersQuery, useUpdateCustomerMutation } from "@/features/api/Customer/customerApi.js";
@@ -551,6 +551,12 @@ const CreateInvoice = () => {
 
   const { data: companies } = useGetAllCompaniesQuery({});
   const [getBranchesByCompany] = useGetBranchesByCompanyMutation();
+  
+  // Get next docket number when company and branch are selected
+  const { data: nextDocketData, isLoading: isLoadingNextDocket } = useGetNextDocketNumberQuery(
+    { companyId, branchId },
+    { skip: !companyId || !branchId }
+  );
   
   // Use token values as fallback for customer query
   const finalCompanyIdForQuery = companyId || tokenCompanyId || "";
@@ -1323,12 +1329,35 @@ const CreateInvoice = () => {
               <span className="sm:hidden">Back</span>
             </Button>
           </div>
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
-            Create New Docket
-          </h1>
-          <p className="text-sm md:text-base text-gray-600 dark:text-gray-400 mt-1">
-            Fill in the details below to create a new docket
-          </p>
+          <div className="flex flex-col gap-2">
+            <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
+              Create New Docket
+            </h1>
+            {nextDocketData?.docketNumber && (
+              <div className="flex items-center gap-2">
+                <Hash className="w-4 h-4 text-[#FFD249]" />
+                <span className="text-sm md:text-base font-semibold text-[#FFD249] dark:text-[#FFD249]">
+                  Next Docket: {nextDocketData.docketNumber}
+                </span>
+                {nextDocketData.docketPrefix && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    ({nextDocketData.docketPrefix})
+                  </span>
+                )}
+              </div>
+            )}
+            {isLoadingNextDocket && companyId && branchId && (
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-[#FFD249]" />
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  Loading next docket number...
+                </span>
+              </div>
+            )}
+            <p className="text-sm md:text-base text-gray-600 dark:text-gray-400 mt-1">
+              Fill in the details below to create a new docket
+            </p>
+          </div>
         </div>
 
         {/* Single column layout for mobile, two-sided for desktop */}

@@ -10,6 +10,7 @@ import {
   generateInvoicePDF,
   exportInvoicesCSV,
   createReservedInvoices,
+  getNextDocketNumber,
 } from "../controllers/invoiceController.js";
 
 const router = express.Router();
@@ -19,6 +20,9 @@ router.post("/create", isAuthenticated, createInvoice);
 
 // Get all invoices (with optional pagination, search, filters)
 router.get("/all", isAuthenticated, getAllInvoices);
+
+// Get next docket number
+router.get("/next-docket-number", isAuthenticated, getNextDocketNumber);
 
 // Get a single invoice by ID
 router.post("/view", isAuthenticated, getInvoiceById);

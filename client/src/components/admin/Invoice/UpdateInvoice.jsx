@@ -1664,12 +1664,22 @@ const UpdateInvoice = () => {
             Back to Dockets
           </Button>
           </div>
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
-            Update Docket
-          </h1>
-          <p className="text-sm md:text-base text-gray-600 dark:text-gray-400 mt-1">
-            Edit the details below to update the docket
-          </p>
+          <div className="flex flex-col gap-2">
+            <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
+              Update Docket
+            </h1>
+            {fetchedInvoiceData?.invoice?.docketNumber && (
+              <div className="flex items-center gap-2">
+                <Hash className="w-4 h-4 text-[#FFD249]" />
+                <span className="text-sm md:text-base font-semibold text-[#FFD249] dark:text-[#FFD249]">
+                  {fetchedInvoiceData.invoice.docketNumber}
+                </span>
+              </div>
+            )}
+            <p className="text-sm md:text-base text-gray-600 dark:text-gray-400 mt-1">
+              Edit the details below to update the docket
+            </p>
+          </div>
         </div>
 
         {/* Single column layout for mobile, two-sided for desktop */}
@@ -2646,10 +2656,41 @@ const UpdateInvoice = () => {
                       <SelectValue placeholder="Select floor type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Floor">Floor</SelectItem>
                       <SelectItem value="GBT">GBT</SelectItem>
-                      <SelectItem value="RBT">RBT</SelectItem>
-                      <SelectItem value="G+Floors">G+Floors</SelectItem>
+                      <SelectItem value="G+1">G+1</SelectItem>
+                      <SelectItem value="G+2">G+2</SelectItem>
+                      <SelectItem value="G+3">G+3</SelectItem>
+                      <SelectItem value="G+4">G+4</SelectItem>
+                      <SelectItem value="G+5">G+5</SelectItem>
+                      <SelectItem value="G+6">G+6</SelectItem>
+                      <SelectItem value="G+7">G+7</SelectItem>
+                      <SelectItem value="G+8">G+8</SelectItem>
+                      <SelectItem value="G+9">G+9</SelectItem>
+                      <SelectItem value="G+10">G+10</SelectItem>
+                      <SelectItem value="G+11">G+11</SelectItem>
+                      <SelectItem value="G+12">G+12</SelectItem>
+                      <SelectItem value="G+13">G+13</SelectItem>
+                      <SelectItem value="G+14">G+14</SelectItem>
+                      <SelectItem value="G+15">G+15</SelectItem>
+                      <SelectItem value="G+16">G+16</SelectItem>
+                      <SelectItem value="G+17">G+17</SelectItem>
+                      <SelectItem value="G+18">G+18</SelectItem>
+                      <SelectItem value="G+19">G+19</SelectItem>
+                      <SelectItem value="G+20">G+20</SelectItem>
+                      <SelectItem value="G+21">G+21</SelectItem>
+                      <SelectItem value="G+22">G+22</SelectItem>
+                      <SelectItem value="G+23">G+23</SelectItem>
+                      <SelectItem value="G+24">G+24</SelectItem>
+                      <SelectItem value="G+25">G+25</SelectItem>
+                      <SelectItem value="G+26">G+26</SelectItem>
+                      <SelectItem value="G+27">G+27</SelectItem>
+                      <SelectItem value="G+28">G+28</SelectItem>
+                      <SelectItem value="G+29">G+29</SelectItem>
+                      <SelectItem value="G+30">G+30</SelectItem>
+                      <SelectItem value="RTT">RTT</SelectItem>
+                      <SelectItem value="Gbt ground floor">Gbt ground floor</SelectItem>
+                      <SelectItem value="RTP 1-3 floor">RTP 1-3 floor</SelectItem>
+                      <SelectItem value="RTT - 3 TO ABOVE">RTT - 3 TO ABOVE</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -2710,6 +2751,14 @@ const UpdateInvoice = () => {
                     <SelectContent>
                       <SelectItem value="Reserved">Reserved</SelectItem>
                       <SelectItem value="Created">Created</SelectItem>
+                      <SelectItem value="Dispatched">Dispatched</SelectItem>
+                      <SelectItem value="In Transit">In Transit</SelectItem>
+                      <SelectItem value="Arrived at Destination">Arrived at Destination</SelectItem>
+                      <SelectItem value="Out for Delivery">Out for Delivery</SelectItem>
+                      <SelectItem value="Delivery Attempted">Delivery Attempted</SelectItem>
+                      <SelectItem value="Access Issue">Access Issue</SelectItem>
+                      <SelectItem value="On Hold">On Hold</SelectItem>
+                      <SelectItem value="Pending Pickup">Pending Pickup</SelectItem>
                       <SelectItem value="Delivered">Delivered</SelectItem>
                       <SelectItem value="Undelivered">Undelivered</SelectItem>
                       <SelectItem value="Cancelled">Cancelled</SelectItem>

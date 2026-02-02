@@ -50,7 +50,9 @@ const TrackOrder = () => {
     if (!inv) return [];
 
     const events = [];
+    const status = inv.status;
 
+    // Always show Reserved and Created as initial steps
     events.push({
       status: "Reserved",
       label: "Reserved",
@@ -66,6 +68,91 @@ const TrackOrder = () => {
       timestamp: inv.invoiceDate || inv.createdAt,
       description: "Docket created",
     });
+
+    // Show Dispatched if status is beyond Created
+    if (status !== "Reserved" && status !== "Created") {
+      events.push({
+        status: "Dispatched",
+        label: "Dispatched",
+        icon: Truck,
+        timestamp: inv.dispatchDateTime || inv.updatedAt,
+        description: "Shipment dispatched",
+      });
+    }
+
+    // Show In Transit if status is beyond Dispatched
+    if (["In Transit", "In-Transit", "Arrived at Destination", "Out for Delivery", "Delivery Attempted", "Access Issue", "On Hold", "Pending Pickup", "Delivered", "Undelivered", "Cancelled", "Returned"].includes(status)) {
+      events.push({
+        status: status === "In-Transit" ? "In-Transit" : "In Transit",
+        label: "In Transit",
+        icon: Truck,
+        timestamp: inv.updatedAt,
+        description: "Shipment in transit",
+      });
+    }
+
+    // Show Arrived at Destination if status is beyond In Transit
+    if (["Arrived at Destination", "Out for Delivery", "Delivery Attempted", "Access Issue", "On Hold", "Pending Pickup", "Delivered", "Undelivered", "Cancelled", "Returned"].includes(status)) {
+      events.push({
+        status: "Arrived at Destination",
+        label: "Arrived at Destination",
+        icon: MapPin,
+        timestamp: inv.updatedAt,
+        description: "Shipment arrived at destination",
+      });
+    }
+
+    // Show Out for Delivery if status is beyond Arrived at Destination
+    if (["Out for Delivery", "Delivery Attempted", "Access Issue", "Delivered", "Undelivered", "Cancelled", "Returned"].includes(status)) {
+      events.push({
+        status: "Out for Delivery",
+        label: "Out for Delivery",
+        icon: Truck,
+        timestamp: inv.updatedAt,
+        description: "Out for delivery",
+      });
+    }
+
+    // Show specific status events
+    if (status === "Access Issue") {
+      events.push({
+        status: "Access Issue",
+        label: "Access Issue",
+        icon: AlertCircle,
+        timestamp: inv.updatedAt,
+        description: "Access issue encountered",
+      });
+    }
+
+    if (status === "On Hold") {
+      events.push({
+        status: "On Hold",
+        label: "On Hold",
+        icon: Clock,
+        timestamp: inv.updatedAt,
+        description: "Shipment on hold",
+      });
+    }
+
+    if (status === "Pending Pickup") {
+      events.push({
+        status: "Pending Pickup",
+        label: "Pending Pickup",
+        icon: Clock,
+        timestamp: inv.updatedAt,
+        description: "Pending pickup",
+      });
+    }
+
+    if (status === "Delivery Attempted") {
+      events.push({
+        status: "Delivery Attempted",
+        label: "Delivery Attempted",
+        icon: AlertCircle,
+        timestamp: inv.updatedAt,
+        description: "Delivery attempted",
+      });
+    }
 
     const sortedAttempts = (inv.deliveryAttempts || [])
       .filter((attempt) =>
@@ -123,12 +210,20 @@ const TrackOrder = () => {
       ? (currentStepIndex / (timelineEvents.length - 1)) * 100
       : 0;
   const isExceptionStatus =
-    invoice && ["Cancelled", "Returned", "Undelivered"].includes(invoice.status);
+    invoice && ["Cancelled", "Returned", "Undelivered", "Access Issue", "On Hold"].includes(invoice.status);
 
   const getStatusColor = (status) => {
     const statusColors = {
       "Reserved": "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20",
       "Created": "bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/20",
+      "Dispatched": "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20",
+      "In Transit": "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-500/20",
+      "Arrived at Destination": "bg-teal-500/10 text-teal-700 dark:text-teal-400 border-teal-500/20",
+      "Out for Delivery": "bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/20",
+      "Delivery Attempted": "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/20",
+      "Access Issue": "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20",
+      "On Hold": "bg-slate-500/10 text-slate-700 dark:text-slate-400 border-slate-500/20",
+      "Pending Pickup": "bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20",
       "Undelivered": "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20",
       "Delivered": "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20",
       "Cancelled": "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20",
@@ -141,6 +236,14 @@ const TrackOrder = () => {
     const icons = {
       "Reserved": <Clock className="w-5 h-5" />,
       "Created": <FileText className="w-5 h-5" />,
+      "Dispatched": <Truck className="w-5 h-5" />,
+      "In Transit": <Truck className="w-5 h-5" />,
+      "Arrived at Destination": <MapPin className="w-5 h-5" />,
+      "Out for Delivery": <Truck className="w-5 h-5" />,
+      "Delivery Attempted": <AlertCircle className="w-5 h-5" />,
+      "Access Issue": <AlertCircle className="w-5 h-5" />,
+      "On Hold": <Clock className="w-5 h-5" />,
+      "Pending Pickup": <Clock className="w-5 h-5" />,
       "Undelivered": <AlertCircle className="w-5 h-5" />,
       "Delivered": <CheckCircle2 className="w-5 h-5" />,
       "Cancelled": <XCircle className="w-5 h-5" />,

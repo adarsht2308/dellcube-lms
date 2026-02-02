@@ -150,6 +150,24 @@ export const invoiceApi = createApi({
       },
       invalidatesTags: ["Invoice"],
     }),
+
+    getNextDocketNumber: builder.query({
+      query: ({ companyId, branchId }) => {
+        // Get companyId and branchId from token if not provided
+        const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+        const finalCompanyId = companyId || tokenCompanyId || "";
+        const finalBranchId = branchId || tokenBranchId || "";
+        
+        return {
+          url: "/next-docket-number",
+          method: "GET",
+          params: {
+            companyId: finalCompanyId,
+            branchId: finalBranchId,
+          },
+        };
+      },
+    }),
   }),
 });
 
@@ -162,4 +180,5 @@ export const {
   useGetInvoicePdfMutation,
   useExportInvoicesCSVMutation,
   useCreateReservedDocketsMutation,
+  useGetNextDocketNumberQuery,
 } = invoiceApi;
