@@ -12,6 +12,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import SignatureCanvas from "react-signature-canvas";
@@ -455,18 +456,17 @@ const UpdateInvoice = () => {
                     <CheckCircle className="w-4 h-4 text-[#FFD249]" />
                     Current Status
                   </Label>
-                  <Select value={status} onValueChange={setStatus}>
-                    <SelectTrigger className="w-full mt-2">
-                      <SelectValue placeholder="Select current status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {statusOptions.map((option) => (
-                        <SelectItem key={option} value={option}>
-                          {option}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    value={status}
+                    onValueChange={setStatus}
+                    options={statusOptions.map((option) => ({
+                      value: option,
+                      label: option,
+                    }))}
+                    placeholder="Select current status"
+                    emptyMessage="No status options found"
+                    className="mt-2"
+                  />
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     Select the current status of this delivery
                   </p>
@@ -600,48 +600,53 @@ const UpdateInvoice = () => {
                 </div>
                 <div>
                   <Label>Floor / Location</Label>
-                  <Select value={floor} onValueChange={setFloor}>
-                    <SelectTrigger className="w-full mt-2">
-                      <SelectValue placeholder="Select floor type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="GBT">GBT</SelectItem>
-                      <SelectItem value="G+1">G+1</SelectItem>
-                      <SelectItem value="G+2">G+2</SelectItem>
-                      <SelectItem value="G+3">G+3</SelectItem>
-                      <SelectItem value="G+4">G+4</SelectItem>
-                      <SelectItem value="G+5">G+5</SelectItem>
-                      <SelectItem value="G+6">G+6</SelectItem>
-                      <SelectItem value="G+7">G+7</SelectItem>
-                      <SelectItem value="G+8">G+8</SelectItem>
-                      <SelectItem value="G+9">G+9</SelectItem>
-                      <SelectItem value="G+10">G+10</SelectItem>
-                      <SelectItem value="G+11">G+11</SelectItem>
-                      <SelectItem value="G+12">G+12</SelectItem>
-                      <SelectItem value="G+13">G+13</SelectItem>
-                      <SelectItem value="G+14">G+14</SelectItem>
-                      <SelectItem value="G+15">G+15</SelectItem>
-                      <SelectItem value="G+16">G+16</SelectItem>
-                      <SelectItem value="G+17">G+17</SelectItem>
-                      <SelectItem value="G+18">G+18</SelectItem>
-                      <SelectItem value="G+19">G+19</SelectItem>
-                      <SelectItem value="G+20">G+20</SelectItem>
-                      <SelectItem value="G+21">G+21</SelectItem>
-                      <SelectItem value="G+22">G+22</SelectItem>
-                      <SelectItem value="G+23">G+23</SelectItem>
-                      <SelectItem value="G+24">G+24</SelectItem>
-                      <SelectItem value="G+25">G+25</SelectItem>
-                      <SelectItem value="G+26">G+26</SelectItem>
-                      <SelectItem value="G+27">G+27</SelectItem>
-                      <SelectItem value="G+28">G+28</SelectItem>
-                      <SelectItem value="G+29">G+29</SelectItem>
-                      <SelectItem value="G+30">G+30</SelectItem>
-                      <SelectItem value="RTT">RTT</SelectItem>
-                      <SelectItem value="Gbt ground floor">Gbt ground floor</SelectItem>
-                      <SelectItem value="RTP 1-3 floor">RTP 1-3 floor</SelectItem>
-                      <SelectItem value="RTT - 3 TO ABOVE">RTT - 3 TO ABOVE</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    value={floor}
+                    onValueChange={setFloor}
+                    options={[
+                      "GBT",
+                      "G+1",
+                      "G+2",
+                      "G+3",
+                      "G+4",
+                      "G+5",
+                      "G+6",
+                      "G+7",
+                      "G+8",
+                      "G+9",
+                      "G+10",
+                      "G+11",
+                      "G+12",
+                      "G+13",
+                      "G+14",
+                      "G+15",
+                      "G+16",
+                      "G+17",
+                      "G+18",
+                      "G+19",
+                      "G+20",
+                      "G+21",
+                      "G+22",
+                      "G+23",
+                      "G+24",
+                      "G+25",
+                      "G+26",
+                      "G+27",
+                      "G+28",
+                      "G+29",
+                      "G+30",
+                      "RTT",
+                      "Gbt ground floor",
+                      "RTP 1-3 floor",
+                      "RTT - 3 TO ABOVE"
+                    ].map((floorOption) => ({
+                      value: floorOption,
+                      label: floorOption,
+                    }))}
+                    placeholder="Select floor type"
+                    emptyMessage="No floor options found"
+                    className="mt-2"
+                  />
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     Select the floor type for delivery
                   </p>

@@ -31,6 +31,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Checkbox } from "@/components/ui/checkbox";
 
 import { useSelector } from "react-redux";
@@ -668,42 +669,29 @@ const UpdateDriver = () => {
                 {formData.driverType === "vendor" && (
                   <div>
                     <Label>Select Vendor *</Label>
-                    <Select
+                    <SearchableSelect
                       value={formData.vendor}
                       onValueChange={(val) =>
                         setFormData((prev) => ({ ...prev, vendor: val }))
                       }
+                      options={vendorsData?.vendors?.map((v) => ({
+                        value: v._id,
+                        label: `${v.name}${v.email ? ` (${v.email})` : ""}`,
+                      })) || []}
+                      placeholder={
+                        vendorsLoading 
+                          ? "Loading vendors..." 
+                          : formData.companies.length === 0 || formData.branches.length === 0
+                          ? "Please select company and branch first"
+                          : "Select a vendor"
+                      }
                       disabled={formData.companies.length === 0 || formData.branches.length === 0 || vendorsLoading}
-                    >
-                      <SelectTrigger className={formData.companies.length === 0 || formData.branches.length === 0 ? "bg-gray-100 dark:bg-gray-800" : ""}>
-                        <SelectValue placeholder={
-                          vendorsLoading 
-                            ? "Loading vendors..." 
-                            : formData.companies.length === 0 || formData.branches.length === 0
-                            ? "Please select company and branch first"
-                            : "Select a vendor"
-                        } />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {vendorsLoading ? (
-                          <div className="px-2 py-1.5 text-sm text-gray-500">
-                            Loading vendors...
-                          </div>
-                        ) : vendorsData?.vendors?.length > 0 ? (
-                          vendorsData.vendors.map((v) => (
-                            <SelectItem key={v._id} value={v._id}>
-                              {v.name} {v.email ? `(${v.email})` : ""}
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <div className="px-2 py-1.5 text-sm text-gray-500">
-                            {formData.companies.length === 0 || formData.branches.length === 0
-                              ? "Please select company and branch first"
-                              : "No vendors available for selected company/branch"}
-                          </div>
-                        )}
-                      </SelectContent>
-                    </Select>
+                      emptyMessage={
+                        formData.companies.length === 0 || formData.branches.length === 0
+                          ? "Please select company and branch first"
+                          : "No vendors available"
+                      }
+                    />
                     {formData.driverType === "vendor" && formData.companies.length > 0 && formData.branches.length > 0 && !vendorsLoading && vendorsData?.vendors?.length === 0 && (
                       <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
                         No vendors found. Please create a vendor first or select a different company/branch.

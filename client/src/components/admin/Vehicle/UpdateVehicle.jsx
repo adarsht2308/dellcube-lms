@@ -13,6 +13,7 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useGetAllCompaniesQuery } from "@/features/api/Company/companyApi";
 import { useGetAllBranchesQuery } from "@/features/api/Branch/branchApi";
 import {
@@ -173,15 +174,6 @@ const UpdateVehicle = () => {
       return;
     }
 
-    // Validate vehicle number format: 2 letters + 2 digits + 2 letters + 4 digits (e.g., CG04MM9576)
-    const cleanedVehicleNumber = vehicleNumber.trim().replace(/[\s-]/g, '').toUpperCase();
-    const vehicleNumberRegex = /^[A-Z]{2}[0-9]{2}[A-Z]{2}[0-9]{4}$/;
-    
-    if (!vehicleNumberRegex.test(cleanedVehicleNumber)) {
-      toast.error("Vehicle number must be in format: 2 letters + 2 digits + 2 letters + 4 digits (e.g., CG04MM9576). No dashes or spaces allowed.");
-      return;
-    }
-
     if (!type || !type.trim()) {
       toast.error("Vehicle Type (Size) is required");
       return;
@@ -320,21 +312,16 @@ const UpdateVehicle = () => {
                   Vehicle Number *
                 </Label>
                 <Input
-                  placeholder="e.g. CG04MM9576"
+                  placeholder="e.g. MH04AB1234"
                   value={vehicleNumber}
                   onChange={(e) => {
-                    // Remove spaces, dashes, and convert to uppercase
-                    const cleaned = e.target.value.replace(/[\s-]/g, '').toUpperCase();
-                    // Limit to 10 characters (2 letters + 2 digits + 2 letters + 4 digits)
-                    const limited = cleaned.slice(0, 10);
-                    setVehicleNumber(limited);
+                    setVehicleNumber(e.target.value.toUpperCase());
                   }}
-                  maxLength={10}
                   className="mt-1.5"
                 />
                 {vehicleNumber && vehicleNumber.length > 0 && (
                   <p className="text-xs text-gray-500 mt-1">
-                    Format: 2 letters + 2 digits + 2 letters + 4 digits (e.g., CG04MM9576)
+                    Enter vehicle registration number
                   </p>
                 )}
               </div>
@@ -479,22 +466,18 @@ const UpdateVehicle = () => {
                 <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Current Driver *
                 </Label>
-                <Select
+                <SearchableSelect
                   value={currentDriver}
                   onValueChange={setCurrentDriver}
+                  options={driversData?.drivers?.map((driver) => ({
+                    value: driver._id,
+                    label: `${driver.name} - ${driver.mobile} - ${driver.driverType}`,
+                  })) || []}
+                  placeholder="Select driver"
                   disabled={isDriversLoading}
-                >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select driver" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {driversData?.drivers?.map((driver) => (
-                      <SelectItem key={driver._id} value={driver._id}>
-                          {driver.name} - {driver.mobile} - {driver.driverType}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  emptyMessage="No drivers found"
+                  className="mt-1.5"
+                />
               </div>
 
               <div>
@@ -508,18 +491,17 @@ const UpdateVehicle = () => {
                     className="bg-gray-100 cursor-not-allowed dark:bg-gray-800 mt-1.5"
                   />
                 ) : (
-                  <Select value={companyId} onValueChange={setCompanyId}>
-                    <SelectTrigger className="mt-1.5">
-                      <SelectValue placeholder="Select company" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {companyData?.companies?.map((comp) => (
-                        <SelectItem key={comp._id} value={comp._id}>
-                          {comp.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    value={companyId}
+                    onValueChange={setCompanyId}
+                    options={companyData?.companies?.map((comp) => ({
+                      value: comp._id,
+                      label: comp.name,
+                    })) || []}
+                    placeholder="Select company"
+                    emptyMessage="No companies found"
+                    className="mt-1.5"
+                  />
                 )}
               </div>
 
@@ -534,18 +516,17 @@ const UpdateVehicle = () => {
                     className="bg-gray-100 cursor-not-allowed dark:bg-gray-800 mt-1.5"
                   />
                 ) : (
-                  <Select value={branchId} onValueChange={setBranchId}>
-                    <SelectTrigger className="mt-1.5">
-                      <SelectValue placeholder="Select branch" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {branchData?.branches?.map((br) => (
-                        <SelectItem key={br._id} value={br._id}>
-                          {br.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    value={branchId}
+                    onValueChange={setBranchId}
+                    options={branchData?.branches?.map((br) => ({
+                      value: br._id,
+                      label: br.name,
+                    })) || []}
+                    placeholder="Select branch"
+                    emptyMessage="No branches found"
+                    className="mt-1.5"
+                  />
                 )}
               </div>
             </div>

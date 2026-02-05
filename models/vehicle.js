@@ -8,21 +8,7 @@ const vehicleSchema = new mongoose.Schema(
       required: true,
       unique: true,
       trim: true,
-      validate: {
-        validator: function (v) {
-          // Format: 2 letters + 2 digits + 2 letters + 4 digits (e.g., CG04MM9576)
-          const cleaned = v.replace(/[\s-]/g, '').toUpperCase();
-          return /^[A-Z]{2}[0-9]{2}[A-Z]{2}[0-9]{4}$/.test(cleaned);
-        },
-        message: "Vehicle number must be in format: 2 letters + 2 digits + 2 letters + 4 digits (e.g., CG04MM9576). No dashes or spaces allowed."
-      },
-      set: (value) => {
-        // Remove spaces and dashes, convert to uppercase
-        if (typeof value === "string") {
-          return value.replace(/[\s-]/g, '').toUpperCase();
-        }
-        return value;
-      },
+      uppercase: true,
     },
     type: {
       type: String,

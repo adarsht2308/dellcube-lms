@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 const CreateCustomer = () => {
   const navigate = useNavigate();
@@ -416,21 +417,17 @@ const CreateCustomer = () => {
                     className="bg-gray-100 cursor-not-allowed dark:bg-gray-800 mt-1.5"
                   />
                 ) : (
-                  <Select
+                  <SearchableSelect
                     value={formData.company}
                     onValueChange={handleCompanyChange}
-                  >
-                    <SelectTrigger className="w-full mt-1.5">
-                      <SelectValue placeholder="Select company" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(companies?.companies || []).map((comp) => (
-                        <SelectItem key={comp._id} value={comp._id}>
-                          {comp.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    options={(companies?.companies || []).map((comp) => ({
+                      value: comp._id,
+                      label: comp.name,
+                    }))}
+                    placeholder="Select company"
+                    emptyMessage="No companies found"
+                    className="mt-1.5"
+                  />
                 )}
               </div>
 
@@ -445,23 +442,19 @@ const CreateCustomer = () => {
                     className="bg-gray-100 cursor-not-allowed dark:bg-gray-800 mt-1.5"
                   />
                 ) : (
-                  <Select
+                  <SearchableSelect
                     value={formData.branch}
                     onValueChange={(value) =>
                       setFormData({ ...formData, branch: value })
                     }
-                  >
-                    <SelectTrigger className="w-full mt-1.5">
-                      <SelectValue placeholder="Select branch" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {branches?.map((branch) => (
-                        <SelectItem key={branch._id} value={branch._id}>
-                          {branch.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    options={(branches || []).map((branch) => ({
+                      value: branch._id,
+                      label: branch.name,
+                    }))}
+                    placeholder="Select branch"
+                    emptyMessage="No branches found"
+                    className="mt-1.5"
+                  />
                 )}
               </div>
             </div>

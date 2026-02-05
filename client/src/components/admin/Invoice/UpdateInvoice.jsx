@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1701,48 +1702,36 @@ const UpdateInvoice = () => {
                         <Label className="text-sm font-medium flex items-center gap-2">
                           Company
                         </Label>
-                        <Select
+                        <SearchableSelect
                           value={companyId}
                           onValueChange={(val) => {
                             setCompanyId(val);
                             setBranchId("");
                           }}
+                          options={companies?.companies?.map((comp) => ({
+                            value: comp._id,
+                            label: comp.name,
+                          })) || []}
+                          placeholder="Select Company"
                           disabled={!isSuperAdmin || isFormDisabled}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select Company" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {companies?.companies?.map((comp) => (
-                              <SelectItem key={comp._id} value={comp._id}>
-                                {comp.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          emptyMessage="No companies found"
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label className="text-sm font-medium flex items-center gap-2">
                           Branch
                         </Label>
-                        <Select
+                        <SearchableSelect
                           value={branchId}
                           onValueChange={setBranchId}
-                          disabled={
-                            !companyId || !isSuperAdmin || isFormDisabled
-                          }
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select Branch" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {branches.map((branch) => (
-                              <SelectItem key={branch._id} value={branch._id}>
-                                {branch.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          options={branches.map((branch) => ({
+                            value: branch._id,
+                            label: branch.name,
+                          }))}
+                          placeholder="Select Branch"
+                          disabled={!companyId || !isSuperAdmin || isFormDisabled}
+                          emptyMessage="No branches found"
+                        />
                       </div>
                     </>
                   )}
@@ -1750,45 +1739,36 @@ const UpdateInvoice = () => {
                     <Label className="text-sm font-medium flex items-center gap-2">
                       Customer
                     </Label>
-                    <Select
+                    <SearchableSelect
                       value={customerId}
                       onValueChange={setCustomerId}
+                      options={customersData?.customers
+                        ?.filter((cust) => {
+                          // Filter by active status
+                          if (cust.status !== true && cust.status !== "true") {
+                            return false;
+                          }
+                          // For vendors, only show assigned clients
+                          if (isVendor && user?.assignedClients?.length > 0) {
+                            return user.assignedClients.some(
+                              (client) =>
+                                (client._id || client) === cust._id
+                            );
+                          }
+                          return true;
+                        })
+                        .map((cust) => ({
+                          value: cust._id,
+                          label: cust.name,
+                        })) || []}
+                      placeholder="Select Customer"
                       disabled={isFormDisabled}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select Customer" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {customersData?.customers?.length ? (
-                          customersData.customers
-                            .filter((cust) => {
-                              // Filter by active status
-                              if (cust.status !== true && cust.status !== "true") {
-                                return false;
-                              }
-                              // For vendors, only show assigned clients
-                              if (isVendor && user?.assignedClients?.length > 0) {
-                                return user.assignedClients.some(
-                                  (client) =>
-                                    (client._id || client) === cust._id
-                                );
-                              }
-                              return true;
-                            })
-                            .map((cust) => (
-                              <SelectItem key={cust._id} value={cust._id}>
-                                {cust.name}
-                              </SelectItem>
-                            ))
-                        ) : (
-                          <SelectItem value="no-customers" disabled>
-                            {isVendor 
-                              ? "No active assigned customers found" 
-                              : "No customers found"}
-                          </SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
+                      emptyMessage={
+                        isVendor 
+                          ? "No active assigned customers found" 
+                          : "No customers found"
+                      }
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-medium flex items-center gap-2">
@@ -1886,22 +1866,17 @@ const UpdateInvoice = () => {
                       <Building2 className="w-4 h-4" />
                       Site Type
                     </Label>
-                    <Select
+                    <SearchableSelect
                       value={selectedSiteType}
                       onValueChange={setSelectedSiteType}
                       disabled={isFormDisabled}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select Site Type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {siteTypesData?.siteTypes?.map((siteType) => (
-                          <SelectItem key={siteType._id} value={siteType._id}>
-                            {siteType.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      options={siteTypesData?.siteTypes?.map((siteType) => ({
+                        value: siteType._id,
+                        label: siteType.name,
+                      })) || []}
+                      placeholder="Select Site Type"
+                      emptyMessage="No site types found"
+                    />
                   </div>
 
                 <div className="mt-4 space-y-4">
@@ -1933,29 +1908,17 @@ const UpdateInvoice = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="space-y-2">
                         <Label className="text-xs font-medium">Select Consignor</Label>
-                        <Select
+                        <SearchableSelect
                           value={selectedConsignor}
                           onValueChange={setSelectedConsignor}
+                          options={availableConsignors.map((consignor) => ({
+                            value: consignor._id,
+                            label: `${consignor.siteId ? `${consignor.siteId} - ` : ""}${consignor.consignor}`,
+                          }))}
+                          placeholder={customerId ? "Select Consignor" : "Select Customer First"}
                           disabled={!customerId || isFormDisabled}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue
-                              placeholder={
-                                customerId
-                                  ? "Select Consignor"
-                                  : "Select Customer First"
-                              }
-                            />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableConsignors.map((consignor) => (
-                              <SelectItem key={consignor._id} value={consignor._id}>
-                                {consignor.siteId ? `${consignor.siteId} - ` : ""}
-                                {consignor.consignor}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          emptyMessage="No consignors found"
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label className="text-xs font-medium">Consignor Name</Label>
@@ -2010,7 +1973,7 @@ const UpdateInvoice = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="space-y-2">
                         <Label className="text-xs font-medium">Site ID</Label>
-                        <Select
+                        <SearchableSelect
                           value={siteId}
                           onValueChange={(value) => {
                             setSiteId(value);
@@ -2021,23 +1984,14 @@ const UpdateInvoice = () => {
                               setSelectedConsignee(matchingConsignee._id);
                             }
                           }}
+                          options={availableConsignees.map((consignee) => ({
+                            value: consignee.siteId,
+                            label: consignee.siteId,
+                          }))}
+                          placeholder={customerId ? "Select Site ID" : "Select Customer First"}
                           disabled={!customerId || isFormDisabled}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue
-                              placeholder={
-                                customerId ? "Select Site ID" : "Select Customer First"
-                              }
-                            />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableConsignees.map((consignee) => (
-                              <SelectItem key={consignee._id} value={consignee.siteId}>
-                                {consignee.siteId}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          emptyMessage="No consignees found"
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label className="text-xs font-medium">Consignee Name</Label>
@@ -2082,22 +2036,17 @@ const UpdateInvoice = () => {
                     <Label className="text-sm font-medium flex items-center gap-2">
                       Goods Type
                     </Label>
-                    <Select
+                    <SearchableSelect
                       value={selectedGood}
                       onValueChange={setSelectedGood}
                       disabled={isFormDisabled}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select Goods" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {goodsData?.goodss?.map((good) => (
-                          <SelectItem key={good._id} value={good._id}>
-                            {good.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      options={goodsData?.goodss?.map((good) => ({
+                        value: good._id,
+                        label: good.name,
+                      })) || []}
+                      placeholder="Select Goods"
+                      emptyMessage="No goods types found"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-medium flex items-center gap-2">
@@ -2373,49 +2322,44 @@ const UpdateInvoice = () => {
                           <Label className="text-sm font-medium flex items-center gap-2">
                             Vehicle Type/Size
                           </Label>
-                          <Select
+                          <SearchableSelect
                             value={vehicleSize}
                             onValueChange={setVehicleSize}
                             disabled={isFormDisabled}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Select Vehicle Size" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {[
-                                "14 Feet",
-                                "17 Feet",
-                                "19 Feet",
-                                "20 Feet",
-                                "22 Feet",
-                                "24 Feet",
-                                "32FTMXL-14MT",
-                                "Biker",
-                                "BYHAND",
-                                "FLAT BED TRAILER 20FT",
-                                "Pickup",
-                                "TAURUS 16 TON",
-                                "Tata 407",
-                                "TRUCK/LORRY",
-                                "SFBT40",
-                                "TATA/EICHER 709",
-                                "32FTMXL-18MT",
-                                "32FTSXL-7MT",
-                                "32FTSXL-9MT",
-                                "FLAT BED TRAILER 40FT",
-                                "SEMI FLAT BED TRAILER 40FT",
-                                "TAURUS 18 TON",
-                                "TAURUS 21 TON",
-                                "TAURUS 25 TON",
-                                "TAURUS 30 TON",
-                                "TATA ACE"
-                              ].map((size) => (
-                                <SelectItem key={size} value={size}>
-                                  {size}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            options={[
+                              "14 Feet",
+                              "17 Feet",
+                              "19 Feet",
+                              "20 Feet",
+                              "22 Feet",
+                              "24 Feet",
+                              "32FTMXL-14MT",
+                              "Biker",
+                              "BYHAND",
+                              "FLAT BED TRAILER 20FT",
+                              "Pickup",
+                              "TAURUS 16 TON",
+                              "Tata 407",
+                              "TRUCK/LORRY",
+                              "SFBT40",
+                              "TATA/EICHER 709",
+                              "32FTMXL-18MT",
+                              "32FTSXL-7MT",
+                              "32FTSXL-9MT",
+                              "FLAT BED TRAILER 40FT",
+                              "SEMI FLAT BED TRAILER 40FT",
+                              "TAURUS 18 TON",
+                              "TAURUS 21 TON",
+                              "TAURUS 25 TON",
+                              "TAURUS 30 TON",
+                              "TATA ACE"
+                            ].map((size) => ({
+                              value: size,
+                              label: size,
+                            }))}
+                            placeholder="Select Vehicle Size"
+                            emptyMessage="No vehicle sizes found"
+                          />
                         </div>
                       )}
                       <div className="space-y-2 sm:col-span-2">
@@ -2423,35 +2367,18 @@ const UpdateInvoice = () => {
                           Assign / Override Driver
                         </Label>
                         <div className="flex flex-col sm:flex-row gap-2">
-                          <Select
+                          <SearchableSelect
                             value={selectedDriver}
                             onValueChange={setSelectedDriver}
-                            disabled={
-                              isFormDisabled || !driversData?.drivers?.length
-                            }
+                            options={driversData?.drivers?.map((driver) => ({
+                              value: driver._id,
+                              label: `${driver.name} - ${driver.mobile} - ${driver.driverType}`,
+                            })) || []}
+                            placeholder="Select a Driver"
+                            disabled={isFormDisabled || !driversData?.drivers?.length}
+                            emptyMessage="No drivers found"
                             className="flex-1"
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a Driver" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {driversData?.drivers?.length ? (
-                                driversData.drivers.map((driver) => (
-                                  <SelectItem
-                                    key={driver._id}
-                                    value={driver._id}
-                                  >
-                                    {driver.name} - {driver.mobile} -{" "}
-                                    {driver.driverType}
-                                  </SelectItem>
-                                ))
-                              ) : (
-                                <SelectItem value="no-drivers" disabled>
-                                  No drivers available
-                                </SelectItem>
-                              )}
-                            </SelectContent>
-                          </Select>
+                          />
                           <Button
                             type="button"
                             variant="outline"
@@ -2563,22 +2490,17 @@ const UpdateInvoice = () => {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Transport Mode</Label>
-                  <Select
+                  <SearchableSelect
                     value={selectedTransportMode}
                     onValueChange={setSelectedTransportMode}
                     disabled={isFormDisabled}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select Transport Mode" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {transportModesData?.transportModes?.map((mode) => (
-                        <SelectItem key={mode._id} value={mode._id}>
-                          {mode.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    options={transportModesData?.transportModes?.map((mode) => ({
+                      value: mode._id,
+                      label: mode.name,
+                    })) || []}
+                    placeholder="Select Transport Mode"
+                    emptyMessage="No transport modes found"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Freight Charges</Label>
@@ -2906,38 +2828,29 @@ const UpdateInvoice = () => {
             {newDriverData.driverType === "vendor" && (
               <div className="space-y-2">
                 <Label>Select Vendor *</Label>
-                <Select
+                <SearchableSelect
                   value={newDriverData.vendor}
                   onValueChange={(value) =>
                     setNewDriverData((prev) => ({ ...prev, vendor: value }))
                   }
+                  options={vendorData?.vendors?.map((v) => ({
+                    value: v._id,
+                    label: `${v.name}${v.email ? ` (${v.email})` : ""}`,
+                  })) || []}
+                  placeholder={
+                    !companyId || !branchId
+                      ? "Company and branch must be selected first"
+                      : vendorData?.vendors?.length > 0
+                      ? "Select a vendor"
+                      : "No vendors available"
+                  }
                   disabled={!companyId || !branchId}
-                >
-                  <SelectTrigger className={!companyId || !branchId ? "bg-gray-100 dark:bg-gray-800" : ""}>
-                    <SelectValue placeholder={
-                      !companyId || !branchId
-                        ? "Company and branch must be selected first"
-                        : vendorData?.vendors?.length > 0
-                        ? "Select a vendor"
-                        : "No vendors available"
-                    } />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {vendorData?.vendors?.length > 0 ? (
-                      vendorData.vendors.map((v) => (
-                        <SelectItem key={v._id} value={v._id}>
-                          {v.name} {v.email ? `(${v.email})` : ""}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <div className="px-2 py-1.5 text-sm text-gray-500">
-                        {!companyId || !branchId
-                          ? "Please select company and branch first"
-                          : "No vendors available for selected company/branch"}
-                      </div>
-                    )}
-                  </SelectContent>
-                </Select>
+                  emptyMessage={
+                    !companyId || !branchId
+                      ? "Please select company and branch first"
+                      : "No vendors available"
+                  }
+                />
                 {newDriverData.driverType === "vendor" && companyId && branchId && vendorData?.vendors?.length === 0 && (
                   <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
                     No vendors found. Please create a vendor first or select a different company/branch.

@@ -36,6 +36,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   Pagination,
   PaginationContent,
@@ -278,45 +279,41 @@ const OperationUsers = () => {
                 <>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Company:</span>
-                    <Select
+                    <SearchableSelect
                       value={companyId}
                       onValueChange={(val) => {
                         setCompanyId(val);
                         setBranchId("all");
                       }}
-                    >
-                      <SelectTrigger className="w-[200px]">
-                        <SelectValue placeholder="All Companies" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Companies</SelectItem>
-                        {companyData?.companies?.map((comp) => (
-                          <SelectItem key={comp._id} value={comp._id}>
-                            {comp.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      options={[
+                        { value: "all", label: "All Companies" },
+                        ...(companyData?.companies?.map((comp) => ({
+                          value: comp._id,
+                          label: comp.name,
+                        })) || [])
+                      ]}
+                      placeholder="All Companies"
+                      emptyMessage="No companies found"
+                      className="w-[200px]"
+                    />
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Branch:</span>
-                    <Select
+                    <SearchableSelect
                       value={branchId}
                       onValueChange={setBranchId}
                       disabled={companyId === "all"}
-                    >
-                      <SelectTrigger className="w-[200px]">
-                        <SelectValue placeholder="All Branches" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Branches</SelectItem>
-                        {branches.map((b) => (
-                          <SelectItem key={b._id} value={b._id}>
-                            {b.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      options={[
+                        { value: "all", label: "All Branches" },
+                        ...(branches.map((b) => ({
+                          value: b._id,
+                          label: b.name,
+                        })) || [])
+                      ]}
+                      placeholder="All Branches"
+                      emptyMessage="No branches found"
+                      className="w-[200px]"
+                    />
                   </div>
                 </>
               )}

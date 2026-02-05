@@ -50,6 +50,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Button } from "@/components/ui/button";
 import { useDebounce } from "@/hooks/Debounce";
 import { Drawer } from "antd";
@@ -354,40 +355,30 @@ const Customers = () => {
                 </Select>
                 {isSuperAdmin && (
                   <>
-                    <Select
+                    <SearchableSelect
                       value={companyId}
                       onValueChange={(val) => {
                         setCompanyId(val);
                         setBranchId("");
                       }}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Filter Company" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {companyData?.companies?.map((comp) => (
-                          <SelectItem key={comp._id} value={comp._id}>
-                            {comp.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Select
+                      options={companyData?.companies?.map((comp) => ({
+                        value: comp._id,
+                        label: comp.name,
+                      })) || []}
+                      placeholder="Filter Company"
+                      emptyMessage="No companies found"
+                    />
+                    <SearchableSelect
                       value={branchId}
                       onValueChange={(val) => setBranchId(val)}
+                      options={branches.map((branch) => ({
+                        value: branch._id,
+                        label: branch.name,
+                      }))}
+                      placeholder="Filter Branch"
                       disabled={!companyId}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Filter Branch" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {branches.map((branch) => (
-                          <SelectItem key={branch._id} value={branch._id}>
-                            {branch.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      emptyMessage="No branches found"
+                    />
                   </>
                 )}
               </div>

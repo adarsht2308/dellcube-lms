@@ -41,6 +41,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -280,39 +281,38 @@ const BranchAdmins = () => {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Company:</span>
-                <Select value={company} onValueChange={handleCompanyChange}>
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="All Companies" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Companies</SelectItem>
-                    {companies?.companies?.map((c) => (
-                      <SelectItem key={c._id} value={c._id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={company}
+                  onValueChange={handleCompanyChange}
+                  options={[
+                    { value: "all", label: "All Companies" },
+                    ...(companies?.companies?.map((c) => ({
+                      value: c._id,
+                      label: c.name,
+                    })) || [])
+                  ]}
+                  placeholder="All Companies"
+                  emptyMessage="No companies found"
+                  className="w-[200px]"
+                />
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Branch:</span>
-                <Select
+                <SearchableSelect
                   value={branch}
                   onValueChange={(val) => setBranch(val)}
                   disabled={company === "all"}
-                >
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="All Branches" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Branches</SelectItem>
-                    {branchesData?.branches?.map((b) => (
-                      <SelectItem key={b._id} value={b._id}>
-                        {b.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={[
+                    { value: "all", label: "All Branches" },
+                    ...(branchesData?.branches?.map((b) => ({
+                      value: b._id,
+                      label: b.name,
+                    })) || [])
+                  ]}
+                  placeholder="All Branches"
+                  emptyMessage="No branches found"
+                  className="w-[200px]"
+                />
               </div>
               <Button 
                 variant="outline" 

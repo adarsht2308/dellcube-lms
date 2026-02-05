@@ -56,6 +56,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   Pagination,
   PaginationContent,
@@ -1686,45 +1687,35 @@ const Invoices = () => {
                       <Label className="text-xs font-medium text-gray-600 dark:text-gray-300">
                         Company
                       </Label>
-                      <Select
+                      <SearchableSelect
                         value={companyId}
                         onValueChange={(val) => {
                           setCompanyId(val);
                           setBranchId("");
                         }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Filter Company" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {companyData?.companies?.map((c) => (
-                            <SelectItem key={c._id} value={c._id}>
-                              {c.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        options={companyData?.companies?.map((c) => ({
+                          value: c._id,
+                          label: c.name,
+                        })) || []}
+                        placeholder="Filter Company"
+                        emptyMessage="No companies found"
+                      />
                     </div>
                     <div className="flex flex-col gap-1">
                       <Label className="text-xs font-medium text-gray-600 dark:text-gray-300">
                         Branch
                       </Label>
-                      <Select
+                      <SearchableSelect
                         value={branchId}
                         onValueChange={setBranchId}
+                        options={branches?.map((b) => ({
+                          value: b._id,
+                          label: b.name,
+                        })) || []}
+                        placeholder="Filter Branch"
                         disabled={!companyId}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Filter Branch" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {branches?.map((b) => (
-                            <SelectItem key={b._id} value={b._id}>
-                              {b.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        emptyMessage="No branches found"
+                      />
                     </div>
                   </div>
                 )}
@@ -1732,18 +1723,16 @@ const Invoices = () => {
                   <Label className="text-xs font-medium text-gray-600 dark:text-gray-300">
                     Customer
                   </Label>
-                  <Select value={customerId} onValueChange={setCustomerId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Filter Customer" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {customersData?.customers?.map((cust) => (
-                        <SelectItem key={cust._id} value={cust._id}>
-                          {cust.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    value={customerId}
+                    onValueChange={setCustomerId}
+                    options={customersData?.customers?.map((cust) => ({
+                      value: cust._id,
+                      label: cust.name,
+                    })) || []}
+                    placeholder="Filter Customer"
+                    emptyMessage="No customers found"
+                  />
                 </div>
                 <div className="flex flex-col gap-1">
                   <Label className="text-xs font-medium text-gray-600 dark:text-gray-300">
@@ -1764,15 +1753,16 @@ const Invoices = () => {
                   <Label className="text-xs font-medium text-gray-600 dark:text-gray-300">
                     Vehicle Type
                   </Label>
-                  <Select value={vehicleType} onValueChange={setVehicleType}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Vehicle Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Dellcube">Dellcube</SelectItem>
-                      <SelectItem value="Vendor">Vendor</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    value={vehicleType}
+                    onValueChange={setVehicleType}
+                    options={[
+                      { value: "Dellcube", label: "Dellcube" },
+                      { value: "Vendor", label: "Vendor" }
+                    ]}
+                    placeholder="Vehicle Type"
+                    emptyMessage="No vehicle types found"
+                  />
                 </div>
               </div>
             </div>

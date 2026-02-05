@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -219,19 +220,20 @@ const Branches = () => {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Company:</span>
-                <Select value={companyFilter} onValueChange={setCompanyFilter}>
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="All Companies" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Companies</SelectItem>
-                    {companiesData?.companies?.map((company) => (
-                      <SelectItem key={company._id} value={company._id}>
-                        {company.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={companyFilter}
+                  onValueChange={setCompanyFilter}
+                  options={[
+                    { value: "all", label: "All Companies" },
+                    ...(companiesData?.companies?.map((company) => ({
+                      value: company._id,
+                      label: company.name,
+                    })) || [])
+                  ]}
+                  placeholder="All Companies"
+                  emptyMessage="No companies found"
+                  className="w-[200px]"
+                />
               </div>
               <Button 
                 variant="outline" 

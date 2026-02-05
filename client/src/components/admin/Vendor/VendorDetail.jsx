@@ -50,6 +50,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import toast from "react-hot-toast";
 
 const DELLCUBE_COLORS = {
@@ -157,7 +158,7 @@ const VendorDetail = () => {
       const formData = new FormData();
       formData.append("vendorId", vendorId);
       formData.append("vehicleId", editVehicleDialog.vehicle._id);
-      formData.append("vehicleNumber", vehicleForm.vehicleNumber.trim().replace(/[\s-]/g, '').toUpperCase());
+      formData.append("vehicleNumber", vehicleForm.vehicleNumber.trim().toUpperCase());
       formData.append("type", vehicleForm.type);
       formData.append("brand", vehicleForm.brand);
       formData.append("model", vehicleForm.model);
@@ -750,50 +751,51 @@ const VendorDetail = () => {
                   id="edit-vehicleNumber"
                   value={vehicleForm.vehicleNumber}
                   onChange={(e) => {
-                    const cleaned = e.target.value.replace(/[\s-]/g, '').toUpperCase();
-                    const limited = cleaned.slice(0, 10);
-                    setVehicleForm((prev) => ({ ...prev, vehicleNumber: limited }));
+                    setVehicleForm((prev) => ({ ...prev, vehicleNumber: e.target.value.toUpperCase() }));
                   }}
-                  placeholder="e.g. CG04MM9576"
-                  maxLength={10}
+                  placeholder="e.g. MH04AB1234"
                 />
               </div>
 
               <div>
                 <Label htmlFor="edit-type">Vehicle Type *</Label>
-                <Select value={vehicleForm.type} onValueChange={(value) => setVehicleForm((prev) => ({ ...prev, type: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select vehicle type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="14 Feet">14 Feet</SelectItem>
-                    <SelectItem value="17 Feet">17 Feet</SelectItem>
-                    <SelectItem value="19 Feet">19 Feet</SelectItem>
-                    <SelectItem value="20 Feet">20 Feet</SelectItem>
-                    <SelectItem value="22 Feet">22 Feet</SelectItem>
-                    <SelectItem value="24 Feet">24 Feet</SelectItem>
-                    <SelectItem value="32FTMXL-14MT">32FTMXL-14MT</SelectItem>
-                    <SelectItem value="32FTMXL-18MT">32FTMXL-18MT</SelectItem>
-                    <SelectItem value="32FTSXL-7MT">32FTSXL-7MT</SelectItem>
-                    <SelectItem value="32FTSXL-9MT">32FTSXL-9MT</SelectItem>
-                    <SelectItem value="Biker">Biker</SelectItem>
-                    <SelectItem value="BYHAND">BYHAND</SelectItem>
-                    <SelectItem value="FLAT BED TRAILER 20FT">FLAT BED TRAILER 20FT</SelectItem>
-                    <SelectItem value="FLAT BED TRAILER 40FT">FLAT BED TRAILER 40FT</SelectItem>
-                    <SelectItem value="SEMI FLAT BED TRAILER 40FT">SEMI FLAT BED TRAILER 40FT</SelectItem>
-                    <SelectItem value="Pickup">Pickup</SelectItem>
-                    <SelectItem value="TAURUS 16 TON">TAURUS 16 TON</SelectItem>
-                    <SelectItem value="TAURUS 18 TON">TAURUS 18 TON</SelectItem>
-                    <SelectItem value="TAURUS 21 TON">TAURUS 21 TON</SelectItem>
-                    <SelectItem value="TAURUS 25 TON">TAURUS 25 TON</SelectItem>
-                    <SelectItem value="TAURUS 30 TON">TAURUS 30 TON</SelectItem>
-                    <SelectItem value="Tata 407">Tata 407</SelectItem>
-                    <SelectItem value="TRUCK/LORRY">TRUCK/LORRY</SelectItem>
-                    <SelectItem value="SFBT40">SFBT40</SelectItem>
-                    <SelectItem value="TATA/EICHER 709">TATA/EICHER 709</SelectItem>
-                    <SelectItem value="TATA ACE">TATA ACE</SelectItem>
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={vehicleForm.type}
+                  onValueChange={(value) => setVehicleForm((prev) => ({ ...prev, type: value }))}
+                  options={[
+                    "14 Feet",
+                    "17 Feet",
+                    "19 Feet",
+                    "20 Feet",
+                    "22 Feet",
+                    "24 Feet",
+                    "32FTMXL-14MT",
+                    "32FTMXL-18MT",
+                    "32FTSXL-7MT",
+                    "32FTSXL-9MT",
+                    "Biker",
+                    "BYHAND",
+                    "FLAT BED TRAILER 20FT",
+                    "FLAT BED TRAILER 40FT",
+                    "SEMI FLAT BED TRAILER 40FT",
+                    "Pickup",
+                    "TAURUS 16 TON",
+                    "TAURUS 18 TON",
+                    "TAURUS 21 TON",
+                    "TAURUS 25 TON",
+                    "TAURUS 30 TON",
+                    "Tata 407",
+                    "TRUCK/LORRY",
+                    "SFBT40",
+                    "TATA/EICHER 709",
+                    "TATA ACE"
+                  ].map((type) => ({
+                    value: type,
+                    label: type,
+                  }))}
+                  placeholder="Select vehicle type"
+                  emptyMessage="No vehicle types found"
+                />
               </div>
 
               <div>

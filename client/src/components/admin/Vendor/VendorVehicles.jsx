@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import toast from "react-hot-toast";
 
 const VendorVehicles = () => {
@@ -82,15 +83,6 @@ const VendorVehicles = () => {
   const handleUpdateVehicle = async () => {
     if (!selectedVehicle) return;
 
-    // Validate vehicle number format: 2 letters + 2 digits + 2 letters + 4 digits (e.g., CG04MM9576)
-    const cleanedVehicleNumber = vehicleForm.vehicleNumber.trim().replace(/[\s-]/g, '').toUpperCase();
-    const vehicleNumberRegex = /^[A-Z]{2}[0-9]{2}[A-Z]{2}[0-9]{4}$/;
-    
-    if (!vehicleNumberRegex.test(cleanedVehicleNumber)) {
-      toast.error("Vehicle number must be in format: 2 letters + 2 digits + 2 letters + 4 digits (e.g., CG04MM9576). No dashes or spaces allowed.");
-      return;
-    }
-
     try {
       const formData = new FormData();
 
@@ -100,9 +92,9 @@ const VendorVehicles = () => {
       
       Object.keys(vehicleForm).forEach((key) => {
         if (vehicleForm[key] !== "") {
-          // Use cleaned vehicle number for vehicleNumber field
+          // Trim and uppercase vehicle number
           if (key === "vehicleNumber") {
-            formData.append(key, cleanedVehicleNumber);
+            formData.append(key, vehicleForm.vehicleNumber.trim().toUpperCase());
           } else {
             formData.append(key, vehicleForm[key]);
           }
@@ -136,23 +128,15 @@ const VendorVehicles = () => {
   };
 
   const handleAddVehicle = async () => {
-    // Validate vehicle number format: 2 letters + 2 digits + 2 letters + 4 digits (e.g., CG04MM9576)
-    const cleanedVehicleNumber = vehicleForm.vehicleNumber.trim().replace(/[\s-]/g, '').toUpperCase();
-    const vehicleNumberRegex = /^[A-Z]{2}[0-9]{2}[A-Z]{2}[0-9]{4}$/;
-    
-    if (!vehicleNumberRegex.test(cleanedVehicleNumber)) {
-      toast.error("Vehicle number must be in format: 2 letters + 2 digits + 2 letters + 4 digits (e.g., CG04MM9576). No dashes or spaces allowed.");
-      return;
-    }
     try {
       const formData = new FormData();
 
       // Add vehicle data
       Object.keys(vehicleForm).forEach((key) => {
         if (vehicleForm[key] !== "") {
-          // Use cleaned vehicle number for vehicleNumber field
+          // Trim and uppercase vehicle number
           if (key === "vehicleNumber") {
-            formData.append(key, cleanedVehicleNumber);
+            formData.append(key, vehicleForm.vehicleNumber.trim().toUpperCase());
           } else {
             formData.append(key, vehicleForm[key]);
           }
@@ -412,71 +396,61 @@ const VendorVehicles = () => {
                 id="vehicleNumber"
                 value={vehicleForm.vehicleNumber}
                 onChange={(e) => {
-                  // Remove spaces, dashes, and convert to uppercase
-                  const cleaned = e.target.value.replace(/[\s-]/g, '').toUpperCase();
-                  // Limit to 10 characters (2 letters + 2 digits + 2 letters + 4 digits)
-                  const limited = cleaned.slice(0, 10);
                   setVehicleForm((prev) => ({
                     ...prev,
-                    vehicleNumber: limited,
+                    vehicleNumber: e.target.value.toUpperCase(),
                   }));
                 }}
-                placeholder="e.g. CG04MM9576"
-                maxLength={10}
+                placeholder="e.g. MH04AB1234"
               />
               {vehicleForm.vehicleNumber && vehicleForm.vehicleNumber.length > 0 && (
                 <p className="text-xs text-gray-500 mt-1">
-                  Format: 2 letters + 2 digits + 2 letters + 4 digits (e.g., CG04MM9576)
+                  Enter vehicle registration number
                 </p>
               )}
             </div>
 
             <div>
               <Label htmlFor="type">Vehicle Type *</Label>
-              <Select
+              <SearchableSelect
                 value={vehicleForm.type}
                 onValueChange={(value) =>
                   setVehicleForm((prev) => ({ ...prev, type: value }))
                 }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select vehicle type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {[
-                    "14 Feet",
-                    "17 Feet",
-                    "19 Feet",
-                    "20 Feet",
-                    "22 Feet",
-                    "24 Feet",
-                    "32FTMXL-14MT",
-                    "Biker",
-                    "BYHAND",
-                    "FLAT BED TRAILER 20FT",
-                    "Pickup",
-                    "TAURUS 16 TON",
-                    "Tata 407",
-                    "TRUCK/LORRY",
-                    "SFBT40",
-                    "TATA/EICHER 709",
-                    "32FTMXL-18MT",
-                    "32FTSXL-7MT",
-                    "32FTSXL-9MT",
-                    "FLAT BED TRAILER 40FT",
-                    "SEMI FLAT BED TRAILER 40FT",
-                    "TAURUS 18 TON",
-                    "TAURUS 21 TON",
-                    "TAURUS 25 TON",
-                    "TAURUS 30 TON",
-                    "TATA ACE"
-                  ].map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={[
+                  "14 Feet",
+                  "17 Feet",
+                  "19 Feet",
+                  "20 Feet",
+                  "22 Feet",
+                  "24 Feet",
+                  "32FTMXL-14MT",
+                  "Biker",
+                  "BYHAND",
+                  "FLAT BED TRAILER 20FT",
+                  "Pickup",
+                  "TAURUS 16 TON",
+                  "Tata 407",
+                  "TRUCK/LORRY",
+                  "SFBT40",
+                  "TATA/EICHER 709",
+                  "32FTMXL-18MT",
+                  "32FTSXL-7MT",
+                  "32FTSXL-9MT",
+                  "FLAT BED TRAILER 40FT",
+                  "SEMI FLAT BED TRAILER 40FT",
+                  "TAURUS 18 TON",
+                  "TAURUS 21 TON",
+                  "TAURUS 25 TON",
+                  "TAURUS 30 TON",
+                  "TATA ACE"
+                ].map((type) => ({
+                  value: type,
+                  label: type,
+                }))}
+                placeholder="Select vehicle type"
+                emptyMessage="No vehicle types found"
+              />
             </div>
 
             <div>
@@ -675,69 +649,61 @@ const VendorVehicles = () => {
                 id="edit-vehicleNumber"
                 value={vehicleForm.vehicleNumber}
                 onChange={(e) => {
-                  const cleaned = e.target.value.replace(/[\s-]/g, '').toUpperCase();
-                  const limited = cleaned.slice(0, 10);
                   setVehicleForm((prev) => ({
                     ...prev,
-                    vehicleNumber: limited,
+                    vehicleNumber: e.target.value.toUpperCase(),
                   }));
                 }}
-                placeholder="e.g. CG04MM9576"
-                maxLength={10}
+                placeholder="e.g. MH04AB1234"
               />
               {vehicleForm.vehicleNumber && vehicleForm.vehicleNumber.length > 0 && (
                 <p className="text-xs text-gray-500 mt-1">
-                  Format: 2 letters + 2 digits + 2 letters + 4 digits (e.g., CG04MM9576)
+                  Enter vehicle registration number
                 </p>
               )}
             </div>
 
             <div>
               <Label htmlFor="edit-type">Vehicle Type *</Label>
-              <Select
+              <SearchableSelect
                 value={vehicleForm.type}
                 onValueChange={(value) =>
                   setVehicleForm((prev) => ({ ...prev, type: value }))
                 }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select vehicle type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {[
-                    "14 Feet",
-                    "17 Feet",
-                    "19 Feet",
-                    "20 Feet",
-                    "22 Feet",
-                    "24 Feet",
-                    "32FTMXL-14MT",
-                    "Biker",
-                    "BYHAND",
-                    "FLAT BED TRAILER 20FT",
-                    "Pickup",
-                    "TAURUS 16 TON",
-                    "Tata 407",
-                    "TRUCK/LORRY",
-                    "SFBT40",
-                    "TATA/EICHER 709",
-                    "32FTMXL-18MT",
-                    "32FTSXL-7MT",
-                    "32FTSXL-9MT",
-                    "FLAT BED TRAILER 40FT",
-                    "SEMI FLAT BED TRAILER 40FT",
-                    "TAURUS 18 TON",
-                    "TAURUS 21 TON",
-                    "TAURUS 25 TON",
-                    "TAURUS 30 TON",
-                    "TATA ACE"
-                  ].map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={[
+                  "14 Feet",
+                  "17 Feet",
+                  "19 Feet",
+                  "20 Feet",
+                  "22 Feet",
+                  "24 Feet",
+                  "32FTMXL-14MT",
+                  "Biker",
+                  "BYHAND",
+                  "FLAT BED TRAILER 20FT",
+                  "Pickup",
+                  "TAURUS 16 TON",
+                  "Tata 407",
+                  "TRUCK/LORRY",
+                  "SFBT40",
+                  "TATA/EICHER 709",
+                  "32FTMXL-18MT",
+                  "32FTSXL-7MT",
+                  "32FTSXL-9MT",
+                  "FLAT BED TRAILER 40FT",
+                  "SEMI FLAT BED TRAILER 40FT",
+                  "TAURUS 18 TON",
+                  "TAURUS 21 TON",
+                  "TAURUS 25 TON",
+                  "TAURUS 30 TON",
+                  "TATA ACE"
+                ].map((type) => ({
+                  value: type,
+                  label: type,
+                }))}
+                placeholder="Select vehicle type"
+                emptyMessage="No vehicle types found"
+              />
             </div>
 
             <div>

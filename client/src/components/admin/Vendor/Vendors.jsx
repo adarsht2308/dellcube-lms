@@ -46,6 +46,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "antd"; // Ant Design Drawer
 import {
@@ -481,25 +482,20 @@ const Vendors = () => {
                       >
                         Company
                       </Label>
-                      <Select
+                      <SearchableSelect
                         value={companyId}
                         onValueChange={(val) => {
                           setCompanyId(val);
                           setBranchId("");
                           setPage(1);
                         }}
-                      >
-                        <SelectTrigger id="company-filter" className="w-full">
-                          <SelectValue placeholder="Filter by Company" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {companyData?.companies?.map((comp) => (
-                            <SelectItem key={comp._id} value={comp._id}>
-                              {comp.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        options={companyData?.companies?.map((comp) => ({
+                          value: comp._id,
+                          label: comp.name,
+                        })) || []}
+                        placeholder="Filter by Company"
+                        emptyMessage="No companies found"
+                      />
                     </div>
                     {/* Branch Select */}
                     <div className="flex flex-col gap-2">
@@ -509,25 +505,20 @@ const Vendors = () => {
                       >
                         Branch
                       </Label>
-                      <Select
+                      <SearchableSelect
                         value={branchId}
                         onValueChange={(val) => {
                           setBranchId(val);
                           setPage(1);
                         }}
+                        options={branches?.map((br) => ({
+                          value: br._id,
+                          label: br.name,
+                        })) || []}
+                        placeholder="Filter by Branch"
                         disabled={!companyId || branches.length === 0}
-                      >
-                        <SelectTrigger id="branch-filter" className="w-full">
-                          <SelectValue placeholder="Filter by Branch" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {branches?.map((br) => (
-                            <SelectItem key={br._id} value={br._id}>
-                              {br.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        emptyMessage="No branches found"
+                      />
                     </div>
                   </>
                 )}
@@ -1257,21 +1248,12 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
       return;
     }
 
-    // Validate vehicle number format: 2 letters + 2 digits + 2 letters + 4 digits (e.g., CG04MM9576)
-    const cleanedVehicleNumber = form.vehicleNumber.trim().replace(/[\s-]/g, '').toUpperCase();
-    const vehicleNumberRegex = /^[A-Z]{2}[0-9]{2}[A-Z]{2}[0-9]{4}$/;
-    
-    if (!vehicleNumberRegex.test(cleanedVehicleNumber)) {
-      toast.error("Vehicle number must be in format: 2 letters + 2 digits + 2 letters + 4 digits (e.g., CG04MM9576). No dashes or spaces allowed.");
-      return;
-    }
-
     const formData = new FormData();
     Object.keys(form).forEach((key) => {
       if (form[key] !== "") {
-        // Use cleaned vehicle number for vehicleNumber field
+        // Trim and uppercase vehicle number
         if (key === "vehicleNumber") {
-          formData.append(key, cleanedVehicleNumber);
+          formData.append(key, form.vehicleNumber.trim().toUpperCase());
         } else {
           formData.append(key, form[key]);
         }
@@ -1345,24 +1327,19 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
                   Vehicle Number *
                 </Label>
                 <Input
-                  placeholder="e.g. CG04MM9576"
+                  placeholder="e.g. MH04AB1234"
                   value={form.vehicleNumber}
                   onChange={(e) => {
-                    // Remove spaces, dashes, and convert to uppercase
-                    const cleaned = e.target.value.replace(/[\s-]/g, '').toUpperCase();
-                    // Limit to 10 characters (2 letters + 2 digits + 2 letters + 4 digits)
-                    const limited = cleaned.slice(0, 10);
                     setForm((prev) => ({
                       ...prev,
-                      vehicleNumber: limited,
+                      vehicleNumber: e.target.value.toUpperCase(),
                     }));
                   }}
-                  maxLength={10}
                   className="mt-1.5"
                 />
                 {form.vehicleNumber && form.vehicleNumber.length > 0 && (
                   <p className="text-xs text-gray-500 mt-1">
-                    Format: 2 letters + 2 digits + 2 letters + 4 digits (e.g., CG04MM9576)
+                    Enter vehicle registration number
                   </p>
                 )}
               </div>
@@ -1371,50 +1348,46 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
                 <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Vehicle Type *
                 </Label>
-                <Select
+                <SearchableSelect
                   value={form.type}
                   onValueChange={(val) =>
                     setForm((prev) => ({ ...prev, type: val }))
                   }
-                >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select vehicle type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[
-                      "14 Feet",
-                      "17 Feet",
-                      "19 Feet",
-                      "20 Feet",
-                      "22 Feet",
-                      "24 Feet",
-                      "32FTMXL-14MT",
-                      "Biker",
-                      "BYHAND",
-                      "FLAT BED TRAILER 20FT",
-                      "Pickup",
-                      "TAURUS 16 TON",
-                      "Tata 407",
-                      "TRUCK/LORRY",
-                      "SFBT40",
-                      "TATA/EICHER 709",
-                      "32FTMXL-18MT",
-                      "32FTSXL-7MT",
-                      "32FTSXL-9MT",
-                      "FLAT BED TRAILER 40FT",
-                      "SEMI FLAT BED TRAILER 40FT",
-                      "TAURUS 18 TON",
-                      "TAURUS 21 TON",
-                      "TAURUS 25 TON",
-                      "TAURUS 30 TON",
-                      "TATA ACE"
-                    ].map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={[
+                    "14 Feet",
+                    "17 Feet",
+                    "19 Feet",
+                    "20 Feet",
+                    "22 Feet",
+                    "24 Feet",
+                    "32FTMXL-14MT",
+                    "Biker",
+                    "BYHAND",
+                    "FLAT BED TRAILER 20FT",
+                    "Pickup",
+                    "TAURUS 16 TON",
+                    "Tata 407",
+                    "TRUCK/LORRY",
+                    "SFBT40",
+                    "TATA/EICHER 709",
+                    "32FTMXL-18MT",
+                    "32FTSXL-7MT",
+                    "32FTSXL-9MT",
+                    "FLAT BED TRAILER 40FT",
+                    "SEMI FLAT BED TRAILER 40FT",
+                    "TAURUS 18 TON",
+                    "TAURUS 21 TON",
+                    "TAURUS 25 TON",
+                    "TAURUS 30 TON",
+                    "TATA ACE"
+                  ].map((type) => ({
+                    value: type,
+                    label: type,
+                  }))}
+                  placeholder="Select vehicle type"
+                  emptyMessage="No vehicle types found"
+                  className="mt-1.5"
+                />
               </div>
 
               <div>

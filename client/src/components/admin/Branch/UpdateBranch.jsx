@@ -15,6 +15,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 import {
   useGetBranchByIdMutation,
@@ -211,23 +212,18 @@ const UpdateBranch = () => {
                 </div>
                 <div>
                   <Label>Company *</Label>
-                  <Select
+                  <SearchableSelect
                     value={formData.company}
                     onValueChange={(val) =>
                       setFormData((prev) => ({ ...prev, company: val }))
                     }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Company" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {companies?.companies?.map((c) => (
-                        <SelectItem key={c._id} value={c._id}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    options={companies?.companies?.map((c) => ({
+                      value: c._id,
+                      label: c.name,
+                    })) || []}
+                    placeholder="Select Company"
+                    emptyMessage="No companies found"
+                  />
                 </div>
                 <div>
                   <Label>Branch Contact No *</Label>

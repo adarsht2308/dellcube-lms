@@ -15,6 +15,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Switch } from "@/components/ui/switch";
 
 import { useGetAllCompaniesQuery } from "@/features/api/Company/companyApi.js";
@@ -456,21 +457,17 @@ const UpdateCustomer = () => {
                       className="bg-gray-100 cursor-not-allowed dark:bg-gray-800 mt-1.5"
                     />
                   ) : (
-                    <Select
+                    <SearchableSelect
                       value={formData.company}
                       onValueChange={(val) => handleCompanyChange(val)}
-                    >
-                      <SelectTrigger className="w-full mt-1.5">
-                        <SelectValue placeholder="Select Company" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(companies?.companies || []).map((c) => (
-                          <SelectItem key={c._id} value={c._id}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      options={(companies?.companies || []).map((c) => ({
+                        value: c._id,
+                        label: c.name,
+                      }))}
+                      placeholder="Select Company"
+                      emptyMessage="No companies found"
+                      className="mt-1.5"
+                    />
                   )}
                 </div>
 
@@ -485,25 +482,21 @@ const UpdateCustomer = () => {
                       className="bg-gray-100 cursor-not-allowed dark:bg-gray-800 mt-1.5"
                     />
                   ) : (
-                    <Select
+                    <SearchableSelect
                       value={
                         branches.some((b) => b._id === formData.branch)
                           ? formData.branch
                           : ""
                       }
                       onValueChange={(val) => setFormData({ ...formData, branch: val })}
-                    >
-                      <SelectTrigger className="w-full mt-1.5">
-                        <SelectValue placeholder="Select Branch" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(branches || []).map((b) => (
-                          <SelectItem key={b._id} value={b._id}>
-                            {b.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      options={(branches || []).map((b) => ({
+                        value: b._id,
+                        label: b.name,
+                      }))}
+                      placeholder="Select Branch"
+                      emptyMessage="No branches found"
+                      className="mt-1.5"
+                    />
                   )}
                 </div>
 

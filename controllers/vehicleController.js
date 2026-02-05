@@ -185,17 +185,6 @@ export const createVehicle = async (req, res) => {
       });
     }
 
-    // Validate vehicle number format: 2 letters + 2 digits + 2 letters + 4 digits (e.g., CG04MM9576)
-    const vehicleNumberRegex = /^[A-Z]{2}[0-9]{2}[A-Z]{2}[0-9]{4}$/;
-    const cleanedVehicleNumber = vehicleNumber.trim().replace(/[\s-]/g, '').toUpperCase();
-    
-    if (!vehicleNumberRegex.test(cleanedVehicleNumber)) {
-      return res.status(400).json({
-        success: false,
-        message: "Vehicle number must be in format: 2 letters + 2 digits + 2 letters + 4 digits (e.g., CG04MM9576). No dashes or spaces allowed.",
-      });
-    }
-
     // Validate ObjectIds
     if (!mongoose.Types.ObjectId.isValid(finalCompany)) {
       return res.status(400).json({
@@ -442,17 +431,9 @@ export const updateVehicle = async (req, res) => {
       }
     }
 
-    // Validate vehicle number format if being updated
+    // Validate vehicle number if being updated
     if (updates.vehicleNumber) {
-      const vehicleNumberRegex = /^[A-Z]{2}[0-9]{2}[A-Z]{2}[0-9]{4}$/;
-      const cleanedVehicleNumber = updates.vehicleNumber.trim().replace(/[\s-]/g, '').toUpperCase();
-      
-      if (!vehicleNumberRegex.test(cleanedVehicleNumber)) {
-        return res.status(400).json({
-          success: false,
-          message: "Vehicle number must be in format: 2 letters + 2 digits + 2 letters + 4 digits (e.g., CG04MM9576). No dashes or spaces allowed.",
-        });
-      }
+      const cleanedVehicleNumber = updates.vehicleNumber.trim().toUpperCase();
       
       // Check for duplicate if vehicle number is being changed
       if (cleanedVehicleNumber !== vehicle.vehicleNumber) {
