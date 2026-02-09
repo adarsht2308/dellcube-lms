@@ -18,19 +18,25 @@ const BranchAdminDashboard = () => {
   // Get companyId and branchId from token (current session)
   const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
   
-  // Handle arrays for company and branch (multi-company/multi-branch support)
+  // Helper functions to get company/branch ID - prioritize token (current session)
   const getUserCompanyId = () => {
+    // Prioritize token data (current session selected company/branch)
+    if (tokenCompanyId) return tokenCompanyId;
+    // Fallback to user profile data
     if (Array.isArray(user?.company) && user.company.length > 0) {
       return String(user.company[0]._id || user.company[0]);
     }
-    return user?.company?._id ? String(user.company._id) : tokenCompanyId || "";
+    return user?.company?._id ? String(user.company._id) : "";
   };
   
   const getUserBranchId = () => {
+    // Prioritize token data (current session selected company/branch)
+    if (tokenBranchId) return tokenBranchId;
+    // Fallback to user profile data
     if (Array.isArray(user?.branch) && user.branch.length > 0) {
       return String(user.branch[0]._id || user.branch[0]);
     }
-    return user?.branch?._id ? String(user.branch._id) : tokenBranchId || "";
+    return user?.branch?._id ? String(user.branch._id) : "";
   };
   
   const branchId = getUserBranchId();

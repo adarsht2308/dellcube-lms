@@ -41,14 +41,16 @@ const CreateOperationUser = () => {
   const user = useSelector((state) => state.auth.user);
   const isBranchAdmin = user?.role === "branchAdmin";
 
-  // Helper functions to get company and branch IDs (handle both single object and array)
+  // Get companyId and branchId from token (current session)
+  const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+
+  // Helper functions to get company and branch IDs - prioritize token (current session)
   const getUserCompanyId = () => {
+    // Prioritize token data (current session selected company/branch)
+    if (tokenCompanyId) return String(tokenCompanyId);
+    // Fallback to user profile data
     if (isBranchAdmin) {
-      // First check for selectedCompany (from token/current session)
-      if (user?.selectedCompany?._id) return String(user.selectedCompany._id);
-      // Then check if company is a single object
       if (user?.company?._id) return String(user.company._id);
-      // Finally check if company is an array
       if (Array.isArray(user?.company) && user.company.length > 0) {
         const company = user.company[0];
         return String(company._id || company);
@@ -58,12 +60,11 @@ const CreateOperationUser = () => {
   };
 
   const getUserBranchId = () => {
+    // Prioritize token data (current session selected company/branch)
+    if (tokenBranchId) return String(tokenBranchId);
+    // Fallback to user profile data
     if (isBranchAdmin) {
-      // First check for selectedBranch (from token/current session)
-      if (user?.selectedBranch?._id) return String(user.selectedBranch._id);
-      // Then check if branch is a single object
       if (user?.branch?._id) return String(user.branch._id);
-      // Finally check if branch is an array
       if (Array.isArray(user?.branch) && user.branch.length > 0) {
         const branch = user.branch[0];
         return String(branch._id || branch);

@@ -263,19 +263,25 @@ const CreateInvoice = () => {
   // Get companyId and branchId from token (current session)
   const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
   
-  // Helper functions to get company/branch ID from user object (handles arrays)
+  // Helper functions to get company/branch ID - prioritize token (current session)
   const getUserCompanyId = () => {
+    // Prioritize token data (current session selected company/branch)
+    if (tokenCompanyId) return tokenCompanyId;
+    // Fallback to user profile data
     if (Array.isArray(user?.company) && user.company.length > 0) {
       return String(user.company[0]._id || user.company[0]);
     }
-    return user?.company?._id ? String(user.company._id) : tokenCompanyId || "";
+    return user?.company?._id ? String(user.company._id) : "";
   };
   
   const getUserBranchId = () => {
+    // Prioritize token data (current session selected company/branch)
+    if (tokenBranchId) return tokenBranchId;
+    // Fallback to user profile data
     if (Array.isArray(user?.branch) && user.branch.length > 0) {
       return String(user.branch[0]._id || user.branch[0]);
     }
-    return user?.branch?._id ? String(user.branch._id) : tokenBranchId || "";
+    return user?.branch?._id ? String(user.branch._id) : "";
   };
 
   // Initialize with user's company/branch for branch admins, or token values
@@ -1226,8 +1232,16 @@ const CreateInvoice = () => {
         setShowAddVehicleDialog(false);
         setNewVehicleData({ vehicleNumber: "", type: "14 Feet" });
       } else {
-        // Actual error - show error toast
-        const errorMessage = error?.data?.message || error?.message || "Failed to create vehicle";
+        // Actual error - show detailed error message
+        // Check multiple possible error message locations in the response
+        const errorMessage = 
+          error?.data?.message || 
+          error?.data?.error?.message ||
+          error?.data?.error ||
+          error?.message || 
+          error?.error ||
+          "Failed to create vehicle. Please check if the vehicle number already exists or try again.";
+        
         toast.error(errorMessage);
       }
     }
@@ -2360,6 +2374,35 @@ const CreateInvoice = () => {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* Show Company and Branch Info */}
+            {companyId && branchId && (
+              <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">Company:</span>
+                    <span className="font-medium text-gray-900 dark:text-gray-100">
+                      {companies?.companies?.find(c => c._id === companyId)?.name || "Selected Company"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">Branch:</span>
+                    <span className="font-medium text-gray-900 dark:text-gray-100">
+                      {branches?.find(b => b._id === branchId)?.name || "Selected Branch"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Warning if company/branch not selected */}
+            {(!companyId || !branchId) && (
+              <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                <p className="text-sm text-orange-800 dark:text-orange-300 font-medium">
+                  ⚠️ Please select Company and Branch first to add a vehicle
+                </p>
+              </div>
+            )}
+            
             <div className="space-y-2">
               <Label htmlFor="vehicle-number">
                 Vehicle Number <span className="text-red-500">*</span>
@@ -2433,9 +2476,8 @@ const CreateInvoice = () => {
             </div>
             <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
               <p className="text-xs text-gray-600 dark:text-gray-400">
-                <strong>Note:</strong> The vehicle will be created for the selected
-                company and branch. You can add more details later from the Vehicles
-                page.
+                <strong>Note:</strong> The vehicle will be created for the above company and branch. 
+                You can add more details later from the Vehicles page.
               </p>
             </div>
           </div>

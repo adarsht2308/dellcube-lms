@@ -268,7 +268,7 @@ const UpdateInvoice = () => {
   const isVendor = user?.role === "vendor";
   const canUpdateStatus = isSuperAdmin || isBranchAdmin || isOperation;
 
-  // Function to check if invoice can be edited (within 24 hours, superadmin bypass)
+  // Function to check if invoice can be edited (within 7 days, superadmin bypass)
   const canEditInvoice = (invoice) => {
     if (!invoice?.createdAt) return false;
     // Superadmin can always edit
@@ -277,7 +277,8 @@ const UpdateInvoice = () => {
     const createdAt = new Date(invoice.createdAt);
     const now = new Date();
     const hoursDiff = (now - createdAt) / (1000 * 60 * 60);
-    return hoursDiff <= 24;
+    // Allow editing within 7 days (7 * 24 hours)
+    return hoursDiff <= 7 * 24;
   };
 
   // Extract invoiceId from location state

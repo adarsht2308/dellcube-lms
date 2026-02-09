@@ -39,15 +39,24 @@ const UpdateCustomer = () => {
   const isVendor = user?.role === "vendor";
   const shouldHideCompanyBranch = isBranchAdmin || isOperation || isVendor;
 
-  // Helper function to get company ID from user profile
+  // Get companyId and branchId from token (current session)
+  const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+
+  // Helper function to get company ID - prioritize token (current session)
   const getUserCompanyId = () => {
+    // Prioritize token data (current session selected company/branch)
+    if (tokenCompanyId) return tokenCompanyId;
+    // Fallback to user profile data
     if (user?.company?._id) return user.company._id;
     if (Array.isArray(user?.company) && user.company.length > 0) return user.company[0]._id;
     return null;
   };
 
-  // Helper function to get branch ID from user profile
+  // Helper function to get branch ID - prioritize token (current session)
   const getUserBranchId = () => {
+    // Prioritize token data (current session selected company/branch)
+    if (tokenBranchId) return tokenBranchId;
+    // Fallback to user profile data
     if (user?.branch?._id) return user.branch._id;
     if (Array.isArray(user?.branch) && user.branch.length > 0) return user.branch[0]._id;
     return null;
@@ -64,6 +73,10 @@ const UpdateCustomer = () => {
   const [getBranchesByCompany] = useGetBranchesByCompanyMutation();
 
   const [branches, setBranches] = useState([]);
+  
+  // State to store current session's company and branch names for display
+  const [currentSessionCompanyName, setCurrentSessionCompanyName] = useState("");
+  const [currentSessionBranchName, setCurrentSessionBranchName] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -134,18 +147,35 @@ const UpdateCustomer = () => {
         });
       }
 
-      // Step 3: For operation, branchAdmin, vendor - use their profile branch
-      if (shouldHideCompanyBranch) {
+      // Step 3: For operation, branchAdmin, vendor - fetch branches and set current session's branch
+      if (shouldHideCompanyBranch && finalCompanyId) {
         const profileBranchId = getUserBranchId() || getTokenData().branchId;
-        const branchName = user?.branch?.name || (Array.isArray(user?.branch) && user.branch.length > 0 ? user.branch[0].name : "Your Branch");
-        setBranches([{ _id: profileBranchId, name: branchName }]);
+        getBranchesByCompany(finalCompanyId).then((res) => {
+          const branches = res?.data?.branches || [];
+          const currentBranch = branches.find(b => b._id === profileBranchId);
+          if (currentBranch) {
+            setCurrentSessionBranchName(currentBranch.name);
+            setBranches([{ _id: profileBranchId, name: currentBranch.name }]);
+          } else {
+            setBranches([{ _id: profileBranchId, name: "Your Branch" }]);
+          }
+        });
+        
+        // Set company name
+        if (companies?.companies) {
+          const currentCompany = companies.companies.find(c => c._id === finalCompanyId);
+          if (currentCompany) {
+            setCurrentSessionCompanyName(currentCompany.name);
+          }
+        }
+        
         setFormData((prev) => ({
           ...prev,
           branch: profileBranchId || "",
         }));
       }
     }
-  }, [customerData]);
+  }, [customerData, companies]);
 
   const handleCompanyChange = async (companyId) => {
     // Don't allow changing company for operation, branchAdmin, vendor
@@ -452,7 +482,7 @@ const UpdateCustomer = () => {
                   </Label>
                   {shouldHideCompanyBranch ? (
                     <Input
-                      value={user?.company?.name || (Array.isArray(user?.company) && user.company.length > 0 ? user.company[0].name : "")}
+                      value={currentSessionCompanyName || "Loading..."}
                       disabled
                       className="bg-gray-100 cursor-not-allowed dark:bg-gray-800 mt-1.5"
                     />
@@ -477,7 +507,7 @@ const UpdateCustomer = () => {
                   </Label>
                   {shouldHideCompanyBranch ? (
                     <Input
-                      value={user?.branch?.name || (Array.isArray(user?.branch) && user.branch.length > 0 ? user.branch[0].name : "")}
+                      value={currentSessionBranchName || "Loading..."}
                       disabled
                       className="bg-gray-100 cursor-not-allowed dark:bg-gray-800 mt-1.5"
                     />

@@ -34,15 +34,24 @@ const UpdateVehicle = () => {
   const isVendor = user?.role === "vendor";
   const shouldHideCompanyBranch = isBranchAdmin || isOperation || isVendor;
 
-  // Helper function to get company ID from user profile
+  // Get companyId and branchId from token (current session)
+  const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+
+  // Helper function to get company ID - prioritize token (current session)
   const getUserCompanyId = () => {
+    // Prioritize token data (current session selected company/branch)
+    if (tokenCompanyId) return tokenCompanyId;
+    // Fallback to user profile data
     if (user?.company?._id) return user.company._id;
     if (Array.isArray(user?.company) && user.company.length > 0) return user.company[0]._id;
     return null;
   };
 
-  // Helper function to get branch ID from user profile
+  // Helper function to get branch ID - prioritize token (current session)
   const getUserBranchId = () => {
+    // Prioritize token data (current session selected company/branch)
+    if (tokenBranchId) return tokenBranchId;
+    // Fallback to user profile data
     if (user?.branch?._id) return user.branch._id;
     if (Array.isArray(user?.branch) && user.branch.length > 0) return user.branch[0]._id;
     return null;

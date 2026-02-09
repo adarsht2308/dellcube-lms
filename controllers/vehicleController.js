@@ -212,10 +212,11 @@ export const createVehicle = async (req, res) => {
       });
     }
 
-    // Use cleaned vehicle number for duplicate check and storage
-    const finalVehicleNumber = cleanedVehicleNumber;
-
-    const existing = await Vehicle.findOne({ vehicleNumber: finalVehicleNumber });
+    // Clean and normalize vehicle number (trim whitespace and convert to uppercase)
+    const cleanedVehicleNumber = vehicleNumber.trim().toUpperCase();
+    
+    // Check for duplicate vehicle number
+    const existing = await Vehicle.findOne({ vehicleNumber: cleanedVehicleNumber });
     if (existing) {
       return res.status(400).json({
         success: false,
@@ -225,7 +226,7 @@ export const createVehicle = async (req, res) => {
 
     // Prepare vehicle data
     const vehicleData = {
-      vehicleNumber: finalVehicleNumber,
+      vehicleNumber: cleanedVehicleNumber,
       type,
       cargoType: cargoType || undefined,
       brand: brand || undefined,
@@ -284,11 +285,29 @@ export const createVehicle = async (req, res) => {
     });
   } catch (error) {
     console.error("Error creating vehicle:", error);
+    
+    // Provide more specific error messages based on error type
+    let errorMessage = "Failed to create vehicle";
+    
+    if (error.code === 11000) {
+      // Duplicate key error
+      errorMessage = "Vehicle with this number already exists";
+    } else if (error.name === "ValidationError") {
+      // Mongoose validation error
+      const validationErrors = Object.values(error.errors).map(err => err.message);
+      errorMessage = validationErrors.join(", ");
+    } else if (error.message) {
+      // Use the actual error message
+      errorMessage = error.message;
+    }
+    
     return res.status(500).json({
       success: false,
-      message: "Something went wrong while creating the vehicle",
-      error: error.message || error.toString(),
-      ...(process.env.NODE_ENV === "development" && { stack: error.stack }),
+      message: errorMessage,
+      ...(process.env.NODE_ENV === "development" && { 
+        error: error.message || error.toString(),
+        stack: error.stack 
+      }),
     });
   }
 };

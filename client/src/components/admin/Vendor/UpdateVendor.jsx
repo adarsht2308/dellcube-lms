@@ -51,21 +51,27 @@ const UpdateVendor = () => {
   // Get companyId and branchId from token (current session)
   const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
   
-  // Helper functions to get company/branch ID from user object (handles arrays)
+  // Helper functions to get company/branch ID - prioritize token (current session)
   const getUserCompanyId = () => {
+    // Prioritize token data (current session selected company/branch)
+    if (tokenCompanyId) return tokenCompanyId;
+    // Fallback to user profile data
     if (user?.company?._id) return user.company._id;
     if (Array.isArray(user?.company) && user.company.length > 0) {
       return String(user.company[0]._id || user.company[0]);
     }
-    return tokenCompanyId || "";
+    return "";
   };
   
   const getUserBranchId = () => {
+    // Prioritize token data (current session selected company/branch)
+    if (tokenBranchId) return tokenBranchId;
+    // Fallback to user profile data
     if (user?.branch?._id) return user.branch._id;
     if (Array.isArray(user?.branch) && user.branch.length > 0) {
       return String(user.branch[0]._id || user.branch[0]);
     }
-    return tokenBranchId || "";
+    return "";
   };
 
   const [vendorData, setVendorData] = useState({
@@ -90,6 +96,10 @@ const UpdateVendor = () => {
   const [branchesByCompany, setBranchesByCompany] = useState({});
   const [allCustomers, setAllCustomers] = useState([]);
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
+  
+  // State to store current session's company and branch names for display
+  const [currentSessionCompanyName, setCurrentSessionCompanyName] = useState("");
+  const [currentSessionBranchName, setCurrentSessionBranchName] = useState("");
 
   const [getVendorById, { data: viewData, isSuccess: isGetSuccess, isLoading: isVendorLoading }] =
     useGetVendorByIdMutation();
@@ -110,6 +120,34 @@ const UpdateVendor = () => {
     limit: 100,
   });
   const [getBranchesByCompany] = useGetBranchesByCompanyMutation();
+
+  // Fetch and set current session's company and branch names for display
+  useEffect(() => {
+    if (shouldHideCompanyBranch) {
+      const companyId = getUserCompanyId();
+      const branchId = getUserBranchId();
+      
+      if (companyId && branchId) {
+        // Fetch branches and find current branch name
+        getBranchesByCompany(companyId).then((res) => {
+          if (res?.data?.branches) {
+            const currentBranch = res.data.branches.find(b => b._id === branchId);
+            if (currentBranch) {
+              setCurrentSessionBranchName(currentBranch.name);
+            }
+          }
+        });
+        
+        // Find current company name
+        if (companyData?.companies) {
+          const currentCompany = companyData.companies.find(c => c._id === companyId);
+          if (currentCompany) {
+            setCurrentSessionCompanyName(currentCompany.name);
+          }
+        }
+      }
+    }
+  }, [shouldHideCompanyBranch, companyData, tokenCompanyId, tokenBranchId]);
 
   useEffect(() => {
     if (isGetSuccess && viewData?.vendor) {
@@ -554,7 +592,7 @@ const UpdateVendor = () => {
                     <Label>Companies *</Label>
                     {shouldHideCompanyBranch ? (
                       <Input
-                        value={user?.company?.name || (Array.isArray(user?.company) && user.company.length > 0 ? user.company[0].name : "")}
+                        value={currentSessionCompanyName || "Loading..."}
                         disabled
                         className="bg-gray-100 cursor-not-allowed dark:bg-gray-800"
                       />
@@ -593,7 +631,7 @@ const UpdateVendor = () => {
                     <Label>Branches *</Label>
                     {shouldHideCompanyBranch ? (
                       <Input
-                        value={user?.branch?.name || (Array.isArray(user?.branch) && user.branch.length > 0 ? user.branch[0].name : "")}
+                        value={currentSessionBranchName || "Loading..."}
                         disabled
                         className="bg-gray-100 cursor-not-allowed dark:bg-gray-800"
                       />

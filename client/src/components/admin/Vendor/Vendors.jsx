@@ -1218,7 +1218,7 @@ export default Vendors;
 const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
   const [form, setForm] = useState({
     vehicleNumber: "",
-    type: "14 Feet",
+    type: "",
     brand: "",
     model: "",
     yearOfManufacture: "",
@@ -1275,7 +1275,7 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
     // Reset form
     setForm({
       vehicleNumber: "",
-      type: "14 Feet",
+      type: "",
       brand: "",
       model: "",
       yearOfManufacture: "",
@@ -1348,46 +1348,50 @@ const AddVehicleDialog = ({ open, onClose, vendorId, onAddVehicle }) => {
                 <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Vehicle Type *
                 </Label>
-                <SearchableSelect
+                <Select
                   value={form.type}
                   onValueChange={(val) =>
                     setForm((prev) => ({ ...prev, type: val }))
                   }
-                  options={[
-                    "14 Feet",
-                    "17 Feet",
-                    "19 Feet",
-                    "20 Feet",
-                    "22 Feet",
-                    "24 Feet",
-                    "32FTMXL-14MT",
-                    "Biker",
-                    "BYHAND",
-                    "FLAT BED TRAILER 20FT",
-                    "Pickup",
-                    "TAURUS 16 TON",
-                    "Tata 407",
-                    "TRUCK/LORRY",
-                    "SFBT40",
-                    "TATA/EICHER 709",
-                    "32FTMXL-18MT",
-                    "32FTSXL-7MT",
-                    "32FTSXL-9MT",
-                    "FLAT BED TRAILER 40FT",
-                    "SEMI FLAT BED TRAILER 40FT",
-                    "TAURUS 18 TON",
-                    "TAURUS 21 TON",
-                    "TAURUS 25 TON",
-                    "TAURUS 30 TON",
-                    "TATA ACE"
-                  ].map((type) => ({
-                    value: type,
-                    label: type,
-                  }))}
-                  placeholder="Select vehicle type"
-                  emptyMessage="No vehicle types found"
-                  className="mt-1.5"
-                />
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder="Select vehicle type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[
+                      "14 Feet",
+                      "17 Feet",
+                      "19 Feet",
+                      "20 Feet",
+                      "22 Feet",
+                      "24 Feet",
+                      "32FTMXL-14MT",
+                      "32FTMXL-18MT",
+                      "32FTSXL-7MT",
+                      "32FTSXL-9MT",
+                      "Biker",
+                      "BYHAND",
+                      "FLAT BED TRAILER 20FT",
+                      "FLAT BED TRAILER 40FT",
+                      "SEMI FLAT BED TRAILER 40FT",
+                      "Pickup",
+                      "TAURUS 16 TON",
+                      "TAURUS 18 TON",
+                      "TAURUS 21 TON",
+                      "TAURUS 25 TON",
+                      "TAURUS 30 TON",
+                      "Tata 407",
+                      "TRUCK/LORRY",
+                      "SFBT40",
+                      "TATA/EICHER 709",
+                      "TATA ACE"
+                    ].map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>

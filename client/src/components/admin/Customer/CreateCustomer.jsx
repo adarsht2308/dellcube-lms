@@ -30,15 +30,24 @@ const CreateCustomer = () => {
   const isVendor = user?.role === "vendor";
   const shouldHideCompanyBranch = isBranchAdmin || isOperation || isVendor;
 
-  // Helper function to get company ID from user profile
+  // Get companyId and branchId from token (current session)
+  const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+
+  // Helper function to get company ID - prioritize token (current session)
   const getUserCompanyId = () => {
+    // Prioritize token data (current session selected company/branch)
+    if (tokenCompanyId) return tokenCompanyId;
+    // Fallback to user profile data
     if (user?.company?._id) return user.company._id;
     if (Array.isArray(user?.company) && user.company.length > 0) return user.company[0]._id;
     return null;
   };
 
-  // Helper function to get branch ID from user profile
+  // Helper function to get branch ID - prioritize token (current session)
   const getUserBranchId = () => {
+    // Prioritize token data (current session selected company/branch)
+    if (tokenBranchId) return tokenBranchId;
+    // Fallback to user profile data
     if (user?.branch?._id) return user.branch._id;
     if (Array.isArray(user?.branch) && user.branch.length > 0) return user.branch[0]._id;
     return null;
@@ -62,39 +71,52 @@ const CreateCustomer = () => {
   });
 
   useEffect(() => {
-    // Get companyId and branchId from token
-    const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+    // For all users, use token data (current session selected company/branch)
+    const companyId = getUserCompanyId();
+    const branchId = getUserBranchId();
     
-    if (shouldHideCompanyBranch) {
-      // For operation, branchAdmin, vendor - use profile data
-      const companyId = getUserCompanyId();
-      const branchId = getUserBranchId();
-      
-      if (companyId && branchId) {
-        setFormData((prev) => ({
-          ...prev,
-          company: String(companyId),
-          branch: String(branchId),
-        }));
-        // Set branches for these roles
-        const branchName = user?.branch?.name || (Array.isArray(user?.branch) && user.branch.length > 0 ? user.branch[0].name : "Your Branch");
-        setBranches([{ _id: branchId, name: branchName }]);
-      }
-    } else if (tokenCompanyId && tokenBranchId) {
-      // For superAdmin users, use token values if available
+    if (companyId && branchId) {
       setFormData((prev) => ({
         ...prev,
-        company: (prev.company && prev.company !== "undefined") ? prev.company : tokenCompanyId,
-        branch: (prev.branch && prev.branch !== "undefined") ? prev.branch : tokenBranchId,
+        company: String(companyId),
+        branch: String(branchId),
       }));
+      
+      // Fetch branches and set display names
+      getBranchesByCompany(companyId).then((res) => {
+        if (res?.data?.branches) {
+          if (shouldHideCompanyBranch) {
+            setBranches([{ _id: branchId, name: res.data.branches.find(b => b._id === branchId)?.name || "Branch" }]);
+          } else {
+            setBranches(res.data.branches);
+          }
+          // Find and set current branch name
+          const currentBranch = res.data.branches.find(b => b._id === branchId);
+          if (currentBranch) {
+            setCurrentSessionBranchName(currentBranch.name);
+          }
+        }
+      });
+      
+      // Find and set current company name
+      if (companies?.companies) {
+        const currentCompany = companies.companies.find(c => c._id === companyId);
+        if (currentCompany) {
+          setCurrentSessionCompanyName(currentCompany.name);
+        }
+      }
     }
-  }, [user, shouldHideCompanyBranch]);
+  }, [user, shouldHideCompanyBranch, tokenCompanyId, tokenBranchId, companies]);
 
   const [branches, setBranches] = useState([]);
   const { data: companies = [] } = useGetAllCompaniesQuery({ status: "true" });
   const [getBranchesByCompany] = useGetBranchesByCompanyMutation();
   const [createCustomer, { isLoading, isSuccess, isError, error, data }] =
     useCreateCustomerMutation();
+  
+  // State to store current session's company and branch names for display
+  const [currentSessionCompanyName, setCurrentSessionCompanyName] = useState("");
+  const [currentSessionBranchName, setCurrentSessionBranchName] = useState("");
 
   const handleCompanyChange = async (companyId) => {
     // Don't allow changing company for operation, branchAdmin, vendor
@@ -412,7 +434,7 @@ const CreateCustomer = () => {
                 </Label>
                 {shouldHideCompanyBranch ? (
                   <Input
-                    value={user?.company?.name || (Array.isArray(user?.company) && user.company.length > 0 ? user.company[0].name : "")}
+                    value={currentSessionCompanyName || "Loading..."}
                     disabled
                     className="bg-gray-100 cursor-not-allowed dark:bg-gray-800 mt-1.5"
                   />
@@ -437,7 +459,7 @@ const CreateCustomer = () => {
                 </Label>
                 {shouldHideCompanyBranch ? (
                   <Input
-                    value={user?.branch?.name || (Array.isArray(user?.branch) && user.branch.length > 0 ? user.branch[0].name : "")}
+                    value={currentSessionBranchName || "Loading..."}
                     disabled
                     className="bg-gray-100 cursor-not-allowed dark:bg-gray-800 mt-1.5"
                   />

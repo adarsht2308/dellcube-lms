@@ -46,21 +46,27 @@ const CreateVendor = () => {
   // Get companyId and branchId from token (current session)
   const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
   
-  // Helper functions to get company/branch ID from user object (handles arrays)
+  // Helper functions to get company/branch ID - prioritize token (current session)
   const getUserCompanyId = () => {
+    // Prioritize token data (current session selected company/branch)
+    if (tokenCompanyId) return tokenCompanyId;
+    // Fallback to user profile data
     if (user?.company?._id) return user.company._id;
     if (Array.isArray(user?.company) && user.company.length > 0) {
       return String(user.company[0]._id || user.company[0]);
     }
-    return tokenCompanyId || "";
+    return "";
   };
   
   const getUserBranchId = () => {
+    // Prioritize token data (current session selected company/branch)
+    if (tokenBranchId) return tokenBranchId;
+    // Fallback to user profile data
     if (user?.branch?._id) return user.branch._id;
     if (Array.isArray(user?.branch) && user.branch.length > 0) {
       return String(user.branch[0]._id || user.branch[0]);
     }
-    return tokenBranchId || "";
+    return "";
   };
 
   const [vendorFormData, setVendorFormData] = useState({
@@ -88,6 +94,10 @@ const CreateVendor = () => {
   const { data: companies = [] } = useGetAllCompaniesQuery({ status: "true" });
   const [getBranchesByCompany] = useGetBranchesByCompanyMutation();
   
+  // State to store current session's company and branch names for display
+  const [currentSessionCompanyName, setCurrentSessionCompanyName] = useState("");
+  const [currentSessionBranchName, setCurrentSessionBranchName] = useState("");
+  
   // Fetch customers for all selected companies and branches
   const [allCustomers, setAllCustomers] = useState([]);
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
@@ -97,7 +107,7 @@ const CreateVendor = () => {
   // Initialize companies and branches from token if empty
   useEffect(() => {
     if (shouldHideCompanyBranch) {
-      // For operation, branchAdmin, vendor - use profile data
+      // For operation, branchAdmin, vendor - use token data (current session)
       const companyId = getUserCompanyId();
       const branchId = getUserBranchId();
       if (companyId && branchId) {
@@ -106,7 +116,7 @@ const CreateVendor = () => {
           companies: prev.companies.length > 0 ? prev.companies : [String(companyId)],
           branches: prev.branches.length > 0 ? prev.branches : [String(branchId)],
         }));
-        // Fetch branches for the company
+        // Fetch branches for the company and set display names
         if (companyId) {
           getBranchesByCompany(companyId).then((res) => {
             if (res?.data?.branches) {
@@ -114,12 +124,24 @@ const CreateVendor = () => {
                 ...prev,
                 [companyId]: res.data.branches,
               }));
+              // Find and set the current branch name
+              const currentBranch = res.data.branches.find(b => b._id === branchId);
+              if (currentBranch) {
+                setCurrentSessionBranchName(currentBranch.name);
+              }
             }
           });
         }
+        // Find and set the current company name
+        if (companies?.companies) {
+          const currentCompany = companies.companies.find(c => c._id === companyId);
+          if (currentCompany) {
+            setCurrentSessionCompanyName(currentCompany.name);
+          }
+        }
       }
     }
-  }, [user, shouldHideCompanyBranch, tokenCompanyId, tokenBranchId]);
+  }, [user, shouldHideCompanyBranch, tokenCompanyId, tokenBranchId, companies]);
 
   // Handle company selection (multiple)
   const handleCompanyToggle = async (companyId) => {
@@ -503,7 +525,7 @@ const CreateVendor = () => {
                   <Label>Companies *</Label>
                   {shouldHideCompanyBranch ? (
                     <Input
-                      value={user?.company?.name || (Array.isArray(user?.company) && user.company.length > 0 ? user.company[0].name : "")}
+                      value={currentSessionCompanyName || "Loading..."}
                       disabled
                       className="bg-gray-100 cursor-not-allowed dark:bg-gray-800"
                     />
@@ -542,7 +564,7 @@ const CreateVendor = () => {
                   <Label>Branches *</Label>
                   {shouldHideCompanyBranch ? (
                     <Input
-                      value={user?.branch?.name || (Array.isArray(user?.branch) && user.branch.length > 0 ? user.branch[0].name : "")}
+                      value={currentSessionBranchName || "Loading..."}
                       disabled
                       className="bg-gray-100 cursor-not-allowed dark:bg-gray-800"
                     />

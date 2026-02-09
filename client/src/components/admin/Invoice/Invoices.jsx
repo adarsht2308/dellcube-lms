@@ -324,7 +324,7 @@ const Invoices = () => {
   const [getCustomerById] = useGetCustomerByIdMutation();
   const [updateInvoice, { isLoading: isUpdatingMis }] = useUpdateInvoiceMutation();
 
-  // Function to check if invoice can be edited (within 24 hours, superadmin bypass)
+  // Function to check if invoice can be edited (within 7 days, superadmin bypass)
   const canEditInvoice = (invoice) => {
     if (!invoice?.createdAt) return false;
     // Superadmin can always edit
@@ -333,7 +333,8 @@ const Invoices = () => {
     const createdAt = new Date(invoice.createdAt);
     const now = new Date();
     const hoursDiff = (now - createdAt) / (1000 * 60 * 60);
-    return hoursDiff <= 24;
+    // Allow editing within 7 days (7 * 24 hours)
+    return hoursDiff <= 7 * 24;
   };
 
   const handleOpenMisModal = async (invoice) => {
@@ -964,7 +965,8 @@ const Invoices = () => {
   const formatDateField = (value) => {
     if (!value) return "";
     try {
-      return new Date(value).toLocaleString("en-IN");
+      // Format as date only (without time) for easier Excel filtering
+      return new Date(value).toLocaleDateString("en-IN");
     } catch {
       return value;
     }
