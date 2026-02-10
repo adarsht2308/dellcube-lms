@@ -5,7 +5,8 @@ import cookieParser from "cookie-parser";
 import path from "path";
 import { fileURLToPath } from "url";
 import connectDB from "./config/dbConfig.js";
-import fs from "fs";    
+import fs from "fs";
+import { activityLogger } from "./middlewares/activityLogger.js";
 
 dotenv.config();
 connectDB();
@@ -42,6 +43,9 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 
+// Activity logger middleware (logs POST, PUT, DELETE, PATCH operations)
+app.use(activityLogger());
+
 //User Auth routes
 import userRoutes from "./routes/user.js";
 import regionRoutes from "./routes/region.js";
@@ -58,6 +62,7 @@ import siteTypeRoutes from "./routes/siteType.js";
 import transportModeRoutes from "./routes/transportMode.js";
 import imageProxyRoutes from './routes/imageProxyRoutes.js';
 import trackingRoutes from './routes/trackingRoutes.js';
+import activityRoutes from './routes/activityRoutes.js';
 
 // Register all API routes BEFORE static file serving
 app.use("/api/user", userRoutes);
@@ -74,6 +79,7 @@ app.use("/api/site-types", siteTypeRoutes);
 app.use("/api/transport-modes", transportModeRoutes);
 app.use('/api/v1/image-proxy', imageProxyRoutes);
 app.use('/api/tracking', trackingRoutes);
+app.use('/api/activities', activityRoutes);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

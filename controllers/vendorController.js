@@ -133,10 +133,102 @@ export const createVendor = async (req, res) => {
     });
   } catch (error) {
     console.error("Error creating vendor:", error);
+    console.error("Error code:", error.code);
+    console.error("Error name:", error.name);
+    console.error("Error message:", error.message);
+    
+    // Handle MongoDB duplicate key error (E11000)
+    // Check both error.code and error message pattern
+    const isDuplicateError = error.code === 11000 || 
+                            error.code === 11001 || 
+                            error.message?.includes('E11000') ||
+                            error.message?.includes('duplicate key');
+    
+    if (isDuplicateError) {
+      // Extract field name from error message if keyPattern is not available
+      let duplicatedField = Object.keys(error.keyPattern || {})[0];
+      let duplicatedValue = error.keyValue?.[duplicatedField];
+      
+      // If keyPattern is not available, try to extract from error message
+      if (!duplicatedField && error.message) {
+        const indexMatch = error.message.match(/index:\s*(\w+)_1/);
+        const dupKeyMatch = error.message.match(/dup key:\s*\{\s*(\w+):\s*"([^"]+)"/);
+        
+        if (indexMatch) {
+          duplicatedField = indexMatch[1];
+        }
+        if (dupKeyMatch) {
+          duplicatedField = duplicatedField || dupKeyMatch[1];
+          duplicatedValue = dupKeyMatch[2];
+        }
+      }
+      
+      let message = `A vendor with this ${duplicatedField} already exists`;
+      
+      // Provide user-friendly field names
+      if (duplicatedField === 'panNumber') {
+        message = `A vendor with PAN number "${duplicatedValue}" already exists`;
+      } else if (duplicatedField === 'gstNumber') {
+        message = `A vendor with GST number "${duplicatedValue}" already exists`;
+      } else if (duplicatedField === 'phone') {
+        message = `A vendor with phone number "${duplicatedValue}" already exists`;
+      } else if (duplicatedField === 'email') {
+        message = `A vendor with email "${duplicatedValue}" already exists`;
+      } else if (duplicatedField === 'accountNumber') {
+        message = `A vendor with this bank account number already exists`;
+      }
+      
+      return res.status(400).json({
+        success: false,
+        message: message,
+        field: duplicatedField,
+      });
+    }
+    
+    // Handle Mongoose validation errors
+    if (error.name === 'ValidationError') {
+      // Try to extract individual field error messages
+      const validationErrors = Object.values(error.errors || {}).map(err => err.message);
+      
+      if (validationErrors.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: validationErrors.join(', '),
+          errors: validationErrors,
+        });
+      } else {
+        // If we can't extract individual errors, use the main error message
+        // This handles cases like "User validation failed: panNumber: PAN number must be in format: ABCDE1234F"
+        const cleanMessage = error.message.replace(/^User validation failed:\s*/i, '');
+        return res.status(400).json({
+          success: false,
+          message: cleanMessage,
+        });
+      }
+    }
+    
+    // Handle other specific errors with meaningful messages
+    if (error.message) {
+      // Remove technical prefixes to make it user-friendly
+      const cleanMessage = error.message
+        .replace(/^User validation failed:\s*/i, '')
+        .replace(/^Vendor validation failed:\s*/i, '');
+        
+      return res.status(400).json({
+        success: false,
+        message: cleanMessage,
+        ...(process.env.NODE_ENV === 'development' && { stack: error.stack }),
+      });
+    }
+    
+    // Generic error fallback
     return res.status(500).json({
       success: false,
-      message: "Something went wrong while creating the vendor",
-      error: error.message, // Include error message for debugging
+      message: "Failed to create vendor. Please try again.",
+      ...(process.env.NODE_ENV === 'development' && { 
+        error: error.message,
+        stack: error.stack 
+      }),
     });
   }
 };
@@ -198,8 +290,11 @@ export const getAllVendors = async (req, res) => {
     console.error("Error fetching vendors:", error);
     return res.status(500).json({
       success: false,
-      message: "Something went wrong while fetching vendors",
-      error: error.message,
+      message: error.message || "Failed to fetch vendors. Please try again.",
+      ...(process.env.NODE_ENV === 'development' && { 
+        error: error.message,
+        stack: error.stack 
+      }),
     });
   }
 };
@@ -424,10 +519,102 @@ export const updateVendor = async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating vendor:", error);
+    console.error("Error code:", error.code);
+    console.error("Error name:", error.name);
+    console.error("Error message:", error.message);
+    
+    // Handle MongoDB duplicate key error (E11000)
+    // Check both error.code and error message pattern
+    const isDuplicateError = error.code === 11000 || 
+                            error.code === 11001 || 
+                            error.message?.includes('E11000') ||
+                            error.message?.includes('duplicate key');
+    
+    if (isDuplicateError) {
+      // Extract field name from error message if keyPattern is not available
+      let duplicatedField = Object.keys(error.keyPattern || {})[0];
+      let duplicatedValue = error.keyValue?.[duplicatedField];
+      
+      // If keyPattern is not available, try to extract from error message
+      if (!duplicatedField && error.message) {
+        const indexMatch = error.message.match(/index:\s*(\w+)_1/);
+        const dupKeyMatch = error.message.match(/dup key:\s*\{\s*(\w+):\s*"([^"]+)"/);
+        
+        if (indexMatch) {
+          duplicatedField = indexMatch[1];
+        }
+        if (dupKeyMatch) {
+          duplicatedField = duplicatedField || dupKeyMatch[1];
+          duplicatedValue = dupKeyMatch[2];
+        }
+      }
+      
+      let message = `A vendor with this ${duplicatedField} already exists`;
+      
+      // Provide user-friendly field names
+      if (duplicatedField === 'panNumber') {
+        message = `A vendor with PAN number "${duplicatedValue}" already exists`;
+      } else if (duplicatedField === 'gstNumber') {
+        message = `A vendor with GST number "${duplicatedValue}" already exists`;
+      } else if (duplicatedField === 'phone') {
+        message = `A vendor with phone number "${duplicatedValue}" already exists`;
+      } else if (duplicatedField === 'email') {
+        message = `A vendor with email "${duplicatedValue}" already exists`;
+      } else if (duplicatedField === 'accountNumber') {
+        message = `A vendor with this bank account number already exists`;
+      }
+      
+      return res.status(400).json({
+        success: false,
+        message: message,
+        field: duplicatedField,
+      });
+    }
+    
+    // Handle Mongoose validation errors
+    if (error.name === 'ValidationError') {
+      // Try to extract individual field error messages
+      const validationErrors = Object.values(error.errors || {}).map(err => err.message);
+      
+      if (validationErrors.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: validationErrors.join(', '),
+          errors: validationErrors,
+        });
+      } else {
+        // If we can't extract individual errors, use the main error message
+        // This handles cases like "User validation failed: panNumber: PAN number must be in format: ABCDE1234F"
+        const cleanMessage = error.message.replace(/^User validation failed:\s*/i, '');
+        return res.status(400).json({
+          success: false,
+          message: cleanMessage,
+        });
+      }
+    }
+    
+    // Handle other specific errors with meaningful messages
+    if (error.message) {
+      // Remove technical prefixes to make it user-friendly
+      const cleanMessage = error.message
+        .replace(/^User validation failed:\s*/i, '')
+        .replace(/^Vendor validation failed:\s*/i, '');
+        
+      return res.status(400).json({
+        success: false,
+        message: cleanMessage,
+        ...(process.env.NODE_ENV === 'development' && { stack: error.stack }),
+      });
+    }
+    
+    // Generic error fallback
     return res.status(500).json({
       success: false,
-      message: "Something went wrong while updating the vendor",
-      error: error.message,
+      message: "Failed to update vendor. Please try again.",
+      ...(process.env.NODE_ENV === 'development' && { 
+        error: error.message,
+        stack: error.stack 
+      }),
     });
   }
 };
@@ -469,8 +656,11 @@ export const deleteVendor = async (req, res) => {
     console.error("Error deleting vendor:", error);
     return res.status(500).json({
       success: false,
-      message: "Something went wrong while deleting the vendor",
-      error: error.message,
+      message: error.message || "Failed to delete vendor. Please try again.",
+      ...(process.env.NODE_ENV === 'development' && { 
+        error: error.message,
+        stack: error.stack 
+      }),
     });
   }
 };

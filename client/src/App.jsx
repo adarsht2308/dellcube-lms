@@ -76,6 +76,7 @@ import VendorVehicles from "./components/admin/Vendor/VendorVehicles.jsx";
 import VendorProfile from "./components/admin/Vendor/VendorProfile.jsx";
 import TrackOrder from "./components/TrackOrder.jsx";
 import ForgotPassword from "./components/ForgotPassword.jsx";
+import ActivityLog from "./components/admin/Activity/ActivityLog.jsx";
 
 const appRouter = createBrowserRouter([
   //Public Routes
@@ -750,6 +751,14 @@ const appRouter = createBrowserRouter([
         element: (
           <RoleProtectedRoute allowedRoles={["vendor"]}>
             <VendorProfile />
+          </RoleProtectedRoute>
+        ),
+      },
+      {
+        path: "activities",
+        element: (
+          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin"]}>
+            <ActivityLog />
           </RoleProtectedRoute>
         ),
       },

@@ -17,6 +17,7 @@ import { driverInvoiceApi } from "@/features/api/DriverInvoice/driverInvoiceApi.
 import { siteTypeApi } from "@/features/api/SiteType/siteTypeApi.js";
 import { transportModeApi } from "@/features/api/TransportMode/transportModeApi.js";
 import { trackingApi } from "@/features/api/Tracking/trackingApi.js";
+import { activityApi } from "@/features/api/activityApi.js";
 
 export const appStore = configureStore({
   reducer: rootReducer,
@@ -38,7 +39,8 @@ export const appStore = configureStore({
       driverInvoiceApi.middleware,
       siteTypeApi.middleware,
       transportModeApi.middleware,
-      trackingApi.middleware
+      trackingApi.middleware,
+      activityApi.middleware
     ),
 });
 

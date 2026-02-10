@@ -439,10 +439,10 @@ const Vehicles = () => {
               </div>
             </div>
           </div>
-          {/* Controls Section */}
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-lg">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-              <div className="flex items-center gap-4">
+        {/* Controls Section */}
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-4 md:p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-lg">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                 <h2 className="text-2xl font-bold text-[#202020] dark:text-[#FFD249]">
                   All Vehicles
                 </h2>
@@ -453,7 +453,8 @@ const Vehicles = () => {
                   className="flex items-center gap-2 bg-[#FFD249]/10 hover:bg-[#FFD249]/20 text-[#202020] dark:text-[#FFD249] border-[#FFD249]/30"
                 >
                   <SlidersHorizontal className="w-4 h-4" />
-                  Filters
+                  <span className="hidden xs:inline">Filters</span>
+                  <span className="xs:hidden">Filter</span>
                   {showFilters ? (
                     <ChevronUp className="w-4 h-4" />
                   ) : (
@@ -461,19 +462,20 @@ const Vehicles = () => {
                   )}
                 </Button>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <input
+            <div className="flex flex-col gap-3 w-full md:w-auto">
+              <div className="relative w-full sm:w-auto">
+                <input
                     type="text"
                     placeholder="Search vehicles..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="w-64 px-4 py-2 pl-10 bg-white/80 dark:bg-gray-700/80 border border-gray-200/50 dark:border-gray-600/50 rounded-xl text-[#202020] dark:text-[#FFD249] placeholder-[#828083] dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FFD249]/50 focus:border-transparent backdrop-blur-sm"
+                  className="w-full sm:w-64 px-4 py-2 pl-10 bg-white/80 dark:bg-gray-700/80 border border-gray-200/50 dark:border-gray-600/50 rounded-xl text-[#202020] dark:text-[#FFD249] placeholder-[#828083] dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FFD249]/50 focus:border-transparent backdrop-blur-sm"
                   />
                   <Car className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#828083] dark:text-gray-400" />
                 </div>
+              <div className="flex flex-wrap items-center gap-3">
                 <Select value={limit.toString()} onValueChange={setLimit}>
-                  <SelectTrigger className="w-[100px] bg-white/80 dark:bg-gray-700/80 border-gray-200/50 dark:border-gray-600/50">
+                  <SelectTrigger className="w-[90px] bg-white/80 dark:bg-gray-700/80 border-gray-200/50 dark:border-gray-600/50">
                     <SelectValue placeholder="Limit" />
                   </SelectTrigger>
                   <SelectContent>
@@ -551,13 +553,16 @@ const Vehicles = () => {
                 >
                   📧 Check Expiry
                 </Button>
-                <Button
-                  onClick={() => navigate("/admin/create-vehicle")}
-                  className="bg-[#FFD249] hover:bg-[#FFD249]/90 text-[#202020] font-semibold px-6 py-2 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
-                >
-                  Add Vehicle
-                </Button>
+                <div className="w-full sm:w-auto">
+                  <Button
+                    onClick={() => navigate("/admin/create-vehicle")}
+                    className="bg-[#FFD249] hover:bg-[#FFD249]/90 text-[#202020] font-semibold px-4 py-2 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 w-full whitespace-nowrap"
+                  >
+                    Add Vehicle
+                  </Button>
+                </div>
               </div>
+            </div>
             </div>
             {/* Filter Panel */}
             {showFilters && (

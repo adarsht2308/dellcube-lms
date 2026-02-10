@@ -23,6 +23,7 @@ import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { jwtDecode } from "jwt-decode";
 import Waves from "./Waves";
+import { clearBrowserCache } from "@/utils/cacheManager";
 
 function Login() {
   const [loginInput, setLoginInput] = useState({
@@ -155,10 +156,29 @@ function Login() {
     if (loginIsSucess && loginData) {
       toast.success(loginData?.message || "Login successful.");
       const token = loginData.token;
+      
+      // Store token first
       localStorage.setItem("token", token);
+      
+      // Clear browser cache in the background (non-blocking)
+      // This runs after navigation to avoid interfering with redirect
+      clearBrowserCache({
+        preserveToken: true, // Keep the auth token
+        preserveKeys: [], // Add any other keys to preserve if needed
+      }).then(cacheResult => {
+        if (cacheResult.success) {
+          console.log('[Login] Cache cleared successfully:', cacheResult.cleared);
+        } else {
+          console.warn('[Login] Cache clearing had some errors:', cacheResult.errors);
+        }
+      }).catch(error => {
+        console.error('[Login] Cache clearing failed:', error);
+      });
+      
       const decoded = jwtDecode(token);
       const userRole = decoded.role;
 
+      // Navigate immediately based on role
       if (userRole === "superAdmin") {
         navigate("/admin/dashboard");
       } else if (userRole === "branchAdmin") {
@@ -173,10 +193,11 @@ function Login() {
         navigate("/unauthorized");
       }
     }
+
     if (loginError) {
       toast.error(loginError?.data?.message || "Login Failed");
     }
-  }, [loginIsLoading, loginData, loginError]);
+  }, [loginIsSucess, loginData, loginError, navigate]);
 
   return (
     <div className="relative w-full min-h-screen flex items-center justify-center overflow-hidden">

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import {
+  Activity,
   BadgeAlert,
   BadgeCheck,
   Boxes,
@@ -211,6 +212,13 @@ const Sidebar = () => {
       ],
     },
     {
+      id: "activities",
+      title: "Activity Log",
+      icon: Activity,
+      path: "/admin/activities",
+      roles: ["superAdmin", "branchAdmin"],
+    },
+    {
       id: "create-order",
       title: "Create Order",
       icon: Plus,
@@ -235,6 +243,7 @@ const Sidebar = () => {
       path: "/admin/vendor-profile",
       roles: ["vendor"],
     },
+    
   ];
 
   const filteredMenuItems = menuItems.filter((item) =>

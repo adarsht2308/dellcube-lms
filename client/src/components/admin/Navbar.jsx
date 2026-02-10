@@ -51,6 +51,7 @@ import { useSelector } from "react-redux";
 import { Dialog, DialogContent, DialogTrigger } from "@radix-ui/react-dialog";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { clearBrowserCache } from "@/utils/cacheManager";
 
 import { format } from "date-fns";
 
@@ -274,11 +275,24 @@ const MobileNavbar = () => {
   };
 
   useEffect(() => {
-    if (isSuccess) {
-      toast.success(data.message || "User Logged Out");
-      navigate("/");
-    }
-  }, [isSuccess]);
+    const handleLogoutSuccess = async () => {
+      if (isSuccess) {
+        toast.success(data.message || "User Logged Out");
+        
+        // Clear browser cache on logout
+        console.log('[MobileNavbar] Clearing browser cache on logout...');
+        await clearBrowserCache({
+          preserveToken: false, // Remove token on logout
+          preserveKeys: [], // Don't preserve any data on logout
+        });
+        console.log('[MobileNavbar] Cache cleared, redirecting to login...');
+        
+        navigate("/");
+      }
+    };
+
+    handleLogoutSuccess();
+  }, [isSuccess, navigate]);
 
   const getRoleLabel = (role) => {
     switch (role) {

@@ -309,8 +309,30 @@ export const checkUserAssignmentsController = async (req, res) => {
       branchIds = [user.branch.toString ? user.branch.toString() : user.branch];
     }
 
-    console.log(`[checkUserAssignments] User ${user._id} (${user.role}) - Company IDs:`, companyIds);
-    console.log(`[checkUserAssignments] User ${user._id} (${user.role}) - Branch IDs:`, branchIds);
+    console.log(`[checkUserAssignments] User ${user._id} (${user.role}) - Company IDs (raw):`, companyIds);
+    console.log(`[checkUserAssignments] User ${user._id} (${user.role}) - Branch IDs (raw):`, branchIds);
+
+    // Filter out empty / invalid IDs to avoid CastError on ObjectId
+    companyIds = companyIds.filter(id => id && typeof id === "string" && id.trim() !== "");
+    branchIds = branchIds.filter(id => id && typeof id === "string" && id.trim() !== "");
+
+    console.log(`[checkUserAssignments] User ${user._id} (${user.role}) - Company IDs (filtered):`, companyIds);
+    console.log(`[checkUserAssignments] User ${user._id} (${user.role}) - Branch IDs (filtered):`, branchIds);
+
+    // If there are no valid company/branch IDs (e.g. superAdmin without assignments),
+    // return an empty, successful response instead of querying with invalid IDs
+    if (companyIds.length === 0 && branchIds.length === 0) {
+      console.warn(`[checkUserAssignments] User ${user._id} has no valid company/branch IDs. Returning empty assignments.`);
+      return res.status(200).json({
+        success: true,
+        data: {
+          companies: [],
+          branchesByCompany: {},
+          hasMultipleCompanies: false,
+          hasMultipleBranches: false,
+        },
+      });
+    }
 
     // Fetch company details
     const companies = await Company.find({ _id: { $in: companyIds } }).select("name companyCode");
@@ -440,7 +462,7 @@ export const loginController = async (req, res) => {
 
     // For superAdmin, no company/branch needed
     if (user.role === "superAdmin") {
-      return generateToken(res, user, `Welcome back ${user.name}`, null, null);
+      return await generateToken(res, user, `Welcome back ${user.name}`, null, null);
     }
 
     // Get available companies and branches from arrays
@@ -530,7 +552,7 @@ export const loginController = async (req, res) => {
       }
     }
 
-    return generateToken(res, user, `Welcome back ${user.name}`, selectedCompanyId, selectedBranchId);
+    return await generateToken(res, user, `Welcome back ${user.name}`, selectedCompanyId, selectedBranchId);
   } catch (error) {
     console.log("Login Error:", error);
     return res.status(500).json({
