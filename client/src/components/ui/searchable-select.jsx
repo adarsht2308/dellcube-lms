@@ -31,6 +31,7 @@ export function SearchableSelect({
   className = "",
   emptyMessage = "No results found",
   filterFunction,
+  portalled = true,
 }) {
   const [open, setOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -79,7 +80,15 @@ export function SearchableSelect({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+      <PopoverContent
+        portalled={portalled}
+        className="w-[var(--radix-popover-trigger-width)] p-0 z-[60]"
+        align="start"
+        onOpenAutoFocus={(e) => {
+          // Prevent focus fighting (especially inside Dialog)
+          e.preventDefault();
+        }}
+      >
         <div className="flex items-center border-b px-3">
           <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
           <Input
@@ -98,7 +107,17 @@ export function SearchableSelect({
             filteredOptions.map((option) => (
               <div
                 key={option.value}
-                onClick={() => {
+                onMouseDown={(e) => {
+                  // Important: in Dialogs, clicks can be treated as "outside"
+                  // because PopoverContent is often portalled. Selecting on mouse down
+                  // ensures selection happens before any outside handlers run.
+                  e.preventDefault();
+                  onValueChange(option.value);
+                  setOpen(false);
+                }}
+                onClick={(e) => {
+                  // Fallback for non-mouse interactions
+                  e.preventDefault();
                   onValueChange(option.value);
                   setOpen(false);
                 }}

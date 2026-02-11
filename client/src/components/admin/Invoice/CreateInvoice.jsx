@@ -2241,6 +2241,7 @@ const CreateInvoice = () => {
                   onValueChange={(value) =>
                     setNewDriverData((prev) => ({ ...prev, vendor: value }))
                   }
+                  portalled={false}
                   options={vendorData?.vendors?.map((v) => ({
                     value: v._id,
                     label: `${v.name}${v.email ? ` (${v.email})` : ""}`,
