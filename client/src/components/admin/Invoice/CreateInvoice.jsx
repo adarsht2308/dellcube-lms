@@ -73,6 +73,34 @@ import { useGetAllTransportModesQuery } from "@/features/api/TransportMode/trans
 import { useDebounce } from "@/hooks/Debounce.jsx";
 import { getTokenData } from "@/utils/getTokenData";
 
+const IST = "Asia/Kolkata";
+
+/** Current date in IST as YYYY-MM-DD (for date inputs) */
+function getISTDateString() {
+  return new Date().toLocaleDateString("en-CA", { timeZone: IST });
+}
+
+/** Current date and time in IST as YYYY-MM-DDTHH:mm (for datetime-local inputs) */
+function getISTDateTimeString() {
+  const formatter = new Intl.DateTimeFormat("en-IN", {
+    timeZone: IST,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(new Date());
+  const get = (type) => parts.find((p) => p.type === type)?.value ?? "";
+  const year = get("year");
+  const month = get("month");
+  const day = get("day");
+  const hour = get("hour");
+  const minute = get("minute");
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}T${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`;
+}
+
 // AddressFields Component (extracted to prevent re-creation on every render)
 const AddressFields = ({
   type,
@@ -292,12 +320,8 @@ const CreateInvoice = () => {
     isBranchAdmin || isVendor ? getUserBranchId() : tokenBranchId || ""
   );
   const [customerId, setCustomerId] = useState("");
-  const [invoiceDate, setInvoiceDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
-  const [dispatchDateTime, setDispatchDateTime] = useState(
-    new Date().toISOString().slice(0, 16)
-  );
+  const [invoiceDate, setInvoiceDate] = useState(getISTDateString);
+  const [dispatchDateTime, setDispatchDateTime] = useState(getISTDateTimeString);
   const [paymentType, setPaymentType] = useState("");
   const [remarks, setRemarks] = useState("");
 
@@ -580,7 +604,7 @@ const CreateInvoice = () => {
   //   limit: 10000,
   // });
   const { data: driversData, isLoading: isDriversLoading } =
-    useGetAllDriversQuery({});
+    useGetAllDriversQuery({ page: 1, limit: 1000 });
   const { data: goodsData } = useGetAllGoodsQuery({ page: 1, limit: 1000 });
 
   const { data: vehicleData, refetch: refetchVehicles } =
@@ -1969,7 +1993,7 @@ const CreateInvoice = () => {
                       )}
                       <div className="space-y-2 sm:col-span-2">
                         <Label className="text-sm font-medium">
-                          Assign / Override Driver
+                          Assign / Override Driver {driversData?.drivers?.length > 0 && `(Total: ${driversData.drivers.length})`}
                         </Label>
                         <div className="flex flex-col sm:flex-row gap-2">
                           <SearchableSelect

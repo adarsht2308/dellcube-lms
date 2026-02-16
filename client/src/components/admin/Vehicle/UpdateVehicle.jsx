@@ -104,7 +104,7 @@ const UpdateVehicle = () => {
     limit: 100,
   });
   const { data: branchData } = useGetAllBranchesQuery({ page: 1, limit: 100 });
-  const { data: driversData, isLoading: isDriversLoading } = useGetAllDriversQuery({});
+  const { data: driversData, isLoading: isDriversLoading } = useGetAllDriversQuery({ page: 1, limit: 1000 });
 
   useEffect(() => {
     if (vehicleId) {
@@ -473,7 +473,7 @@ const UpdateVehicle = () => {
 
               <div>
                 <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Current Driver *
+                  Current Driver * {driversData?.drivers?.length > 0 && `(Total: ${driversData.drivers.length})`}
                 </Label>
                 <SearchableSelect
                   value={currentDriver}

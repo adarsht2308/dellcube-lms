@@ -79,7 +79,7 @@ const CreateVehicle = () => {
   const [getBranchesByCompany] = useGetBranchesByCompanyMutation();
   const [createVehicle, { isLoading, isSuccess, isError, error, data }] =
     useCreateVehicleMutation();
-  const { data: driversData } = useGetAllDriversQuery({});
+  const { data: driversData } = useGetAllDriversQuery({ page: 1, limit: 1000 });
   console.log(driversData)
   
   // State to store current session's company and branch names for display
@@ -379,7 +379,12 @@ const CreateVehicle = () => {
 
               <div>
                 <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Driver Name
+                  Driver Name {driversData?.drivers?.length > 0 && `(Total: ${driversData.drivers.filter((driver) => {
+                    if (isVendor) {
+                      return driver.driverType !== "dellcube";
+                    }
+                    return true;
+                  }).length})`}
                 </Label>
                 <SearchableSelect
                   value={formData.currentDriver}

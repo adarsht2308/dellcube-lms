@@ -758,7 +758,7 @@ const UpdateInvoice = () => {
     limit: 10000,
   });
   const { data: driversData, isLoading: isDriversLoading } =
-    useGetAllDriversQuery({});
+    useGetAllDriversQuery({ page: 1, limit: 1000 });
   const { data: goodsData } = useGetAllGoodsQuery({ page: 1, limit: 1000 });
   const { data: siteTypesData } = useGetAllSiteTypesQuery({
     page: 1,
@@ -2365,7 +2365,7 @@ const UpdateInvoice = () => {
                       )}
                       <div className="space-y-2 sm:col-span-2">
                         <Label className="text-sm font-medium">
-                          Assign / Override Driver
+                          Assign / Override Driver {driversData?.drivers?.length > 0 && `(Total: ${driversData.drivers.length})`}
                         </Label>
                         <div className="flex flex-col sm:flex-row gap-2">
                           <SearchableSelect

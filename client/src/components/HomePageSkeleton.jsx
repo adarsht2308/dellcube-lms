@@ -14,7 +14,6 @@ const HomePageSkeleton = () => {
                         <div className="bg-gray-300 h-8 w-8 rounded-full"></div>
                         <div className="hidden md:block font-bold text-xl bg-gray-300 w-24 h-6 rounded"></div>
                     </div>
-
                     {/* User and DarkMode */}
                     <div className="flex items-center gap-8">
                         <div className="bg-gray-300 h-8 w-24 rounded-full"></div>

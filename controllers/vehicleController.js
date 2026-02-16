@@ -695,7 +695,7 @@ export const searchVehicles = async (req, res) => {
       v.vehicleNumber
         .replace(/\s+/g, "")
         .toUpperCase()
-        .startsWith(sanitizedSearchTerm)
+        .includes(sanitizedSearchTerm)
     );
 
     // Filter vendor vehicles in code
@@ -707,7 +707,7 @@ export const searchVehicles = async (req, res) => {
             v.vehicleNumber
               .replace(/\s+/g, "")
               .toUpperCase()
-              .startsWith(sanitizedSearchTerm)
+              .includes(sanitizedSearchTerm)
         )
         .map((v) => ({
           ...v.toObject(),
