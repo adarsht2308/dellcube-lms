@@ -13,6 +13,7 @@ import { renderToStream } from "@react-pdf/renderer";
 import React from "react";
 import { Vehicle } from "../models/vehicle.js";
 import { Customer } from "../models/customer.js";
+import { SiteType } from "../models/siteType.js";
 
 const fetchImageAsBase64 = async (url) => {
   if (!url) {
@@ -432,6 +433,23 @@ export const createInvoice = async (req, res) => {
       req.user?.userId
     );
 
+    // SRN Logic: Determine which site ID to use based on site type
+    // If site type is "SRN", use consignor site ID; otherwise use consignee site ID
+    let finalSiteId = consigneeSiteId || "";
+    
+    // Check if siteType is provided and if it's "SRN"
+    if (req.body.siteType) {
+      try {
+        const siteType = await SiteType.findById(req.body.siteType);
+        if (siteType && siteType.name.toUpperCase() === "SRN") {
+          finalSiteId = consignorSiteId || "";
+          console.log(`SRN detected: Using consignor site ID (${finalSiteId}) instead of consignee site ID`);
+        }
+      } catch (error) {
+        console.error("Error fetching site type:", error);
+      }
+    }
+
     // The following fields are now supported: pickupAddress, deliveryAddress, consignor, consignee, address, invoiceNumber, invoiceBill, ewayBillNo, driverContactNumber, siteId, sealNo, vehicleSize, orderNumber, transportMode
     const invoicePayload = {
       ...req.body,
@@ -443,6 +461,7 @@ export const createInvoice = async (req, res) => {
       ewayBillNo: ewayBillNumberValues,
       orderNumber: req.body.orderNumber || "",
       transportMode: req.body.transportMode,
+      siteId: finalSiteId, // Set the site ID based on SRN logic
       ...(creatorSignatureBase64 && {
         dellcubeSignature: creatorSignatureBase64,
       }),
@@ -1099,12 +1118,32 @@ export const getAllInvoices = async (req, res) => {
       return buildFullAddress(inv.toAddress);
     };
 
+    // Helper function to get consignor site ID from customer
+    const getConsignorSiteId = (inv) => {
+      if (inv.customer?.consignors && Array.isArray(inv.customer.consignors) && inv.consignor) {
+        let consignor = inv.customer.consignors.find(c => c.consignor === inv.consignor);
+        if (consignor?.siteId) return consignor.siteId;
+      }
+      return "";
+    };
+
+    // Helper function to get consignee site ID from customer
+    const getConsigneeSiteId = (inv) => {
+      if (inv.customer?.consignees && Array.isArray(inv.customer.consignees) && inv.consignee) {
+        let consignee = inv.customer.consignees.find(c => c.consignee === inv.consignee);
+        if (consignee?.siteId) return consignee.siteId;
+      }
+      return "";
+    };
+
     // Add computed fields to each invoice
     // Note: invoices are already plain objects (lean), so no need for toObject()
     const invoicesWithComputedFields = invoices.map(inv => {
       const invObj = { ...inv }; // Create a copy
       invObj.consignorAddress = getConsignorAddress(inv);
       invObj.consigneeAddress = getConsigneeAddress(inv);
+      invObj.consignorSiteId = getConsignorSiteId(inv);
+      invObj.consigneeSiteId = getConsigneeSiteId(inv);
       invObj.fromFullAddress = buildFullAddress(inv.fromAddress);
       invObj.toFullAddress = buildFullAddress(inv.toAddress);
       return invObj;
@@ -1348,6 +1387,43 @@ export const updateInvoice = async (req, res) => {
 
     const pendingUndeliveredReason = updates.undeliveredReason;
     delete updates.undeliveredReason;
+
+    // SRN Logic: Handle siteId update based on site type
+    // Extract consignor and consignee site IDs from updates
+    const consignorSiteId = updates.siteId1 || updates.consignorSiteId || "";
+    const consigneeSiteId = updates.siteId2 || updates.siteId || updates.consigneeSiteId || "";
+    
+    // Check if siteType is being updated or use existing siteType
+    const siteTypeToCheck = updates.siteType || invoice.siteType;
+    
+    if (siteTypeToCheck || consignorSiteId || consigneeSiteId) {
+      try {
+        let useSrnLogic = false;
+        
+        // If siteType is provided (either in updates or existing), check if it's SRN
+        if (siteTypeToCheck) {
+          const siteType = await SiteType.findById(siteTypeToCheck);
+          if (siteType && siteType.name.toUpperCase() === "SRN") {
+            useSrnLogic = true;
+          }
+        }
+        
+        // Apply SRN logic: use consignor site ID for SRN, otherwise use consignee site ID
+        if (useSrnLogic) {
+          if (consignorSiteId) {
+            updates.siteId = consignorSiteId;
+            console.log(`SRN detected on update: Using consignor site ID (${consignorSiteId})`);
+          }
+        } else {
+          if (consigneeSiteId) {
+            updates.siteId = consigneeSiteId;
+            console.log(`Non-SRN update: Using consignee site ID (${consigneeSiteId})`);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching site type during update:", error);
+      }
+    }
 
     Object.keys(updates).forEach((key) => {
       // Don't overwrite vehicle fields if vehicleNumber was handled above
@@ -1839,6 +1915,26 @@ export const exportInvoicesCSV = async (req, res) => {
       return "";
     };
 
+    // Helper function to get consignor site ID from customer
+    const getConsignorSiteId = (inv) => {
+      if (inv.customer?.consignors && Array.isArray(inv.customer.consignors) && inv.consignor) {
+        // Try to match by consignor name first
+        let consignor = inv.customer.consignors.find(c => c.consignor === inv.consignor);
+        if (consignor?.siteId) return consignor.siteId;
+      }
+      return "";
+    };
+
+    // Helper function to get consignee site ID from customer
+    const getConsigneeSiteId = (inv) => {
+      if (inv.customer?.consignees && Array.isArray(inv.customer.consignees) && inv.consignee) {
+        // Try to match by consignee name first
+        let consignee = inv.customer.consignees.find(c => c.consignee === inv.consignee);
+        if (consignee?.siteId) return consignee.siteId;
+      }
+      return "";
+    };
+
     // Flatten and map fields for CSV
     const rows = [];
 
@@ -1943,11 +2039,11 @@ export const exportInvoicesCSV = async (req, res) => {
         // Consignor Information
         Consignor: inv.consignor || "",
         ConsignorAddress: getConsignorAddress(inv) || buildFullAddress(inv.fromAddress) || "",
-        ConsignorSiteId: inv.siteId || "",
+        ConsignorSiteId: getConsignorSiteId(inv) || "",
         // Consignee Information
         Consignee: inv.consignee || "",
         ConsigneeAddress: getConsigneeAddress(inv) || buildFullAddress(inv.toAddress) || "",
-        ConsigneeSiteId: inv.siteId || "",
+        ConsigneeSiteId: getConsigneeSiteId(inv) || "",
         // General Address Field
         Address: inv.address || "",
         // Contact Information

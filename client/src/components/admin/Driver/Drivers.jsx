@@ -15,6 +15,8 @@ import {
   Upload,
   Download,
   FileSpreadsheet,
+  CheckCircle,
+  XCircle,
 } from "lucide-react";
 import { MdOutlineEdit } from "react-icons/md";
 import { FaRegTrashCan } from "react-icons/fa6";
@@ -251,6 +253,15 @@ const Drivers = () => {
     let end = Math.min(start + 4, totalPages);
     return Array.from({ length: end - start + 1 }, (_, i) => start + i);
   };
+
+  // Driver stats for summary cards
+  const totalDrivers = data?.total || 0;
+  const activeDrivers = data?.drivers?.filter((d) => d.status === true).length || 0;
+  const inactiveDrivers = data?.drivers?.filter((d) => d.status === false).length || 0;
+  const vendorDrivers =
+    data?.drivers?.filter(
+      (d) => (d.driverType || "").toLowerCase() === "vendor"
+    ).length || 0;
 
   // Download sample CSV
   const downloadSampleCSV = () => {
@@ -675,14 +686,81 @@ const Drivers = () => {
   };
 
   return (
-    <section className=" min-h-[100vh] rounded-md">
-      <div className="md:p-6 p-2">
-        {/* Top bar */}
-        <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4">
-          <h2 className="text-xl font-semibold text-gray-700 dark:text-white">
+    <section className="min-h-[100vh] rounded-md">
+      <div className="p-2 md:p-6">
+        {/* Header with Summary Cards (aligned like other pages) */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-[#828083] dark:text-gray-400">
+                  Total Drivers
+                </p>
+                <p className="text-2xl font-bold text-[#202020] dark:text-[#FFD249]">
+                  {totalDrivers}
+                </p>
+              </div>
+              <div className="p-3 bg-[#FFD249]/20 dark:bg-[#FFD249]/10 rounded-xl">
+                <UserRound className="w-6 h-6 text-[#202020] dark:text-[#FFD249]" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-[#828083] dark:text-gray-400">
+                  Active Drivers (this page)
+                </p>
+                <p className="text-2xl font-bold text-[#202020] dark:text-[#FFD249]">
+                  {activeDrivers}
+                </p>
+              </div>
+              <div className="p-3 bg-[#FFD249]/20 dark:bg-[#FFD249]/10 rounded-xl">
+                <CheckCircle className="w-6 h-6 text-[#202020] dark:text-[#FFD249]" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-[#828083] dark:text-gray-400">
+                  Inactive Drivers (this page)
+                </p>
+                <p className="text-2xl font-bold text-[#202020] dark:text-[#FFD249]">
+                  {inactiveDrivers}
+                </p>
+              </div>
+              <div className="p-3 bg-[#FFD249]/20 dark:bg-[#FFD249]/10 rounded-xl">
+                <XCircle className="w-6 h-6 text-[#202020] dark:text-[#FFD249]" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-[#828083] dark:text-gray-400">
+                  Vendor Drivers (this page)
+                </p>
+                <p className="text-2xl font-bold text-[#202020] dark:text-[#FFD249]">
+                  {vendorDrivers}
+                </p>
+              </div>
+              <div className="p-3 bg-[#FFD249]/20 dark:bg-[#FFD249]/10 rounded-xl">
+                <Truck className="w-6 h-6 text-[#202020] dark:text-[#FFD249]" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Header & actions */}
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-4 md:mb-4">
+          <h2 className="text-2xl md:text-3xl font-semibold text-gray-800 dark:text-white tracking-tight">
             {isVendor ? "Vendor Drivers" : "All Drivers"}
           </h2>
-          <div className="flex gap-4 items-center flex-wrap">
+          <div className="flex gap-3 items-center flex-wrap">
             <Input
               placeholder="Search driver..."
               value={search}
@@ -942,7 +1020,7 @@ const Drivers = () => {
                   </Button>
                 </div>
               </DialogContent>
-            </Dialog>
+            </Dialog> 
             <Button
               onClick={() => navigate("/admin/create-driver")}
               className="rounded-full bg-[#FFD249] text-[#202020] hover:bg-[#FFD249]/90 font-semibold shadow-md px-4 py-2"
@@ -950,11 +1028,12 @@ const Drivers = () => {
               Add Driver
             </Button>
             <Button
-              className="p-2 rounded-full bg-[#FFD249]/20 text-[#FFD249] hover:bg-[#FFD249]/40"
+              className="p-2 rounded-full bg-[#FFD249]/20 text-[#202020] hover:bg-[#FFD249]/40"
               onClick={refetch}
+              title="Refresh"
             >
               <GrPowerCycle />
-            </Button>   
+            </Button>
             <Select
               value={limit.toString()}
               onValueChange={(val) => setLimit(Number(val))}

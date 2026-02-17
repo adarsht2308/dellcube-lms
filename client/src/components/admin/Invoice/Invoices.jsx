@@ -694,6 +694,11 @@ const Invoices = () => {
   const handleViewPDF = async (invoice) => {
     setIsGeneratingPdf({ id: invoice._id, type: "view" });
 
+    // Check if user is on mobile device
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+      navigator.userAgent
+    ) || window.innerWidth < 768;
+
     // Create a deep, mutable copy of the invoice object to avoid read-only errors.
     let processedInvoice = JSON.parse(JSON.stringify(invoice));
 
@@ -789,13 +794,43 @@ const Invoices = () => {
     console.log("processedInvoice.profileSignature:", processedInvoice.profileSignature ? `${processedInvoice.profileSignature.substring(0, 50)}...` : processedInvoice.profileSignature);
     console.log("=== End After ensureCompanySignature ===");
 
-    setInvoiceForPdf(processedInvoice);
-    setPdfDialogOpen(true);
-    // Add a small delay to ensure the PDF viewer has the data before the drawer closes.
-    setTimeout(() => {
-      setOpenDrawer(false); // Close the drawer
-    }, 100);
-    setIsGeneratingPdf(null);
+    // If mobile, generate PDF and open in new tab
+    if (isMobile) {
+      try {
+        const doc = (
+          <InvoicePDFDocument
+            invoice={processedInvoice}
+            logoBase64={logoBase64}
+          />
+        );
+        const blob = await pdf(doc).toBlob();
+        const url = URL.createObjectURL(blob);
+        
+        // Open in new tab
+        window.open(url, '_blank');
+        
+        // Clean up the URL after a delay
+        setTimeout(() => {
+          URL.revokeObjectURL(url);
+        }, 1000);
+        
+        setOpenDrawer(false);
+        toast.success("Opening PDF in new tab...");
+      } catch (error) {
+        console.error("Error generating PDF:", error);
+        toast.error("Failed to generate PDF");
+      }
+      setIsGeneratingPdf(null);
+    } else {
+      // Desktop: Show in modal
+      setInvoiceForPdf(processedInvoice);
+      setPdfDialogOpen(true);
+      // Add a small delay to ensure the PDF viewer has the data before the drawer closes.
+      setTimeout(() => {
+        setOpenDrawer(false); // Close the drawer
+      }, 100);
+      setIsGeneratingPdf(null);
+    }
   };
 
   const handleDownloadPdf = async (invoice) => {
@@ -1039,10 +1074,10 @@ const Invoices = () => {
       DeliveryAddress: inv.deliveryAddress || "",
       Consignor: inv.consignor || "",
       ConsignorAddress: inv.consignorAddress || "",
-      ConsignorSiteId: inv.siteId || "",
+      ConsignorSiteId: inv.consignorSiteId || "",
       Consignee: inv.consignee || "",
       ConsigneeAddress: inv.consigneeAddress || "",
-      ConsigneeSiteId: inv.siteId || "",
+      ConsigneeSiteId: inv.consigneeSiteId || "",
       FromPostOffice: inv.fromAddress?.postOfficeName || "",
       FromDistrict: inv.fromAddress?.district || "",
       FromTaluk: inv.fromAddress?.taluk || "",
@@ -1519,45 +1554,55 @@ const Invoices = () => {
 
   return (
     <section className="min-h-[100vh] ">
-      <div className="px-4 md:pc-10">
+      <div className="px-4 sm:px-6 lg:px-10">
         {/* Component Title */}
-        <div className="mb-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white/80 dark:bg-gray-800/80 rounded-2xl shadow-sm px-6 py-5 border border-gray-100 dark:border-gray-800">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight mb-2 md:mb-0">
+        <div className="mb-6 sm:mb-8">
+          <div className="flex flex-col gap-4 bg-white/80 dark:bg-gray-800/80 rounded-2xl shadow-sm px-4 sm:px-6 py-4 sm:py-5 border border-gray-100 dark:border-gray-800">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
              All Dockets
             </h1>
-            <div className="flex flex-wrap gap-2 md:gap-3 items-center justify-end">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-center">
               <Button
                 onClick={() => setCsvModalOpen(true)}
                 variant="outline"
-                className="rounded-full px-5 py-2 flex items-center gap-2 text-base shadow-sm border border-[#FFD249] text-[#202020] bg-white hover:bg-[#FFD249]/20 hover:text-[#202020] dark:bg-[#202020] dark:text-[#FFD249] dark:border-[#FFD249] dark:hover:bg-[#FFD249]/10"
+                size="sm"
+                className="rounded-full px-4 sm:px-5 py-2 flex items-center justify-center gap-2 text-sm sm:text-base shadow-sm border border-[#FFD249] text-[#202020] bg-white hover:bg-[#FFD249]/20 hover:text-[#202020] dark:bg-[#202020] dark:text-[#FFD249] dark:border-[#FFD249] dark:hover:bg-[#FFD249]/10"
               >
-                <Download className="w-5 h-5" /> Export CSV
+                <Download className="w-4 h-4 sm:w-5 sm:h-5" /> 
+                <span className="hidden xs:inline">Export CSV</span>
+                <span className="xs:hidden">Export</span>
               </Button>
               <Button
                 onClick={() => setReservedDialogOpen(true)}
-                className="rounded-full px-5 py-2 flex items-center gap-2 text-base bg-[#FFD249] text-[#202020] hover:bg-[#FFD249]/80 hover:text-[#202020] shadow-sm border border-[#FFD249] dark:bg-[#FFD249] dark:text-[#202020] dark:hover:bg-[#FFD249]/80"
+                size="sm"
+                className="rounded-full px-4 sm:px-5 py-2 flex items-center justify-center gap-2 text-sm sm:text-base bg-[#FFD249] text-[#202020] hover:bg-[#FFD249]/80 hover:text-[#202020] shadow-sm border border-[#FFD249] dark:bg-[#FFD249] dark:text-[#202020] dark:hover:bg-[#FFD249]/80"
               >
-                + Create Reserved Docket
+                <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden sm:inline">Create Reserved</span>
+                <span className="sm:hidden">Reserved</span>
               </Button>
               <Button
                 onClick={() => navigate("/admin/create-invoice")}
-                className="rounded-full px-5 py-2 flex items-center gap-2 text-base bg-[#FFD249] text-[#202020] hover:bg-[#FFD249]/80 hover:text-[#202020] shadow-sm border border-[#FFD249] dark:bg-[#FFD249] dark:text-[#202020] dark:hover:bg-[#FFD249]/80"
+                size="sm"
+                className="rounded-full px-4 sm:px-5 py-2 flex items-center justify-center gap-2 text-sm sm:text-base bg-[#FFD249] text-[#202020] hover:bg-[#FFD249]/80 hover:text-[#202020] shadow-sm border border-[#FFD249] dark:bg-[#FFD249] dark:text-[#202020] dark:hover:bg-[#FFD249]/80"
               >
-                + Add Docket
+                <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden sm:inline">Add Docket</span>
+                <span className="sm:hidden">Add</span>
               </Button>
               <Button
-                className="rounded-full p-2 bg-[#FFD249]/20 text-[#202020] hover:bg-[#FFD249]/40 hover:text-[#202020] border border-[#FFD249] shadow-sm dark:bg-[#202020] dark:text-[#FFD249] dark:hover:bg-[#FFD249]/10 dark:border-[#FFD249]"
+                size="sm"
+                className="rounded-full p-2 bg-[#FFD249]/20 text-[#202020] hover:bg-[#FFD249]/40 hover:text-[#202020] border border-[#FFD249] shadow-sm dark:bg-[#202020] dark:text-[#FFD249] dark:hover:bg-[#FFD249]/10 dark:border-[#FFD249] sm:ml-auto"
                 onClick={() => refetch()}
                 title="Refresh"
               >
-                <GrPowerCycle className="w-5 h-5" />
+                <GrPowerCycle className="w-4 h-4 sm:w-5 sm:h-5" />
               </Button>
             </div>
           </div>
         </div>
 
-        {/* Status Filter Dropdown - moved beside Items per page */}
+        {/* Status Filter & basic filters (desktop-style on md+, stacked on mobile) */}
         <div className="mb-6 flex flex-col md:flex-row md:items-end gap-4 md:gap-6">
           <div className="flex-1 flex flex-col md:flex-row md:items-end gap-4">
             <div className="flex flex-col gap-1 w-full md:w-1/3">
@@ -1832,8 +1877,9 @@ const Invoices = () => {
         </div>
 
         {/* Table container with modern card style */}
-        <div className="bg-white/90 dark:bg-[#202020]/90 rounded-2xl shadow-lg overflow-x-auto border border-gray-100 dark:border-[#202020]">
-          <table className="w-full text-sm">
+        <div className="bg-white/90 dark:bg-[#202020]/90 rounded-2xl shadow-lg overflow-hidden border border-gray-100 dark:border-[#202020]">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[800px]">
             <thead className="sticky top-0 z-10 bg-[#FFD249]/90 dark:bg-[#202020]/90 text-center rounded-t-2xl">
               <tr>
                 <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
@@ -2115,32 +2161,8 @@ const Invoices = () => {
                 </tr>
               )}
             </tbody>
-            <thead className="sticky top-0 z-10 bg-[#FFD249]/90 dark:bg-[#202020]/90 text-center rounded-t-2xl">
-              <tr>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  No
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Prefix
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Docket Number
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Customer Company
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Branch
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase text-[#202020] dark:text-[#FFD249] tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
           </table>
+          </div>
         </div>
 
         {/* Enhance Drawer UI */}
@@ -2824,10 +2846,10 @@ const Invoices = () => {
           </DialogContent>
         </Dialog>
 
-        <div className="border-t border-gray-200 px-4 py-6 flex flex-col items-center">
+        <div className="border-t border-gray-200 dark:border-gray-700 px-4 py-4 sm:py-6 flex flex-col items-center">
           {data?.totalPages > 1 && (
             <Pagination>
-              <PaginationContent className="flex gap-2 justify-center">
+              <PaginationContent className="flex flex-wrap gap-2 justify-center">
                 <PaginationItem>
                   <PaginationPrevious
                     onClick={() => handlePageChange(currentPage - 1)}
