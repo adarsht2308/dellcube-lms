@@ -435,9 +435,13 @@ const Invoices = () => {
       });
   }, []);
 
+  // Cap limit to prevent server timeouts (max 100 for regular queries)
+  const MAX_QUERY_LIMIT = 100;
+  const safeLimit = Math.min(limit, MAX_QUERY_LIMIT);
+
   const filters = {
     page,
-    limit,
+    limit: safeLimit,
     search: debouncedSearch,
   };
 
@@ -461,7 +465,7 @@ const Invoices = () => {
   if (vehicleType) filters.vehicleType = vehicleType;
   if (fromDate) filters.fromDate = fromDate;
   if (toDate) filters.toDate = toDate;
-  const { data, isLoading, refetch } = useGetAllInvoicesQuery(filters);
+  const { data, isLoading, error, refetch } = useGetAllInvoicesQuery(filters);
 
   const [deleteInvoice, { isSuccess, isError }] = useDeleteInvoiceMutation();
   const [getInvoicePdf] = useGetInvoicePdfMutation();
@@ -482,6 +486,33 @@ const Invoices = () => {
       toast.error("Failed to delete invoice");
     }
   }, [isSuccess, isError, refetch]);
+
+  // Show error toast for query errors
+  useEffect(() => {
+    if (error) {
+      const errorMessage = 
+        error?.status === 502 || error?.data?.status === 502 || 
+        error?.message?.includes("502") || 
+        error?.message?.includes("Bad Gateway") ||
+        error?.message?.includes("Failed to fetch")
+          ? "Server is temporarily unavailable. Please try again in a few moments."
+          : error?.data?.message || error?.message || "Failed to load invoices";
+      
+      toast.error(errorMessage, {
+        duration: 5000,
+      });
+    }
+  }, [error]);
+
+  // Warn if limit exceeds maximum
+  useEffect(() => {
+    if (limit > MAX_QUERY_LIMIT) {
+      toast.error(`Limit cannot exceed ${MAX_QUERY_LIMIT}. Using ${MAX_QUERY_LIMIT} instead.`, {
+        duration: 3000,
+      });
+      setLimit(MAX_QUERY_LIMIT);
+    }
+  }, [limit]);
 
   const handleDelete = async (id) => {
     await deleteInvoice(id);
@@ -1188,46 +1219,140 @@ const Invoices = () => {
   };
 
   const fetchInvoicesForExport = async () => {
-    const exportFilters = {
-      ...filters,
-      page: 1,
-      limit: data?.total || filters.limit || 1000,
-    };
+    // Cap the limit to prevent server timeouts (max 200 per request)
+    const MAX_EXPORT_LIMIT = 200;
+    const totalInvoices = data?.total || 0;
+    const requestedLimit = totalInvoices > 0 ? Math.min(totalInvoices, MAX_EXPORT_LIMIT) : MAX_EXPORT_LIMIT;
 
-    const params = new URLSearchParams();
-    Object.entries(exportFilters).forEach(([key, value]) => {
-      if (
-        value !== undefined &&
-        value !== null &&
-        value !== "" &&
-        value !== "all"
-      ) {
-        params.append(key, value);
+    // If we need more than MAX_EXPORT_LIMIT, we'll fetch in batches
+    const allInvoices = [];
+    const totalPages = Math.ceil(totalInvoices / MAX_EXPORT_LIMIT) || 1;
+
+    for (let currentPage = 1; currentPage <= totalPages; currentPage++) {
+      const exportFilters = {
+        ...filters,
+        page: currentPage,
+        limit: requestedLimit,
+      };
+
+      const params = new URLSearchParams();
+      Object.entries(exportFilters).forEach(([key, value]) => {
+        if (
+          value !== undefined &&
+          value !== null &&
+          value !== "" &&
+          value !== "all"
+        ) {
+          params.append(key, value);
+        }
+      });
+
+      try {
+        const response = await fetch(
+          `${BASE_URL}/invoices/all?${params.toString()}`,
+          {
+            credentials: "include",
+          }
+        );
+
+        if (!response.ok) {
+          // Handle 502 Bad Gateway specifically
+          if (response.status === 502) {
+            throw new Error(
+              "Server is temporarily unavailable. Please try again in a few moments or reduce the number of invoices to export."
+            );
+          }
+          throw new Error(`Failed to fetch invoices: ${response.status} ${response.statusText}`);
+        }
+
+        const result = await response.json();
+
+        if (!result?.success) {
+          throw new Error(result?.message || "Failed to fetch invoices for export");
+        }
+
+        if (result.invoices && result.invoices.length > 0) {
+          allInvoices.push(...result.invoices);
+        }
+
+        // If we got fewer invoices than requested, we've reached the end
+        if (!result.invoices || result.invoices.length < requestedLimit) {
+          break;
+        }
+      } catch (error) {
+        // If it's the first page and we get an error, throw it
+        if (currentPage === 1) {
+          throw error;
+        }
+        // Otherwise, log and continue with what we have
+        console.warn(`Failed to fetch page ${currentPage}:`, error);
+        break;
       }
-    });
-
-    const response = await fetch(
-      `${BASE_URL}/invoices/all?${params.toString()}`,
-      {
-        credentials: "include",
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error("Failed to fetch invoices for export");
     }
 
-    const result = await response.json();
-
-    if (!result?.success) {
-      throw new Error(result?.message || "Failed to fetch invoices for export");
-    }
-
-    return result.invoices || [];
+    return allInvoices;
   };
 
-  // Handle export
+  // Handle export - Use backend streaming endpoint for large datasets
   const handleExportCSV = async () => {
+    setIsExporting(true);
+    try {
+      // Build export filters from current filters
+      const exportFilters = {
+        search: debouncedSearch || "",
+        companyId: isBranchAdmin ? user?.company?._id : companyId || "",
+        branchId: isBranchAdmin ? user?.branch?._id : branchId || "",
+        customerId: customerId || "",
+        status: status || "",
+        paymentType: paymentType || "",
+        vehicleType: vehicleType || "",
+        fromDate: fromDate || "",
+        toDate: toDate || "",
+      };
+
+      // Build query params
+      const params = new URLSearchParams();
+      Object.entries(exportFilters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "" && value !== "all") {
+          params.append(key, value);
+        }
+      });
+
+      // Use backend streaming CSV export endpoint
+      const response = await fetch(`${BASE_URL}/invoices/export-csv?${params.toString()}`, {
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        if (response.status === 502) {
+          throw new Error("Server is temporarily unavailable. Please try again in a few moments.");
+        }
+        throw new Error(`Failed to export CSV: ${response.status} ${response.statusText}`);
+      }
+
+      // Get the blob and trigger download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `invoices_export_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      setCsvModalOpen(false);
+      toast.success("CSV exported successfully!");
+    } catch (error) {
+      console.error("Export error:", error);
+      toast.error(error?.message || "Failed to export CSV. Please try again later.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Legacy function - kept for reference but not used
+  const handleExportCSV_Legacy = async () => {
     setIsExporting(true);
     try {
       const invoicesForExport = await fetchInvoicesForExport();
@@ -1912,6 +2037,38 @@ const Invoices = () => {
                     <Loader2 className="animate-spin mx-auto text-[#FFD249] w-8 h-8" />
                     <div className="mt-2 text-[#828083]">
                       Loading invoices...
+                    </div>
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan="7" className="text-center py-12">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
+                        <XCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-lg font-semibold text-red-600 dark:text-red-400">
+                          Failed to load invoices
+                        </div>
+                        <div className="text-sm text-[#828083] max-w-md">
+                          {error?.status === 502 || error?.data?.status === 502 || 
+                           error?.message?.includes("502") || 
+                           error?.message?.includes("Bad Gateway") ||
+                           error?.message?.includes("Failed to fetch")
+                            ? "Server is temporarily unavailable. Please try again in a few moments."
+                            : error?.data?.message || error?.message || "An unexpected error occurred. Please try again."}
+                        </div>
+                        <Button
+                          onClick={() => refetch()}
+                          variant="outline"
+                          size="sm"
+                          className="mt-3 border-[#FFD249] text-[#202020] hover:bg-[#FFD249]/20"
+                        >
+                          <Loader2 className="w-4 h-4 mr-2" />
+                          Retry
+                        </Button>
+                      </div>
                     </div>
                   </td>
                 </tr>

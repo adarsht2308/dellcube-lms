@@ -1567,7 +1567,23 @@ export const generateInvoicePDF = async (req, res) => {
   }
 };
 
-// Export Invoices as CSV
+// Helper function to escape CSV values
+const escapeCsvValue = (value) => {
+  if (value === null || value === undefined) return "";
+  const str = String(value);
+  // If contains comma, quote, or newline, wrap in quotes and escape quotes
+  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+};
+
+// Helper function to build CSV row from object
+const buildCsvRow = (obj, fields) => {
+  return fields.map(field => escapeCsvValue(obj[field] || "")).join(",");
+};
+
+// Export Invoices as CSV - STREAMING VERSION for large datasets
 export const exportInvoicesCSV = async (req, res) => {
   try {
     let {
@@ -1610,7 +1626,6 @@ export const exportInvoicesCSV = async (req, res) => {
       }
     }
 
-    // Use lean() and cursor to avoid memory issues with large datasets
     // Convert ObjectIds in query to proper format for MongoDB
     const mongoQuery = {};
     Object.keys(query).forEach(key => {
@@ -1625,10 +1640,14 @@ export const exportInvoicesCSV = async (req, res) => {
       }
     });
 
+    // Set response headers for streaming CSV
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", 'attachment; filename="invoices_export.csv"');
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
     // Use aggregation with allowDiskUse to handle large datasets efficiently
     // This avoids memory limits when sorting/populating large result sets
-    // Execute aggregation using cursor to process in batches and avoid memory issues
-    const invoices = [];
     const invoicesAggregation = Invoice.aggregate([
       { $match: mongoQuery },
       // Lookup company
@@ -1803,70 +1822,10 @@ export const exportInvoicesCSV = async (req, res) => {
     ], {
       allowDiskUse: true
     });
-    
-    // Process results using cursor to stream data and avoid memory issues
-    const cursor = invoicesAggregation.cursor({ batchSize: 100 });
-    for await (const invoice of cursor) {
-      invoices.push(invoice);
-    }
 
-    // Collect all unique MIS field names and labels across all invoices
-    const allMisFields = new Map(); // Map of fieldName -> fieldLabel
-    
-    // First pass: Collect from customer misFields configuration (to get proper labels)
-    // This ensures we have the correct fieldLabel for each fieldName
-    invoices.forEach((inv) => {
-      if (inv.customer?.misFields && Array.isArray(inv.customer.misFields)) {
-        inv.customer.misFields.forEach((field) => {
-          if (field.fieldName) {
-            const fieldLabel = field.fieldLabel || field.fieldName;
-            // Store with fieldName as key and fieldLabel as value
-            allMisFields.set(field.fieldName, fieldLabel);
-          }
-        });
-      }
-    });
-    
-    // Second pass: Collect from actual misData in invoices (ensures we get all fields that have data)
-    // This catches any fields that exist in misData but might not be in customer misFields config
-    invoices.forEach((inv) => {
-      if (inv.misData && typeof inv.misData === 'object') {
-        Object.keys(inv.misData).forEach((fieldName) => {
-          if (!allMisFields.has(fieldName)) {
-            // Try to find the field label from customer misFields config
-            const customer = inv.customer;
-            if (customer?.misFields && Array.isArray(customer.misFields)) {
-              const field = customer.misFields.find(f => f.fieldName === fieldName);
-              if (field && field.fieldLabel) {
-                allMisFields.set(fieldName, field.fieldLabel);
-              } else {
-                // Use fieldName as label if not found in misFields config
-                // Convert camelCase to Title Case for better readability
-                const formattedLabel = fieldName
-                  .replace(/([A-Z])/g, ' $1')
-                  .replace(/^./, str => str.toUpperCase())
-                  .trim();
-                allMisFields.set(fieldName, formattedLabel);
-              }
-            } else {
-              // Use fieldName as label if customer misFields not available
-              // Convert camelCase to Title Case for better readability
-              const formattedLabel = fieldName
-                .replace(/([A-Z])/g, ' $1')
-                .replace(/^./, str => str.toUpperCase())
-                .trim();
-              allMisFields.set(fieldName, formattedLabel);
-            }
-          }
-        });
-      }
-    });
-    
-    
-
+    // Helper functions (defined before use)
     const attemptStatuses = ["Undelivered", "Delivered"];
 
-    // Helper function to build full formatted address from components
     const buildFullAddress = (addressObj) => {
       if (!addressObj) return "";
       const parts = [];
@@ -1880,16 +1839,10 @@ export const exportInvoicesCSV = async (req, res) => {
       return parts.join(", ");
     };
 
-    // Helper function to get consignor/consignee address from customer
     const getConsignorAddress = (inv) => {
-      // First try to get from invoice's pickupAddress field
       if (inv.pickupAddress) return inv.pickupAddress;
-      
-      // Then try to get from customer's consignors array
       if (inv.customer?.consignors && Array.isArray(inv.customer.consignors) && inv.consignor) {
-        // Try to match by consignor name first
         let consignor = inv.customer.consignors.find(c => c.consignor === inv.consignor);
-        // If not found, try to match by siteId
         if (!consignor && inv.siteId) {
           consignor = inv.customer.consignors.find(c => c.siteId === inv.siteId);
         }
@@ -1899,14 +1852,9 @@ export const exportInvoicesCSV = async (req, res) => {
     };
 
     const getConsigneeAddress = (inv) => {
-      // First try to get from invoice's deliveryAddress field
       if (inv.deliveryAddress) return inv.deliveryAddress;
-      
-      // Then try to get from customer's consignees array
       if (inv.customer?.consignees && Array.isArray(inv.customer.consignees) && inv.consignee) {
-        // Try to match by consignee name first
         let consignee = inv.customer.consignees.find(c => c.consignee === inv.consignee);
-        // If not found, try to match by siteId
         if (!consignee && inv.siteId) {
           consignee = inv.customer.consignees.find(c => c.siteId === inv.siteId);
         }
@@ -1915,322 +1863,347 @@ export const exportInvoicesCSV = async (req, res) => {
       return "";
     };
 
-    // Helper function to get consignor site ID from customer
     const getConsignorSiteId = (inv) => {
       if (inv.customer?.consignors && Array.isArray(inv.customer.consignors) && inv.consignor) {
-        // Try to match by consignor name first
         let consignor = inv.customer.consignors.find(c => c.consignor === inv.consignor);
         if (consignor?.siteId) return consignor.siteId;
       }
       return "";
     };
 
-    // Helper function to get consignee site ID from customer
     const getConsigneeSiteId = (inv) => {
       if (inv.customer?.consignees && Array.isArray(inv.customer.consignees) && inv.consignee) {
-        // Try to match by consignee name first
         let consignee = inv.customer.consignees.find(c => c.consignee === inv.consignee);
         if (consignee?.siteId) return consignee.siteId;
       }
       return "";
     };
 
-    // Flatten and map fields for CSV
-    const rows = [];
-
     const buildBaseRow = (inv, attempt) => ({
-        DocketNumber: inv.docketNumber || "",
-        DocketPrefix: inv.docketPrefix || "",
-        OrderNumber: inv.orderNumber || "",
-        SiteId: inv.siteId || "",
-        SealNo: inv.sealNo || "",
-        SiteType: inv.siteType?.name || "",
-        SiteTypeDescription: inv.siteType?.desc || "",
-        TransportMode: inv.transportMode?.name || "",
-        TransportModeDescription: inv.transportMode?.desc || "",
-        InvoiceNumbers: formatMultiValueField(inv.invoiceNumber),
-        InvoiceBill: inv.invoiceBill || "",
-        EwayBillNumbers: formatMultiValueField(inv.ewayBillNo),
-        AttemptStatus: attempt?.status || inv.status,
-        AttemptReason: attempt?.reason || "",
-        AttemptedAt: attempt?.attemptedAt
-          ? new Date(attempt.attemptedAt).toLocaleString()
-          : "",
-        // Company Information
-        Company: inv.company?.name || "",
-        CompanyCode: inv.company?.companyCode || "",
-        CompanyAddress: inv.company?.address || "",
-        CompanyContactPhone: inv.company?.contactPhone || "",
-        CompanyEmail: inv.company?.emailId || "",
-        CompanyWebsite: inv.company?.website || "",
-        CompanyGST: inv.company?.gstNumber || "",
-        CompanyGSTValue: inv.company?.gstValue || "",
-        CompanyPAN: inv.company?.pan || "",
-        CompanySACHSNCode: inv.company?.sacHsnCode || "",
-        CompanyType: inv.company?.companyType || "",
-        // Branch Information
-        Branch: inv.branch?.name || "",
-        BranchCode: inv.branch?.branchCode || "",
-        BranchAddress: inv.branch?.address || "",
-        BranchGST: inv.branch?.gstNo || "",
-        BranchNumber: inv.branch?.branchNo || "",
-        // Customer Information
-        Customer: inv.customer?.name || "",
-        CustomerPhone: inv.customer?.phone || "",
-        CustomerEmail: inv.customer?.email || "",
-        CustomerGST: inv.customer?.gstNumber || "",
-        CustomerAddress: inv.customer?.address || "",
-        CustomerCompanyName: inv.customer?.companyName || "",
-        CustomerCompanyContactName: inv.customer?.companyContactName || "",
-        CustomerCompanyContactInfo: inv.customer?.companyContactInfo || "",
-        CustomerTaxType: inv.customer?.taxType || "",
-        CustomerTaxValue: inv.customer?.taxValue || "",
-        // Goods Information
-        GoodsType: inv.goodsType?.name || "",
-        GoodsItems: inv.goodsType?.items?.join("; ") || "",
-        GoodItems: inv.goodItems?.map(item => item.name).join("; ") || "",
-        // Vehicle Information
-        VehicleType: inv.vehicleType || "",
-        VehicleNumber: inv.vehicle?.vehicleNumber || inv.vendorVehicle?.vehicleNumber || "",
-        VehicleModel: inv.vehicle?.model || "",
-        VehicleBrand: inv.vehicle?.brand || "",
-        VehicleSize: inv.vehicle?.type || inv.vehicleSize || "",
-        VehicleCargoType: inv.vehicle?.cargoType || "",
-        VehicleYearOfManufacture: inv.vehicle?.yearOfManufacture || "",
-        // Vendor Information
-        Vendor: inv.vendor?.name || "",
-        VendorPhone: inv.vendor?.phone || "",
-        VendorEmail: inv.vendor?.email || "",
-        VendorVehicle: inv.vendorVehicle?.vehicleNumber || "",
-        // Driver Information
-        Driver: inv.driver?.name || "",
-        DriverPhone: inv.driverContactNumber || inv.driver?.mobile || "",
-        DriverEmail: inv.driver?.email || "",
-        DriverContactNumber: inv.driverContactNumber || inv.driver?.mobile || "",
-        // Status and Dates
-        Status: inv.status || "",
-        InvoiceDate: inv.invoiceDate
-          ? new Date(inv.invoiceDate).toLocaleString()
-          : "",
-        DispatchDateTime: inv.dispatchDateTime
-          ? new Date(inv.dispatchDateTime).toLocaleString()
-          : "",
-        // From Address (Pickup Location) - Using new fields (taluk, district, post office)
-        FromPincode: inv.fromAddress?.pincode || "",
-        FromPostOffice: inv.fromAddress?.postOfficeName || "",
-        FromDistrict: inv.fromAddress?.district || "",
-        FromTaluk: inv.fromAddress?.taluk || "",
-        FromFullAddress: buildFullAddress(inv.fromAddress) || inv.pickupAddress || "",
-        // To Address (Delivery Location) - Using new fields (taluk, district, post office)
-        ToPincode: inv?.toAddress?.pincode || "",
-        ToPostOffice: inv.toAddress?.postOfficeName || "",
-        ToDistrict: inv.toAddress?.district || "",
-        ToTaluk: inv.toAddress?.taluk || "",
-        ToFullAddress: buildFullAddress(inv.toAddress) || inv.deliveryAddress || "",
-        // Financial Information
-        TotalWeight: inv?.totalWeight || "",
-        NumberOfPackages: inv?.numberOfPackages || "",
-        FreightCharges: inv?.freightCharges || "",
-        PaymentType: inv?.paymentType || "",
-        Remarks: inv?.remarks || "",
-        // Address Fields - Full formatted addresses
-        PickupAddress: inv.pickupAddress || buildFullAddress(inv.fromAddress) || "",
-        DeliveryAddress: inv.deliveryAddress || buildFullAddress(inv.toAddress) || "",
-        // Consignor Information
-        Consignor: inv.consignor || "",
-        ConsignorAddress: getConsignorAddress(inv) || buildFullAddress(inv.fromAddress) || "",
-        ConsignorSiteId: getConsignorSiteId(inv) || "",
-        // Consignee Information
-        Consignee: inv.consignee || "",
-        ConsigneeAddress: getConsigneeAddress(inv) || buildFullAddress(inv.toAddress) || "",
-        ConsigneeSiteId: getConsigneeSiteId(inv) || "",
-        // General Address Field
-        Address: inv.address || "",
-        // Contact Information
-        LoadingContactName: inv.loadingContact?.name || "",
-        LoadingContactMobile: inv.loadingContact?.mobile || "",
-        UnloadingContactName: inv.unloadingContact?.name || "",
-        UnloadingContactMobile: inv.unloadingContact?.mobile || "",
-        // Delivery Information
-        UndeliveredReason: inv.undeliveredReason || "",
-        DeliveredAt: inv.deliveredAt
-          ? new Date(inv.deliveredAt).toLocaleString()
-          : "",
-        // Delivery Confirmation (match docket footer labels)
-        "Receiver Name": inv.deliveryProof?.receiverName || inv.receiverName || "",
-        "Mobile No": inv.deliveryProof?.receiverMobile || inv.receiverMobile || "",
-        Floor: inv.deliveryProof?.floor || "",
-        "Date & Time": inv.deliveredAt
-          ? new Date(inv.deliveredAt).toLocaleString()
-          : "",
-        Remark: inv.deliveryProof?.remarks || "",
-        DeliveryProofSignature: inv.deliveryProof?.signature ? "Yes" : "",
-        // Additional Data
-        DeliveryAttempts: JSON.stringify(inv.deliveryAttempts || []),
-        DriverUpdates: JSON.stringify(inv.driverUpdates || []),
-        CreatedAt: inv.createdAt ? new Date(inv.createdAt).toLocaleString() : "",
-        UpdatedAt: inv.updatedAt ? new Date(inv.updatedAt).toLocaleString() : "",
-      });
+      DocketNumber: inv.docketNumber || "",
+      DocketPrefix: inv.docketPrefix || "",
+      OrderNumber: inv.orderNumber || "",
+      SiteId: inv.siteId || "",
+      SealNo: inv.sealNo || "",
+      SiteType: inv.siteType?.name || "",
+      SiteTypeDescription: inv.siteType?.desc || "",
+      TransportMode: inv.transportMode?.name || "",
+      TransportModeDescription: inv.transportMode?.desc || "",
+      InvoiceNumbers: formatMultiValueField(inv.invoiceNumber),
+      InvoiceBill: inv.invoiceBill || "",
+      EwayBillNumbers: formatMultiValueField(inv.ewayBillNo),
+      AttemptStatus: attempt?.status || inv.status,
+      AttemptReason: attempt?.reason || "",
+      AttemptedAt: attempt?.attemptedAt ? new Date(attempt.attemptedAt).toLocaleString() : "",
+      Company: inv.company?.name || "",
+      CompanyCode: inv.company?.companyCode || "",
+      CompanyAddress: inv.company?.address || "",
+      CompanyContactPhone: inv.company?.contactPhone || "",
+      CompanyEmail: inv.company?.emailId || "",
+      CompanyWebsite: inv.company?.website || "",
+      CompanyGST: inv.company?.gstNumber || "",
+      CompanyGSTValue: inv.company?.gstValue || "",
+      CompanyPAN: inv.company?.pan || "",
+      CompanySACHSNCode: inv.company?.sacHsnCode || "",
+      CompanyType: inv.company?.companyType || "",
+      Branch: inv.branch?.name || "",
+      BranchCode: inv.branch?.branchCode || "",
+      BranchAddress: inv.branch?.address || "",
+      BranchGST: inv.branch?.gstNo || "",
+      BranchNumber: inv.branch?.branchNo || "",
+      Customer: inv.customer?.name || "",
+      CustomerPhone: inv.customer?.phone || "",
+      CustomerEmail: inv.customer?.email || "",
+      CustomerGST: inv.customer?.gstNumber || "",
+      CustomerAddress: inv.customer?.address || "",
+      CustomerCompanyName: inv.customer?.companyName || "",
+      CustomerCompanyContactName: inv.customer?.companyContactName || "",
+      CustomerCompanyContactInfo: inv.customer?.companyContactInfo || "",
+      CustomerTaxType: inv.customer?.taxType || "",
+      CustomerTaxValue: inv.customer?.taxValue || "",
+      GoodsType: inv.goodsType?.name || "",
+      GoodsItems: inv.goodsType?.items?.join("; ") || "",
+      GoodItems: inv.goodItems?.map(item => item.name).join("; ") || "",
+      VehicleType: inv.vehicleType || "",
+      VehicleNumber: inv.vehicle?.vehicleNumber || inv.vendorVehicle?.vehicleNumber || "",
+      VehicleModel: inv.vehicle?.model || "",
+      VehicleBrand: inv.vehicle?.brand || "",
+      VehicleSize: inv.vehicle?.type || inv.vehicleSize || "",
+      VehicleCargoType: inv.vehicle?.cargoType || "",
+      VehicleYearOfManufacture: inv.vehicle?.yearOfManufacture || "",
+      Vendor: inv.vendor?.name || "",
+      VendorPhone: inv.vendor?.phone || "",
+      VendorEmail: inv.vendor?.email || "",
+      VendorVehicle: inv.vendorVehicle?.vehicleNumber || "",
+      Driver: inv.driver?.name || "",
+      DriverPhone: inv.driverContactNumber || inv.driver?.mobile || "",
+      DriverEmail: inv.driver?.email || "",
+      DriverContactNumber: inv.driverContactNumber || inv.driver?.mobile || "",
+      Status: inv.status || "",
+      InvoiceDate: inv.invoiceDate ? new Date(inv.invoiceDate).toLocaleString() : "",
+      DispatchDateTime: inv.dispatchDateTime ? new Date(inv.dispatchDateTime).toLocaleString() : "",
+      FromPincode: inv.fromAddress?.pincode || "",
+      FromPostOffice: inv.fromAddress?.postOfficeName || "",
+      FromDistrict: inv.fromAddress?.district || "",
+      FromTaluk: inv.fromAddress?.taluk || "",
+      FromFullAddress: buildFullAddress(inv.fromAddress) || inv.pickupAddress || "",
+      ToPincode: inv?.toAddress?.pincode || "",
+      ToPostOffice: inv.toAddress?.postOfficeName || "",
+      ToDistrict: inv.toAddress?.district || "",
+      ToTaluk: inv.toAddress?.taluk || "",
+      ToFullAddress: buildFullAddress(inv.toAddress) || inv.deliveryAddress || "",
+      TotalWeight: inv?.totalWeight || "",
+      NumberOfPackages: inv?.numberOfPackages || "",
+      FreightCharges: inv?.freightCharges || "",
+      PaymentType: inv?.paymentType || "",
+      Remarks: inv?.remarks || "",
+      PickupAddress: inv.pickupAddress || buildFullAddress(inv.fromAddress) || "",
+      DeliveryAddress: inv.deliveryAddress || buildFullAddress(inv.toAddress) || "",
+      Consignor: inv.consignor || "",
+      ConsignorAddress: getConsignorAddress(inv) || buildFullAddress(inv.fromAddress) || "",
+      ConsignorSiteId: getConsignorSiteId(inv) || "",
+      Consignee: inv.consignee || "",
+      ConsigneeAddress: getConsigneeAddress(inv) || buildFullAddress(inv.toAddress) || "",
+      ConsigneeSiteId: getConsigneeSiteId(inv) || "",
+      Address: inv.address || "",
+      LoadingContactName: inv.loadingContact?.name || "",
+      LoadingContactMobile: inv.loadingContact?.mobile || "",
+      UnloadingContactName: inv.unloadingContact?.name || "",
+      UnloadingContactMobile: inv.unloadingContact?.mobile || "",
+      UndeliveredReason: inv.undeliveredReason || "",
+      DeliveredAt: inv.deliveredAt ? new Date(inv.deliveredAt).toLocaleString() : "",
+      "Receiver Name": inv.deliveryProof?.receiverName || inv.receiverName || "",
+      "Mobile No": inv.deliveryProof?.receiverMobile || inv.receiverMobile || "",
+      Floor: inv.deliveryProof?.floor || "",
+      "Date & Time": inv.deliveredAt ? new Date(inv.deliveredAt).toLocaleString() : "",
+      Remark: inv.deliveryProof?.remarks || "",
+      DeliveryProofSignature: inv.deliveryProof?.signature ? "Yes" : "",
+      DeliveryAttempts: JSON.stringify(inv.deliveryAttempts || []),
+      DriverUpdates: JSON.stringify(inv.driverUpdates || []),
+      CreatedAt: inv.createdAt ? new Date(inv.createdAt).toLocaleString() : "",
+      UpdatedAt: inv.updatedAt ? new Date(inv.updatedAt).toLocaleString() : "",
+    });
 
-    invoices.forEach((inv) => {
+    // STEP 1: First pass - Collect all MIS field names/labels (process invoices to discover fields)
+    // We'll process invoices in batches and collect MIS fields as we go
+    const allMisFields = new Map(); // Map of fieldName -> fieldLabel
+    const cursor1 = invoicesAggregation.cursor({ batchSize: 100 });
+    let processedCount = 0;
+    const MIS_DISCOVERY_LIMIT = 1000; // Process first 1000 invoices to discover MIS fields
+    
+    for await (const invoice of cursor1) {
+      // Collect MIS fields from customer config
+      if (invoice.customer?.misFields && Array.isArray(invoice.customer.misFields)) {
+        invoice.customer.misFields.forEach((field) => {
+          if (field.fieldName) {
+            const fieldLabel = field.fieldLabel || field.fieldName;
+            allMisFields.set(field.fieldName, fieldLabel);
+          }
+        });
+      }
+      
+      // Collect MIS fields from actual data
+      if (invoice.misData && typeof invoice.misData === 'object') {
+        Object.keys(invoice.misData).forEach((fieldName) => {
+          if (!allMisFields.has(fieldName)) {
+            const customer = invoice.customer;
+            if (customer?.misFields && Array.isArray(customer.misFields)) {
+              const field = customer.misFields.find(f => f.fieldName === fieldName);
+              if (field && field.fieldLabel) {
+                allMisFields.set(fieldName, field.fieldLabel);
+              } else {
+                const formattedLabel = fieldName
+                  .replace(/([A-Z])/g, ' $1')
+                  .replace(/^./, str => str.toUpperCase())
+                  .trim();
+                allMisFields.set(fieldName, formattedLabel);
+              }
+            } else {
+              const formattedLabel = fieldName
+                .replace(/([A-Z])/g, ' $1')
+                .replace(/^./, str => str.toUpperCase())
+                .trim();
+              allMisFields.set(fieldName, formattedLabel);
+            }
+          }
+        });
+      }
+      
+      processedCount++;
+      // After processing enough invoices, we have a good idea of MIS fields
+      // But we'll continue to catch any new fields in the second pass
+      if (processedCount >= MIS_DISCOVERY_LIMIT) {
+        break;
+      }
+    }
+
+    // STEP 2: Build field list (base fields + MIS fields)
+    const baseFields = [
+      "DocketNumber", "DocketPrefix", "OrderNumber", "SiteId", "SealNo", "SiteType", "SiteTypeDescription",
+      "TransportMode", "TransportModeDescription", "InvoiceNumbers", "InvoiceBill", "EwayBillNumbers",
+      "AttemptStatus", "AttemptReason", "AttemptedAt", "Company", "CompanyCode", "CompanyAddress",
+      "CompanyContactPhone", "CompanyEmail", "CompanyWebsite", "CompanyGST", "CompanyGSTValue", "CompanyPAN",
+      "CompanySACHSNCode", "CompanyType", "Branch", "BranchCode", "BranchAddress", "BranchGST", "BranchNumber",
+      "Customer", "CustomerPhone", "CustomerEmail", "CustomerGST", "CustomerAddress", "CustomerCompanyName",
+      "CustomerCompanyContactName", "CustomerCompanyContactInfo", "CustomerTaxType", "CustomerTaxValue",
+      "GoodsType", "GoodsItems", "GoodItems", "VehicleType", "VehicleNumber", "VehicleModel", "VehicleBrand",
+      "VehicleSize", "VehicleCargoType", "VehicleYearOfManufacture", "Vendor", "VendorPhone", "VendorEmail",
+      "VendorVehicle", "Driver", "DriverPhone", "DriverEmail", "DriverContactNumber", "Status", "InvoiceDate",
+      "DispatchDateTime", "FromPincode", "FromPostOffice", "FromDistrict", "FromTaluk", "FromFullAddress",
+      "ToPincode", "ToPostOffice", "ToDistrict", "ToTaluk", "ToFullAddress", "TotalWeight", "NumberOfPackages",
+      "FreightCharges", "PaymentType", "Remarks", "PickupAddress", "DeliveryAddress", "Consignor",
+      "ConsignorAddress", "ConsignorSiteId", "Consignee", "ConsigneeAddress", "ConsigneeSiteId", "Address",
+      "LoadingContactName", "LoadingContactMobile", "UnloadingContactName", "UnloadingContactMobile",
+      "UndeliveredReason", "DeliveredAt", "Receiver Name", "Mobile No", "Floor", "Date & Time", "Remark",
+      "DeliveryProofSignature", "DeliveryAttempts", "DriverUpdates", "CreatedAt", "UpdatedAt"
+    ];
+    
+    const misFieldLabels = Array.from(allMisFields.values()).sort();
+    const allFields = [...baseFields, ...misFieldLabels];
+
+    // STEP 3: Write CSV headers
+    res.write(allFields.map(f => escapeCsvValue(f)).join(",") + "\n");
+
+    // STEP 4: Second pass - Stream rows as we process invoices
+    // Recreate aggregation cursor for second pass (cursors can only be iterated once)
+    const cursor2 = Invoice.aggregate([
+      { $match: mongoQuery },
+      {
+        $lookup: { from: "companies", localField: "company", foreignField: "_id", as: "company" },
+      },
+      {
+        $lookup: { from: "branches", localField: "branch", foreignField: "_id", as: "branch" },
+      },
+      {
+        $lookup: { from: "customers", localField: "customer", foreignField: "_id", as: "customer" },
+      },
+      {
+        $lookup: { from: "goods", localField: "goodsType", foreignField: "_id", as: "goodsType" },
+      },
+      {
+        $lookup: { from: "vehicles", localField: "vehicle", foreignField: "_id", as: "vehicle" },
+      },
+      {
+        $lookup: { from: "users", localField: "vendor", foreignField: "_id", as: "vendor" },
+      },
+      {
+        $lookup: { from: "users", localField: "driver", foreignField: "_id", as: "driver" },
+      },
+      {
+        $lookup: { from: "sitetypes", localField: "siteType", foreignField: "_id", as: "siteType" },
+      },
+      {
+        $lookup: { from: "transportmodes", localField: "transportMode", foreignField: "_id", as: "transportMode" },
+      },
+      {
+        $lookup: { from: "countries", localField: "fromAddress.country", foreignField: "_id", as: "fromAddressCountry" },
+      },
+      {
+        $lookup: { from: "states", localField: "fromAddress.state", foreignField: "_id", as: "fromAddressState" },
+      },
+      {
+        $lookup: { from: "cities", localField: "fromAddress.city", foreignField: "_id", as: "fromAddressCity" },
+      },
+      {
+        $lookup: { from: "localities", localField: "fromAddress.locality", foreignField: "_id", as: "fromAddressLocality" },
+      },
+      {
+        $lookup: { from: "countries", localField: "toAddress.country", foreignField: "_id", as: "toAddressCountry" },
+      },
+      {
+        $lookup: { from: "states", localField: "toAddress.state", foreignField: "_id", as: "toAddressState" },
+      },
+      {
+        $lookup: { from: "cities", localField: "toAddress.city", foreignField: "_id", as: "toAddressCity" },
+      },
+      {
+        $lookup: { from: "localities", localField: "toAddress.locality", foreignField: "_id", as: "toAddressLocality" },
+      },
+      {
+        $addFields: {
+          company: { $arrayElemAt: ["$company", 0] },
+          branch: { $arrayElemAt: ["$branch", 0] },
+          customer: { $arrayElemAt: ["$customer", 0] },
+          goodsType: { $arrayElemAt: ["$goodsType", 0] },
+          vehicle: { $arrayElemAt: ["$vehicle", 0] },
+          vendor: { $arrayElemAt: ["$vendor", 0] },
+          driver: { $arrayElemAt: ["$driver", 0] },
+          siteType: { $arrayElemAt: ["$siteType", 0] },
+          transportMode: { $arrayElemAt: ["$transportMode", 0] },
+          "fromAddress.country": { $arrayElemAt: ["$fromAddressCountry", 0] },
+          "fromAddress.state": { $arrayElemAt: ["$fromAddressState", 0] },
+          "fromAddress.city": { $arrayElemAt: ["$fromAddressCity", 0] },
+          "fromAddress.locality": { $arrayElemAt: ["$fromAddressLocality", 0] },
+          "toAddress.country": { $arrayElemAt: ["$toAddressCountry", 0] },
+          "toAddress.state": { $arrayElemAt: ["$toAddressState", 0] },
+          "toAddress.city": { $arrayElemAt: ["$toAddressCity", 0] },
+          "toAddress.locality": { $arrayElemAt: ["$toAddressLocality", 0] },
+        },
+      },
+    ], { allowDiskUse: true }).cursor({ batchSize: 100 });
+    
+    let rowCount = 0;
+    
+    for await (const invoice of cursor2) {
+      // Build MIS data row for this invoice
       const misDataRow = {};
-      
-      console.log(`\n=== Processing Invoice ${inv.docketNumber} ===`);
-      console.log("Invoice misData:", JSON.stringify(inv.misData, null, 2));
-      console.log("Customer misFields:", inv.customer?.misFields ? JSON.stringify(inv.customer.misFields, null, 2) : "No misFields");
-      console.log("All MIS Fields Map:", Array.from(allMisFields.entries()));
-      
-      // First, initialize ALL MIS fields from allMisFields map with empty strings
-      // This ensures all columns are present in CSV for all invoices
       allMisFields.forEach((fieldLabel, fieldName) => {
         misDataRow[fieldLabel] = "";
       });
       
-      console.log("Initialized misDataRow:", Object.keys(misDataRow));
-      
-      // Now populate with actual MIS data from this invoice
-      if (inv.misData && typeof inv.misData === 'object') {
-        Object.keys(inv.misData).forEach((fieldName) => {
-          // Get the field label from allMisFields map
+      if (invoice.misData && typeof invoice.misData === 'object') {
+        Object.keys(invoice.misData).forEach((fieldName) => {
           let fieldLabel = allMisFields.get(fieldName);
-          
-          console.log(`Processing fieldName: ${fieldName}, found label: ${fieldLabel}`);
-          
-          // If not found in map, try to get from customer misFields config
-          if (!fieldLabel && inv.customer?.misFields && Array.isArray(inv.customer.misFields)) {
-            const field = inv.customer.misFields.find(f => f.fieldName === fieldName);
+          if (!fieldLabel && invoice.customer?.misFields && Array.isArray(invoice.customer.misFields)) {
+            const field = invoice.customer.misFields.find(f => f.fieldName === fieldName);
             if (field && field.fieldLabel) {
               fieldLabel = field.fieldLabel;
-              // Also add to map for future use
               allMisFields.set(fieldName, fieldLabel);
-              console.log(`Found label from customer config: ${fieldLabel}`);
             }
           }
-          
-          // Fallback to formatted fieldName if still not found
           if (!fieldLabel) {
-            fieldLabel = fieldName
-              .replace(/([A-Z])/g, ' $1')
-              .replace(/^./, str => str.toUpperCase())
-              .trim();
+            fieldLabel = fieldName.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).trim();
             allMisFields.set(fieldName, fieldLabel);
-            // Initialize this field in misDataRow if not already there
-            if (!misDataRow.hasOwnProperty(fieldLabel)) {
-              misDataRow[fieldLabel] = "";
-            }
-            console.log(`Using formatted label: ${fieldLabel}`);
           }
-          
-          const fieldValue = inv.misData[fieldName];
-          
-          // Set the value (convert to string, handle null/undefined)
-          if (fieldValue !== null && fieldValue !== undefined) {
-            misDataRow[fieldLabel] = String(fieldValue);
-            console.log(`Set ${fieldLabel} = ${fieldValue}`);
+          if (invoice.misData[fieldName] !== null && invoice.misData[fieldName] !== undefined) {
+            misDataRow[fieldLabel] = String(invoice.misData[fieldName]);
           }
         });
       }
       
-      // Also ensure we're using the correct field labels from customer misFields config
-      // This handles cases where customer has misFields configured but no data yet
-      if (inv.customer?.misFields && Array.isArray(inv.customer.misFields)) {
-        inv.customer.misFields.forEach((field) => {
+      if (invoice.customer?.misFields && Array.isArray(invoice.customer.misFields)) {
+        invoice.customer.misFields.forEach((field) => {
           if (field.fieldName) {
             const fieldLabel = field.fieldLabel || field.fieldName;
-            // Initialize if not already there
             if (!misDataRow.hasOwnProperty(fieldLabel)) {
               misDataRow[fieldLabel] = "";
             }
-            // Set value if it exists in misData
-            if (inv.misData && inv.misData[field.fieldName] !== null && inv.misData[field.fieldName] !== undefined) {
-              misDataRow[fieldLabel] = String(inv.misData[field.fieldName]);
-              console.log(`Set from customer config: ${fieldLabel} = ${inv.misData[field.fieldName]}`);
+            if (invoice.misData && invoice.misData[field.fieldName] !== null && invoice.misData[field.fieldName] !== undefined) {
+              misDataRow[fieldLabel] = String(invoice.misData[field.fieldName]);
             }
           }
         });
       }
-      
-      console.log("Final misDataRow:", JSON.stringify(misDataRow, null, 2));
 
-      const attempts = inv.deliveryAttempts?.filter((attempt) =>
+      const attempts = invoice.deliveryAttempts?.filter((attempt) =>
         attemptStatuses.includes(attempt.status)
       );
 
       if (attempts && attempts.length > 0) {
         attempts.forEach((attempt) => {
-          rows.push({ ...buildBaseRow(inv, attempt), ...misDataRow });
+          const row = { ...buildBaseRow(invoice, attempt), ...misDataRow };
+          res.write(buildCsvRow(row, allFields) + "\n");
+          rowCount++;
         });
       } else {
-        rows.push({ ...buildBaseRow(inv), ...misDataRow });
+        const row = { ...buildBaseRow(invoice), ...misDataRow };
+        res.write(buildCsvRow(row, allFields) + "\n");
+        rowCount++;
       }
-    });
-
-    const data = rows;
-
-    console.log("\n=== Building CSV Field List ===");
-    console.log("Number of rows:", data.length);
-    console.log("All MIS Fields Map:", Array.from(allMisFields.entries()));
-    
-    // Build complete field list to ensure all MIS fields are included
-    const allFieldsSet = new Set();
-    
-    // Collect all field labels from allMisFields map
-    const allMisFieldLabels = new Set();
-    allMisFields.forEach((fieldLabel, fieldName) => {
-      allMisFieldLabels.add(fieldLabel);
-    });
-    
-    console.log("All MIS Field Labels:", Array.from(allMisFieldLabels));
-    
-    // Add all fields from all rows (to catch any fields that might be missing)
-    data.forEach((row, index) => {
-      const rowKeys = Object.keys(row);
-      console.log(`Row ${index} keys:`, rowKeys);
-      rowKeys.forEach(key => allFieldsSet.add(key));
-    });
-    
-    // Also explicitly add all MIS field labels (even if they don't appear in any row)
-    allMisFieldLabels.forEach(label => allFieldsSet.add(label));
-    
-    console.log("All fields set:", Array.from(allFieldsSet));
-    
-    // Convert to array and sort for consistent column order
-    // Base fields first, then MIS fields
-    const baseFields = [];
-    const misFields = [];
-    
-    allFieldsSet.forEach(field => {
-      if (allMisFieldLabels.has(field)) {
-        misFields.push(field);
-      } else {
-        baseFields.push(field);
-      }
-    });
-    
-    console.log("Base fields:", baseFields.sort());
-    console.log("MIS fields:", misFields.sort());
-    
-    // Ensure all MIS fields are included even if no data exists
-    const fields = [...baseFields.sort(), ...misFields.sort()];
-    
-    console.log("Final CSV fields:", fields);
-    console.log("Total fields count:", fields.length);
-    
-    // If no data rows, create a sample row with all fields to ensure CSV has headers
-    if (data.length === 0 && fields.length > 0) {
-      const emptyRow = {};
-      fields.forEach(field => {
-        emptyRow[field] = "";
-      });
-      data.push(emptyRow);
     }
-    
-    const json2csv = new Json2CsvParser({ fields });
-    const csv = json2csv.parse(data);
 
-    res.header("Content-Type", "text/csv");
-    res.attachment("invoices_export.csv");
-    return res.send(csv);
+    res.end();
+    console.log(`CSV export completed. Exported ${rowCount} rows.`);
   } catch (error) {
     console.error("Error exporting invoices as CSV:", error);
     return res.status(500).json({

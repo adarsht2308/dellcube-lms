@@ -4,12 +4,41 @@ import { getTokenData } from "@/utils/getTokenData";
 
 const INVOICE_API = `${BASE_URL}/invoices`;
 
-export const invoiceApi = createApi({
-  reducerPath: "invoiceApi",
-  baseQuery: fetchBaseQuery({
+// Custom baseQuery with retry logic and better error handling
+const baseQueryWithRetry = async (args, api, extraOptions) => {
+  const baseQuery = fetchBaseQuery({
     baseUrl: INVOICE_API,
     credentials: "include",
-  }),
+  });
+
+  // For 502 errors, retry up to 2 times with exponential backoff
+  let result = await baseQuery(args, api, extraOptions);
+  
+  if (result.error) {
+    const status = result.error?.status || result.error?.data?.status;
+    const is502Error = status === 502 || 
+                       result.error?.message?.includes("502") ||
+                       result.error?.message?.includes("Bad Gateway") ||
+                       result.error?.message?.includes("Failed to fetch");
+
+    if (is502Error) {
+      // Retry logic for 502 errors
+      for (let i = 0; i < 2; i++) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // Exponential backoff
+        result = await baseQuery(args, api, extraOptions);
+        if (!result.error || (result.error?.status !== 502 && !result.error?.message?.includes("502"))) {
+          break; // Success or different error
+        }
+      }
+    }
+  }
+
+  return result;
+};
+
+export const invoiceApi = createApi({
+  reducerPath: "invoiceApi",
+  baseQuery: baseQueryWithRetry,
   tagTypes: ["Invoice"],
   endpoints: (builder) => ({
     createInvoice: builder.mutation({
