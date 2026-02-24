@@ -540,6 +540,7 @@ const Invoices = () => {
   const getStatusStyles = (value) => {
     switch (value) {
       case "Delivered":
+      case "Inward Done":
         return "bg-[#FFD249]/80 text-[#202020]";
       case "Cancelled":
         return "bg-red-200/70 text-red-700";
@@ -552,7 +553,7 @@ const Invoices = () => {
     }
   };
 
-  const duplicateAttemptStatuses = ["Undelivered", "Delivered"];
+  const duplicateAttemptStatuses = ["Undelivered", "Delivered", "Inward Done"];
 
   const expandedInvoices = useMemo(() => {
     if (!data?.invoices) return [];
@@ -1826,6 +1827,7 @@ const Invoices = () => {
                   <SelectItem value="Access Issue">Access Issue</SelectItem>
                   <SelectItem value="On Hold">On Hold</SelectItem>
                   <SelectItem value="Pending Pickup">Pending Pickup</SelectItem>
+                  <SelectItem value="Inward Done">Inward Done</SelectItem>
                   <SelectItem value="Delivered">Delivered</SelectItem>
                   <SelectItem value="Undelivered">Undelivered</SelectItem>
                   <SelectItem value="Cancelled">Cancelled</SelectItem>

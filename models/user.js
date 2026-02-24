@@ -221,7 +221,7 @@ const user = new mongoose.Schema(
             },
           },
         ],
-        // Associate vehicle with company and branch
+        // Associate vehicle with company and branch (single for backward compat)
         company: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "Company",
@@ -230,6 +230,13 @@ const user = new mongoose.Schema(
           type: mongoose.Schema.Types.ObjectId,
           ref: "Branch",
         },
+        // One vehicle can operate for multiple company-branch pairs
+        companyBranchAssignments: [
+          {
+            company: { type: mongoose.Schema.Types.ObjectId, ref: "Company" },
+            branch: { type: mongoose.Schema.Types.ObjectId, ref: "Branch" },
+          },
+        ],
       },
     ],
 

@@ -198,7 +198,7 @@ export const updateInvoiceByDriver = async (req, res) => {
     }
 
     const previousStatus = invoice.status;
-    const attemptStatuses = ["Undelivered", "Delivered"];
+    const attemptStatuses = ["Undelivered", "Delivered", "Inward Done"];
 
     if (status) {
       invoice.status = status;
@@ -224,7 +224,7 @@ export const updateInvoiceByDriver = async (req, res) => {
         }
         attemptEntry.reason = reason.trim();
         invoice.undeliveredReason = reason.trim();
-      } else if (status === "Delivered") {
+      } else if (status === "Delivered" || status === "Inward Done") {
         invoice.undeliveredReason = "";
       }
 

@@ -40,7 +40,9 @@ const DriverDashboard = () => {
     },
     {
       title: "Completed",
-      value: invoices.filter((i) => i.status === "Delivered").length,
+      value: invoices.filter(
+        (i) => i.status === "Delivered" || i.status === "Inward Done"
+      ).length,
       icon: CheckCircle,
       color: "border-green-500",
       bgColor: "bg-green-50",
@@ -48,7 +50,9 @@ const DriverDashboard = () => {
     },
     {
       title: "Pending",
-      value: invoices.filter((i) => i.status !== "Delivered").length,
+      value: invoices.filter(
+        (i) => i.status !== "Delivered" && i.status !== "Inward Done"
+      ).length,
       icon: Clock,
       color: "border-orange-500",
       bgColor: "bg-orange-50",

@@ -39,7 +39,7 @@ const TrackOrder = () => {
   const invoice = data?.invoice;
   const deliveryAttempts = invoice?.deliveryAttempts
     ?.filter((attempt) =>
-      ["Undelivered", "Delivered"].includes(attempt.status)
+      ["Undelivered", "Delivered", "Inward Done"].includes(attempt.status)
     )
     ?.sort((a, b) => {
       const aTime = a?.attemptedAt ? new Date(a.attemptedAt).getTime() : 0;
@@ -81,7 +81,7 @@ const TrackOrder = () => {
     }
 
     // Show In Transit if status is beyond Dispatched
-    if (["In Transit", "In-Transit", "Arrived at Destination", "Out for Delivery", "Delivery Attempted", "Access Issue", "On Hold", "Pending Pickup", "Delivered", "Undelivered", "Cancelled", "Returned"].includes(status)) {
+    if (["In Transit", "In-Transit", "Arrived at Destination", "Out for Delivery", "Delivery Attempted", "Access Issue", "On Hold", "Pending Pickup", "Delivered", "Inward Done", "Undelivered", "Cancelled", "Returned"].includes(status)) {
       events.push({
         status: status === "In-Transit" ? "In-Transit" : "In Transit",
         label: "In Transit",
@@ -92,7 +92,7 @@ const TrackOrder = () => {
     }
 
     // Show Arrived at Destination if status is beyond In Transit
-    if (["Arrived at Destination", "Out for Delivery", "Delivery Attempted", "Access Issue", "On Hold", "Pending Pickup", "Delivered", "Undelivered", "Cancelled", "Returned"].includes(status)) {
+    if (["Arrived at Destination", "Out for Delivery", "Delivery Attempted", "Access Issue", "On Hold", "Pending Pickup", "Delivered", "Inward Done", "Undelivered", "Cancelled", "Returned"].includes(status)) {
       events.push({
         status: "Arrived at Destination",
         label: "Arrived at Destination",
@@ -103,7 +103,7 @@ const TrackOrder = () => {
     }
 
     // Show Out for Delivery if status is beyond Arrived at Destination
-    if (["Out for Delivery", "Delivery Attempted", "Access Issue", "Delivered", "Undelivered", "Cancelled", "Returned"].includes(status)) {
+    if (["Out for Delivery", "Delivery Attempted", "Access Issue", "Delivered", "Inward Done", "Undelivered", "Cancelled", "Returned"].includes(status)) {
       events.push({
         status: "Out for Delivery",
         label: "Out for Delivery",
@@ -156,7 +156,7 @@ const TrackOrder = () => {
 
     const sortedAttempts = (inv.deliveryAttempts || [])
       .filter((attempt) =>
-        ["Undelivered", "Delivered"].includes(attempt.status)
+        ["Undelivered", "Delivered", "Inward Done"].includes(attempt.status)
       )
       .sort((a, b) => {
         const aTime = a?.attemptedAt ? new Date(a.attemptedAt).getTime() : 0;
@@ -165,13 +165,14 @@ const TrackOrder = () => {
       });
 
     sortedAttempts.forEach((attempt, idx) => {
+      const isDeliveredAttempt =
+        attempt.status === "Delivered" || attempt.status === "Inward Done";
       events.push({
         status: attempt.status,
-        label:
-          attempt.status === "Delivered"
-            ? `Delivered (Attempt #${idx + 1})`
-            : `Undelivered (Attempt #${idx + 1})`,
-        icon: attempt.status === "Delivered" ? CheckCircle2 : AlertCircle,
+        label: isDeliveredAttempt
+          ? `${attempt.status} (Attempt #${idx + 1})`
+          : `Undelivered (Attempt #${idx + 1})`,
+        icon: isDeliveredAttempt ? CheckCircle2 : AlertCircle,
         timestamp: attempt.attemptedAt,
         description: attempt.reason,
       });
@@ -182,8 +183,8 @@ const TrackOrder = () => {
       !sortedAttempts.some((attempt) => attempt.status === "Delivered")
     ) {
       events.push({
-        status: "Delivered",
-        label: "Delivered",
+        status: inv.status,
+        label: inv.status === "Inward Done" ? "Inward Done" : "Delivered",
         icon: CheckCircle2,
         timestamp:
           inv.deliveredAt ||
@@ -226,6 +227,7 @@ const TrackOrder = () => {
       "Pending Pickup": "bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20",
       "Undelivered": "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20",
       "Delivered": "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20",
+      "Inward Done": "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20",
       "Cancelled": "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20",
       "Returned": "bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-500/20",
     };
@@ -246,6 +248,7 @@ const TrackOrder = () => {
       "Pending Pickup": <Clock className="w-5 h-5" />,
       "Undelivered": <AlertCircle className="w-5 h-5" />,
       "Delivered": <CheckCircle2 className="w-5 h-5" />,
+      "Inward Done": <CheckCircle2 className="w-5 h-5" />,
       "Cancelled": <XCircle className="w-5 h-5" />,
       "Returned": <AlertCircle className="w-5 h-5" />,
     };
@@ -546,7 +549,9 @@ const TrackOrder = () => {
                 <div className="relative pl-6">
                   <div className="absolute left-3 top-2 bottom-4 border-l-2 border-blue-100 dark:border-blue-900/50"></div>
                   {deliveryAttempts.map((attempt, index) => {
-                    const isDelivered = attempt.status === "Delivered";
+                    const isDelivered =
+                      attempt.status === "Delivered" ||
+                      attempt.status === "Inward Done";
                     const attemptNumber =
                       deliveryAttempts.length - index; // latest attempt first
                     return (

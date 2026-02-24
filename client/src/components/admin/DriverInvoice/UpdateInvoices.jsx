@@ -459,7 +459,10 @@ const UpdateInvoice = () => {
                   <SearchableSelect
                     value={status}
                     onValueChange={setStatus}
-                    options={statusOptions.map((option) => ({
+                    options={(invoice?.siteType?.name?.toUpperCase() === "SRN"
+                      ? [...statusOptions, "Inward Done"]
+                      : statusOptions
+                    ).map((option) => ({
                       value: option,
                       label: option,
                     }))}

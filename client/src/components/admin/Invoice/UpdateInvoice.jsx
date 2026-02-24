@@ -770,6 +770,15 @@ const UpdateInvoice = () => {
     limit: 1000,
     status: "true",
   });
+
+  // Determine if current invoice/site type is SRN for SRN-specific behavior
+  const isSrnSiteType = React.useMemo(() => {
+    if (!selectedSiteType || !siteTypesData?.siteTypes) return false;
+    const current = siteTypesData.siteTypes.find(
+      (st) => st._id === selectedSiteType
+    );
+    return current?.name?.toUpperCase() === "SRN";
+  }, [selectedSiteType, siteTypesData]);
   const { data: vehicleData, refetch: refetchVehicles } =
     useGetAllVehiclesQuery({
       page: 1,
@@ -2682,6 +2691,9 @@ const UpdateInvoice = () => {
                       <SelectItem value="Access Issue">Access Issue</SelectItem>
                       <SelectItem value="On Hold">On Hold</SelectItem>
                       <SelectItem value="Pending Pickup">Pending Pickup</SelectItem>
+                      {isSrnSiteType && (
+                        <SelectItem value="Inward Done">Inward Done</SelectItem>
+                      )}
                       <SelectItem value="Delivered">Delivered</SelectItem>
                       <SelectItem value="Undelivered">Undelivered</SelectItem>
                       <SelectItem value="Cancelled">Cancelled</SelectItem>

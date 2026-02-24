@@ -150,7 +150,7 @@ const checkDocumentExpiryForNotifications = async (vehicles) => {
   return notifications;
 };
 
-// Create a new vehicle
+// Create a new vehicle (Dellcube vehicle master)
 export const createVehicle = async (req, res) => {
   try {
     const {
@@ -168,34 +168,52 @@ export const createVehicle = async (req, res) => {
       currentDriver,
       branch,
       company,
+      companyBranchAssignments: rawAssignments,
       maintenanceHistory,
       createdBy,
       vehicleInsuranceNo,
       fitnessNo,
     } = req.body;
 
-    // Use companyId/branchId from token if not provided in body (for non-superAdmin users)
-    const finalCompany = company || (req.user?.role !== "superAdmin" ? req.companyId : null);
-    const finalBranch = branch || (req.user?.role !== "superAdmin" ? req.branchId : null);
-
-    if (!vehicleNumber || !type || !finalBranch || !finalCompany) {
-      return res.status(400).json({
-        success: false,
-        message: "Vehicle number, type, branch, and company are required",
-      });
+    // Parse companyBranchAssignments if sent as JSON string (e.g. from FormData)
+    let companyBranchAssignments = rawAssignments;
+    if (typeof rawAssignments === "string") {
+      try {
+        companyBranchAssignments = JSON.parse(rawAssignments);
+      } catch {
+        companyBranchAssignments = null;
+      }
+    }
+    if (!Array.isArray(companyBranchAssignments) || companyBranchAssignments.length === 0) {
+      // Fallback: single company/branch from body or token
+      const finalCompany = company || (req.user?.role !== "superAdmin" ? req.companyId : null);
+      const finalBranch = branch || (req.user?.role !== "superAdmin" ? req.branchId : null);
+      if (!finalCompany || !finalBranch) {
+        return res.status(400).json({
+          success: false,
+          message: "Vehicle number, type, and at least one company-branch assignment are required",
+        });
+      }
+      companyBranchAssignments = [{ company: finalCompany, branch: finalBranch }];
     }
 
-    // Validate ObjectIds
-    if (!mongoose.Types.ObjectId.isValid(finalCompany)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid company ID format",
-      });
+    // Validate all assignments
+    for (const a of companyBranchAssignments) {
+      if (!mongoose.Types.ObjectId.isValid(a.company) || !mongoose.Types.ObjectId.isValid(a.branch)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid company or branch ID in companyBranchAssignments",
+        });
+      }
     }
-    if (!mongoose.Types.ObjectId.isValid(finalBranch)) {
+
+    const finalCompany = companyBranchAssignments[0].company;
+    const finalBranch = companyBranchAssignments[0].branch;
+
+    if (!vehicleNumber || !type) {
       return res.status(400).json({
         success: false,
-        message: "Invalid branch ID format",
+        message: "Vehicle number and type are required",
       });
     }
     
@@ -237,6 +255,7 @@ export const createVehicle = async (req, res) => {
       insuranceExpiry: insuranceExpiry || undefined,
       pollutionCertificateExpiry: pollutionCertificateExpiry || undefined,
       status: status || "active",
+      companyBranchAssignments,
       branch: finalBranch,
       company: finalCompany,
       maintenanceHistory: maintenanceHistory || [],
@@ -334,8 +353,23 @@ export const getAllVehicles = async (req, res) => {
     // Use companyId/branchId from token if not provided in query (for non-superAdmin users)
     const finalCompanyId = companyId || (req.user?.role !== "superAdmin" ? req.companyId : null);
     const finalBranchId = branchId || (req.user?.role !== "superAdmin" ? req.branchId : null);
-    if (finalCompanyId) query.company = finalCompanyId;
-    if (finalBranchId) query.branch = finalBranchId;
+    // Match vehicles for this company-branch: either primary company/branch or in companyBranchAssignments
+    if (finalCompanyId && finalBranchId) {
+      query.$or = [
+        { company: finalCompanyId, branch: finalBranchId },
+        { companyBranchAssignments: { $elemMatch: { company: finalCompanyId, branch: finalBranchId } } },
+      ];
+    } else if (finalCompanyId) {
+      query.$or = [
+        { company: finalCompanyId },
+        { "companyBranchAssignments.company": finalCompanyId },
+      ];
+    } else if (finalBranchId) {
+      query.$or = [
+        { branch: finalBranchId },
+        { "companyBranchAssignments.branch": finalBranchId },
+      ];
+    }
 
     // If a vendor is logged in, restrict to vehicles created by that vendor
     if (req.user?.role === "vendor") {
@@ -345,6 +379,8 @@ export const getAllVehicles = async (req, res) => {
     const vehicles = await Vehicle.find(query)
       .populate("company", "name")
       .populate("branch", "name")
+      .populate("companyBranchAssignments.company", "name")
+      .populate("companyBranchAssignments.branch", "name")
       .populate("currentDriver", "name")
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -388,6 +424,8 @@ export const getVehicleById = async (req, res) => {
     const vehicle = await Vehicle.findById(id)
       .populate("company", "name")
       .populate("branch", "name")
+      .populate("companyBranchAssignments.company", "name")
+      .populate("companyBranchAssignments.branch", "name")
       .populate("currentDriver", "name");
 
     if (!vehicle) {
@@ -414,7 +452,7 @@ export const getVehicleById = async (req, res) => {
 // Update vehicle
 export const updateVehicle = async (req, res) => {
   try {
-    const { vehicleId, ...updates } = req.body;
+    const { vehicleId, companyBranchAssignments: rawAssignments, ...updates } = req.body;
 
     const vehicle = await Vehicle.findById(vehicleId);
     if (!vehicle) {
@@ -422,6 +460,23 @@ export const updateVehicle = async (req, res) => {
         success: false,
         message: "Vehicle not found",
       });
+    }
+
+    // Parse and apply companyBranchAssignments if provided
+    if (rawAssignments !== undefined) {
+      let companyBranchAssignments = rawAssignments;
+      if (typeof rawAssignments === "string") {
+        try {
+          companyBranchAssignments = JSON.parse(rawAssignments);
+        } catch {
+          companyBranchAssignments = [];
+        }
+      }
+      if (Array.isArray(companyBranchAssignments) && companyBranchAssignments.length > 0) {
+        vehicle.companyBranchAssignments = companyBranchAssignments;
+        vehicle.company = companyBranchAssignments[0].company;
+        vehicle.branch = companyBranchAssignments[0].branch;
+      }
     }
 
     // Handle certificate image updates

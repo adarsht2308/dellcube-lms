@@ -1270,7 +1270,7 @@ export const updateInvoice = async (req, res) => {
     }
 
     const previousStatus = invoice.status;
-    const attemptStatuses = ["Undelivered", "Delivered"];
+    const attemptStatuses = ["Undelivered", "Delivered", "Inward Done"];
 
     if (updates.invoiceNumber !== undefined) {
       invoice.invoiceNumber = normalizeMultiValueField(updates.invoiceNumber);
@@ -1476,7 +1476,7 @@ export const updateInvoice = async (req, res) => {
         }
         attemptEntry.reason = reason.trim();
         invoice.undeliveredReason = reason.trim();
-      } else if (updates.status === "Delivered") {
+      } else if (updates.status === "Delivered" || updates.status === "Inward Done") {
         invoice.undeliveredReason = "";
       }
 
@@ -1824,7 +1824,7 @@ export const exportInvoicesCSV = async (req, res) => {
     });
 
     // Helper functions (defined before use)
-    const attemptStatuses = ["Undelivered", "Delivered"];
+    const attemptStatuses = ["Undelivered", "Delivered", "Inward Done"];
 
     const buildFullAddress = (addressObj) => {
       if (!addressObj) return "";
@@ -1879,6 +1879,17 @@ export const exportInvoicesCSV = async (req, res) => {
       return "";
     };
 
+    const formatDateForExcel = (value) => {
+      if (!value) return "";
+      const date = new Date(value);
+      if (isNaN(date.getTime())) return "";
+      const dd = String(date.getDate()).padStart(2, "0");
+      const mm = String(date.getMonth() + 1).padStart(2, "0");
+      const yyyy = date.getFullYear();
+      // Indian style: DD-MM-YYYY
+      return `${dd}-${mm}-${yyyy}`;
+    };
+
     const buildBaseRow = (inv, attempt) => ({
       DocketNumber: inv.docketNumber || "",
       DocketPrefix: inv.docketPrefix || "",
@@ -1894,7 +1905,7 @@ export const exportInvoicesCSV = async (req, res) => {
       EwayBillNumbers: formatMultiValueField(inv.ewayBillNo),
       AttemptStatus: attempt?.status || inv.status,
       AttemptReason: attempt?.reason || "",
-      AttemptedAt: attempt?.attemptedAt ? new Date(attempt.attemptedAt).toLocaleString() : "",
+      AttemptedAt: formatDateForExcel(attempt?.attemptedAt),
       Company: inv.company?.name || "",
       CompanyCode: inv.company?.companyCode || "",
       CompanyAddress: inv.company?.address || "",
@@ -1940,8 +1951,8 @@ export const exportInvoicesCSV = async (req, res) => {
       DriverEmail: inv.driver?.email || "",
       DriverContactNumber: inv.driverContactNumber || inv.driver?.mobile || "",
       Status: inv.status || "",
-      InvoiceDate: inv.invoiceDate ? new Date(inv.invoiceDate).toLocaleString() : "",
-      DispatchDateTime: inv.dispatchDateTime ? new Date(inv.dispatchDateTime).toLocaleString() : "",
+      InvoiceDate: formatDateForExcel(inv.invoiceDate),
+      DispatchDateTime: formatDateForExcel(inv.dispatchDateTime),
       FromPincode: inv.fromAddress?.pincode || "",
       FromPostOffice: inv.fromAddress?.postOfficeName || "",
       FromDistrict: inv.fromAddress?.district || "",
@@ -1971,17 +1982,17 @@ export const exportInvoicesCSV = async (req, res) => {
       UnloadingContactName: inv.unloadingContact?.name || "",
       UnloadingContactMobile: inv.unloadingContact?.mobile || "",
       UndeliveredReason: inv.undeliveredReason || "",
-      DeliveredAt: inv.deliveredAt ? new Date(inv.deliveredAt).toLocaleString() : "",
+      DeliveredAt: formatDateForExcel(inv.deliveredAt),
       "Receiver Name": inv.deliveryProof?.receiverName || inv.receiverName || "",
       "Mobile No": inv.deliveryProof?.receiverMobile || inv.receiverMobile || "",
       Floor: inv.deliveryProof?.floor || "",
-      "Date & Time": inv.deliveredAt ? new Date(inv.deliveredAt).toLocaleString() : "",
+      "Date & Time": formatDateForExcel(inv.deliveredAt),
       Remark: inv.deliveryProof?.remarks || "",
       DeliveryProofSignature: inv.deliveryProof?.signature ? "Yes" : "",
       DeliveryAttempts: JSON.stringify(inv.deliveryAttempts || []),
       DriverUpdates: JSON.stringify(inv.driverUpdates || []),
-      CreatedAt: inv.createdAt ? new Date(inv.createdAt).toLocaleString() : "",
-      UpdatedAt: inv.updatedAt ? new Date(inv.updatedAt).toLocaleString() : "",
+      CreatedAt: formatDateForExcel(inv.createdAt),
+      UpdatedAt: formatDateForExcel(inv.updatedAt),
     });
 
     // STEP 1: First pass - Collect all MIS field names/labels (process invoices to discover fields)

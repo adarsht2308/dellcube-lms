@@ -41,6 +41,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import MultiValueInput from "./MultiValueInput.jsx";
 
 // API imports
@@ -63,6 +64,7 @@ import {
 import {
   useGetAllVendorsQuery,
   useGetVendorByIdMutation,
+  useAddVehicleMutation as useAddVendorVehicleMutation,
 } from "@/features/api/Vendor/vendorApi.js";
 import {
   useGetAllDriversQuery,
@@ -649,6 +651,7 @@ const CreateInvoice = () => {
     useSearchVehiclesMutation();
   const [updateCustomer, { isLoading: isUpdatingCustomer }] = useUpdateCustomerMutation();
   const [createVehicle, { isLoading: isCreatingVehicle }] = useCreateVehicleMutation();
+  const [addVendorVehicle, { isLoading: isAddingVendorVehicle }] = useAddVendorVehicleMutation();
 
   // Add new state for consignor/consignee dropdowns
   const [selectedConsignor, setSelectedConsignor] = useState("");
@@ -683,8 +686,13 @@ const CreateInvoice = () => {
   const [showAddVehicleDialog, setShowAddVehicleDialog] = useState(false);
   const [newVehicleData, setNewVehicleData] = useState({
     vehicleNumber: "",
-    type: "14 Feet", // Default to a valid enum value
+    type: "14 Feet",
+    ownerType: "dellcube",
+    vendor: "",
+    companies: [],
+    branches: [],
   });
+  const [vehicleModalBranchesByCompany, setVehicleModalBranchesByCompany] = useState({});
 
   // Add driver creation mutation
   const [createDriver, { isLoading: isCreatingDriver }] =
@@ -973,6 +981,28 @@ const CreateInvoice = () => {
       return;
     }
 
+    // Derive consignor/consignee site IDs from current selections
+    let consignorSiteId = "";
+    let consigneeSiteId = "";
+
+    if (selectedConsignor && availableConsignors.length > 0) {
+      const consignorObj = availableConsignors.find(
+        (c) => c._id === selectedConsignor
+      );
+      if (consignorObj?.siteId) {
+        consignorSiteId = consignorObj.siteId;
+      }
+    }
+
+    if (selectedConsignee && availableConsignees.length > 0) {
+      const consigneeObj = availableConsignees.find(
+        (c) => c._id === selectedConsignee
+      );
+      if (consigneeObj?.siteId) {
+        consigneeSiteId = consigneeObj.siteId;
+      }
+    }
+
     let payload = {
       customer: customerId,
       company: finalCompanyId,
@@ -1013,6 +1043,8 @@ const CreateInvoice = () => {
       ...(ewayBillNumbers.length > 0 && { ewayBillNo: ewayBillNumbers }),
       ...(driverContactNumber && { driverContactNumber }),
       ...(siteId && { siteId }),
+      ...(consignorSiteId && { consignorSiteId }),
+      ...(consigneeSiteId && { consigneeSiteId }),
       ...(sealNo && { sealNo }),
       ...(vehicleModel && { vehicleModel }),
       ...(selectedSiteType && { siteType: selectedSiteType }),
@@ -1181,91 +1213,177 @@ const CreateInvoice = () => {
     }
   }, [toPincode]);
 
-  // Handle vehicle creation
-  const handleCreateVehicle = async () => {
-    // Prevent duplicate calls
-    if (isCreatingVehicle) {
-      return;
+  // Pre-fill Add Vehicle modal when opened (current company/branch and load branches)
+  useEffect(() => {
+    if (!showAddVehicleDialog) return;
+    if (companyId && branchId) {
+      setNewVehicleData((prev) => ({
+        ...prev,
+        companies: [companyId],
+        branches: [branchId],
+      }));
+      getBranchesByCompany(companyId).then((res) => {
+        if (res?.data?.branches) {
+          setVehicleModalBranchesByCompany((prev) => ({ ...prev, [companyId]: res.data.branches }));
+        }
+      });
     }
+  }, [showAddVehicleDialog, companyId, branchId, getBranchesByCompany]);
+
+  // Vehicle modal: company toggle (load branches when adding a company)
+  const handleVehicleCompanyToggle = async (cid) => {
+    const isSelected = newVehicleData.companies.includes(cid);
+    if (isSelected) {
+      const newCompanies = newVehicleData.companies.filter((id) => id !== cid);
+      const branchIdsFromCompany = (vehicleModalBranchesByCompany[cid] || []).map((b) => b._id);
+      const newBranches = newVehicleData.branches.filter((id) => !branchIdsFromCompany.includes(id));
+      setVehicleModalBranchesByCompany((prev) => {
+        const next = { ...prev };
+        delete next[cid];
+        return next;
+      });
+      setNewVehicleData((prev) => ({ ...prev, companies: newCompanies, branches: newBranches }));
+    } else {
+      setNewVehicleData((prev) => ({ ...prev, companies: [...prev.companies, cid] }));
+      try {
+        const res = await getBranchesByCompany(cid);
+        if (res?.data?.branches) {
+          setVehicleModalBranchesByCompany((prev) => ({ ...prev, [cid]: res.data.branches }));
+        }
+      } catch {
+        toast.error("Failed to load branches for company");
+      }
+    }
+  };
+
+  const handleVehicleBranchToggle = (bid) => {
+    const isSelected = newVehicleData.branches.includes(bid);
+    setNewVehicleData((prev) => ({
+      ...prev,
+      branches: isSelected ? prev.branches.filter((id) => id !== bid) : [...prev.branches, bid],
+    }));
+  };
+
+  // Build company-branch pairs from selected branches (each branch belongs to one company in branchesByCompany)
+  const getCompanyBranchAssignments = () => {
+    const assignments = [];
+    newVehicleData.branches.forEach((branchId) => {
+      for (const [cid, branchList] of Object.entries(vehicleModalBranchesByCompany)) {
+        if (branchList.some((b) => b._id === branchId)) {
+          assignments.push({ company: cid, branch: branchId });
+          break;
+        }
+      }
+    });
+    return assignments;
+  };
+
+  // Handle vehicle creation (Dellcube or Vendor)
+  const handleCreateVehicle = async () => {
+    if (isCreatingVehicle || isAddingVendorVehicle) return;
 
     if (!newVehicleData.vehicleNumber || !newVehicleData.type) {
       toast.error("Vehicle Number and Type are required");
       return;
     }
 
-    if (!companyId || !branchId) {
-      toast.error("Company and Branch are required");
+    const companyBranchAssignments = getCompanyBranchAssignments();
+    if (companyBranchAssignments.length === 0) {
+      toast.error("Please select at least one company and branch");
       return;
     }
 
+    if (newVehicleData.ownerType === "vendor") {
+      if (!newVehicleData.vendor) {
+        toast.error("Please select a vendor");
+        return;
+      }
+      try {
+        const formData = new FormData();
+        formData.append("vendorId", newVehicleData.vendor);
+        formData.append("vehicleNumber", newVehicleData.vehicleNumber.trim().toUpperCase());
+        formData.append("type", newVehicleData.type);
+        formData.append("brand", "TBD");
+        formData.append("model", "TBD");
+        formData.append("status", "active");
+        formData.append("companyBranchAssignments", JSON.stringify(companyBranchAssignments));
+        await addVendorVehicle({ vehicle: formData }).unwrap();
+        setShowAddVehicleDialog(false);
+        setNewVehicleData({
+          vehicleNumber: "",
+          type: "14 Feet",
+          ownerType: "dellcube",
+          vendor: "",
+          companies: [],
+          branches: [],
+        });
+        setVehicleModalBranchesByCompany({});
+        toast.success("Vendor vehicle created successfully");
+        await refetchVendors();
+        await refetchVehicles();
+      } catch (error) {
+        toast.error(error?.data?.message || "Failed to add vendor vehicle");
+      }
+      return;
+    }
+
+    // Dellcube vehicle
     try {
       const payload = new FormData();
       payload.append("vehicleNumber", newVehicleData.vehicleNumber.trim().toUpperCase());
       payload.append("type", newVehicleData.type);
-      payload.append("company", companyId);
-      payload.append("branch", branchId);
+      payload.append("companyBranchAssignments", JSON.stringify(companyBranchAssignments));
       payload.append("status", "active");
       payload.append("createdBy", user?._id || "");
 
       const result = await createVehicle(payload).unwrap();
 
-      // Check if vehicle was created successfully
       if (result?.success && result?.vehicle) {
-        // Close dialog and reset form first
         setShowAddVehicleDialog(false);
-        setNewVehicleData({ vehicleNumber: "", type: "14 Feet" });
-        
-        // Show success toast
-        toast.success("Vehicle created successfully");
-        
-        // Handle post-creation operations in a separate try-catch
-        // so errors here don't affect the success message
-        try {
-        // Auto-select the newly created vehicle
-        const newVehicle = result.vehicle;
-        handleVehicleSelect({
-          _id: newVehicle._id,
-          vehicleNumber: newVehicle.vehicleNumber,
-          ownerType: "Dellcube",
-          type: newVehicle.type,
-          currentDriver: newVehicle.currentDriver,
+        setNewVehicleData({
+          vehicleNumber: "",
+          type: "14 Feet",
+          ownerType: "dellcube",
+          vendor: "",
+          companies: [],
+          branches: [],
         });
+        setVehicleModalBranchesByCompany({});
+        toast.success("Vehicle created successfully");
+        try {
+          const newVehicle = result.vehicle;
+          handleVehicleSelect({
+            _id: newVehicle._id,
+            vehicleNumber: newVehicle.vehicleNumber,
+            ownerType: "Dellcube",
+            type: newVehicle.type,
+            currentDriver: newVehicle.currentDriver,
+          });
         } catch (selectError) {
           console.error("Error selecting vehicle:", selectError);
-          // Silently fail - vehicle was created successfully
         }
-        
-        // Refresh vehicles list (don't show error if this fails)
         try {
           await refetchVehicles();
         } catch (refetchError) {
           console.error("Error refreshing vehicles list:", refetchError);
-          // Silently fail - vehicle was created successfully
         }
       } else {
-        // Vehicle creation didn't return success
         toast.error(result?.message || "Failed to create vehicle");
       }
     } catch (error) {
       console.error("Vehicle creation error:", error);
-      // Check if this is actually an error or a successful response with error structure
-      // RTK Query unwrap() throws on non-2xx status codes
       if (error?.data?.success === true && error?.data?.vehicle) {
-        // This shouldn't happen, but handle it just in case
         toast.success("Vehicle created successfully");
         setShowAddVehicleDialog(false);
-        setNewVehicleData({ vehicleNumber: "", type: "14 Feet" });
+        setNewVehicleData({ vehicleNumber: "", type: "14 Feet", ownerType: "dellcube", vendor: "", companies: [], branches: [] });
       } else {
-        // Actual error - show detailed error message
-        // Check multiple possible error message locations in the response
-        const errorMessage = 
-          error?.data?.message || 
+        const errorMessage =
+          error?.data?.message ||
           error?.data?.error?.message ||
           error?.data?.error ||
-          error?.message || 
+          error?.message ||
           error?.error ||
           "Failed to create vehicle. Please check if the vehicle number already exists or try again.";
-        
         toast.error(errorMessage);
       }
     }
@@ -1827,13 +1945,7 @@ const CreateInvoice = () => {
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => {
-                          if (!companyId || !branchId) {
-                            toast.error("Please select company and branch first");
-                            return;
-                          }
-                          setShowAddVehicleDialog(true);
-                        }}
+                        onClick={() => setShowAddVehicleDialog(true)}
                         className="px-3 whitespace-nowrap"
                         title="Add New Vehicle"
                       >
@@ -2390,8 +2502,14 @@ const CreateInvoice = () => {
       </Dialog>
 
       {/* Add Vehicle Modal */}
-      <Dialog open={showAddVehicleDialog} onOpenChange={setShowAddVehicleDialog}>
-        <DialogContent className="sm:max-w-[500px]">
+      <Dialog open={showAddVehicleDialog} onOpenChange={(open) => {
+        setShowAddVehicleDialog(open);
+        if (!open) {
+          setNewVehicleData({ vehicleNumber: "", type: "14 Feet", ownerType: "dellcube", vendor: "", companies: [], branches: [] });
+          setVehicleModalBranchesByCompany({});
+        }
+      }}>
+        <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Plus className="w-5 h-5 text-[#FFD249]" />
@@ -2399,35 +2517,146 @@ const CreateInvoice = () => {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            {/* Show Company and Branch Info */}
+            {/* Show current docket context: selected company & branch name */}
             {companyId && branchId && (
               <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">Current context (Docket):</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600 dark:text-gray-400">Company:</span>
                     <span className="font-medium text-gray-900 dark:text-gray-100">
-                      {companies?.companies?.find(c => c._id === companyId)?.name || "Selected Company"}
+                      {companies?.companies?.find((c) => c._id === companyId)?.name || "Selected Company"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600 dark:text-gray-400">Branch:</span>
                     <span className="font-medium text-gray-900 dark:text-gray-100">
-                      {branches?.find(b => b._id === branchId)?.name || "Selected Branch"}
+                      {branches?.find((b) => b._id === branchId)?.name || (vehicleModalBranchesByCompany[companyId]?.find((b) => b._id === branchId)?.name) || "Selected Branch"}
                     </span>
                   </div>
                 </div>
               </div>
             )}
-            
-            {/* Warning if company/branch not selected */}
-            {(!companyId || !branchId) && (
-              <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
-                <p className="text-sm text-orange-800 dark:text-orange-300 font-medium">
-                  ⚠️ Please select Company and Branch first to add a vehicle
-                </p>
+
+            {/* Vehicle Owner: Dellcube / Vendor */}
+            <div className="space-y-2">
+              <Label>Vehicle Owner *</Label>
+              <Select
+                value={newVehicleData.ownerType}
+                onValueChange={(value) =>
+                  setNewVehicleData((prev) => ({ ...prev, ownerType: value, vendor: "" }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select owner" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="dellcube">Dellcube Vehicle</SelectItem>
+                  <SelectItem value="vendor">Vendor Vehicle</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {newVehicleData.ownerType === "vendor" && (
+              <div className="space-y-2">
+                <Label>Select Vendor *</Label>
+                <SearchableSelect
+                  value={newVehicleData.vendor}
+                  onValueChange={(value) =>
+                    setNewVehicleData((prev) => ({ ...prev, vendor: value }))
+                  }
+                  options={
+                    vendorData?.vendors?.map((v) => ({
+                      value: v._id,
+                      label: `${v.name}${v.email ? ` (${v.email})` : ""}`,
+                    })) || []
+                  }
+                  placeholder={
+                    newVehicleData.companies.length === 0 && newVehicleData.branches.length === 0
+                      ? "Select company & branch first"
+                      : "Select a vendor"
+                  }
+                  disabled={newVehicleData.companies.length === 0 && newVehicleData.branches.length === 0}
+                  emptyMessage="No vendors available"
+                />
               </div>
             )}
-            
+
+            {/* Companies (checkboxes like user roles) */}
+            <div className="space-y-2">
+              <Label>Companies *</Label>
+              <div className="mt-2 space-y-2 max-h-40 overflow-y-auto border rounded-md p-3">
+                {companies?.companies?.length > 0 ? (
+                  companies.companies.map((c) => (
+                    <div key={c._id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`vehicle-company-${c._id}`}
+                        checked={newVehicleData.companies.includes(c._id)}
+                        onCheckedChange={() => handleVehicleCompanyToggle(c._id)}
+                      />
+                      <label
+                        htmlFor={`vehicle-company-${c._id}`}
+                        className="text-sm font-medium leading-none cursor-pointer"
+                      >
+                        {c.name} {c.companyCode ? `(${c.companyCode})` : ""}
+                      </label>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500">No companies available</p>
+                )}
+              </div>
+              {newVehicleData.companies.length > 0 && (
+                <p className="text-xs text-gray-500 mt-1">{newVehicleData.companies.length} company(s) selected</p>
+              )}
+            </div>
+
+            {/* Branches (checkboxes, grouped by company) */}
+            <div className="space-y-2">
+              <Label>Branches *</Label>
+              <div className="mt-2 space-y-2 max-h-40 overflow-y-auto border rounded-md p-3">
+                {newVehicleData.companies.length === 0 ? (
+                  <p className="text-sm text-gray-500">Please select at least one company first</p>
+                ) : Object.keys(vehicleModalBranchesByCompany).length === 0 ? (
+                  <p className="text-sm text-gray-500">Loading branches...</p>
+                ) : (
+                  Object.entries(vehicleModalBranchesByCompany).map(([cid, branchList]) => {
+                    const company = companies?.companies?.find((c) => c._id === cid);
+                    if (!newVehicleData.companies.includes(cid)) return null;
+                    return (
+                      <div key={cid} className="space-y-2">
+                        {company && (
+                          <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mt-2 first:mt-0">
+                            {company.name}:
+                          </p>
+                        )}
+                        {branchList.map((b) => (
+                          <div key={b._id} className="flex items-center space-x-2 ml-4">
+                            <Checkbox
+                              id={`vehicle-branch-${b._id}`}
+                              checked={newVehicleData.branches.includes(b._id)}
+                              onCheckedChange={() => handleVehicleBranchToggle(b._id)}
+                            />
+                            <label
+                              htmlFor={`vehicle-branch-${b._id}`}
+                              className="text-sm font-medium leading-none cursor-pointer"
+                            >
+                              {b.name} {b.branchCode ? `(${b.branchCode})` : ""}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+              {newVehicleData.branches.length > 0 && (
+                <p className="text-xs text-gray-500 mt-1">{newVehicleData.branches.length} branch(es) selected</p>
+              )}
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="vehicle-number">
                 Vehicle Number <span className="text-red-500">*</span>
@@ -2438,17 +2667,9 @@ const CreateInvoice = () => {
                 value={newVehicleData.vehicleNumber}
                 onChange={(e) => {
                   const value = e.target.value.toUpperCase();
-                  setNewVehicleData({
-                    ...newVehicleData,
-                    vehicleNumber: value,
-                  });
+                  setNewVehicleData((prev) => ({ ...prev, vehicleNumber: value }));
                 }}
               />
-              {newVehicleData.vehicleNumber && newVehicleData.vehicleNumber.length > 0 && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Enter vehicle registration number
-                </p>
-              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="vehicle-type">
@@ -2457,7 +2678,7 @@ const CreateInvoice = () => {
               <Select
                 value={newVehicleData.type}
                 onValueChange={(value) =>
-                  setNewVehicleData({ ...newVehicleData, type: value })
+                  setNewVehicleData((prev) => ({ ...prev, type: value }))
                 }
               >
                 <SelectTrigger>
@@ -2465,44 +2686,24 @@ const CreateInvoice = () => {
                 </SelectTrigger>
                 <SelectContent>
                   {[
-                    "14 Feet",
-                    "17 Feet",
-                    "19 Feet",
-                    "20 Feet",
-                    "22 Feet",
-                    "24 Feet",
-                    "32FTMXL-14MT",
-                    "32FTMXL-18MT",
-                    "32FTSXL-7MT",
-                    "32FTSXL-9MT",
-                    "Biker",
-                    "BYHAND",
-                    "FLAT BED TRAILER 20FT",
-                    "FLAT BED TRAILER 40FT",
-                    "SEMI FLAT BED TRAILER 40FT",
-                    "Pickup",
-                    "TAURUS 16 TON",
-                    "TAURUS 18 TON",
-                    "TAURUS 21 TON",
-                    "TAURUS 25 TON",
-                    "TAURUS 30 TON",
-                    "Tata 407",
-                    "TRUCK/LORRY",
-                    "SFBT40",
-                    "TATA/EICHER 709",
-                    "TATA ACE"
+                    "14 Feet", "17 Feet", "19 Feet", "20 Feet", "22 Feet", "24 Feet",
+                    "32FTMXL-14MT", "32FTMXL-18MT", "32FTSXL-7MT", "32FTSXL-9MT",
+                    "Biker", "BYHAND", "FLAT BED TRAILER 20FT", "FLAT BED TRAILER 40FT",
+                    "SEMI FLAT BED TRAILER 40FT", "Pickup", "TAURUS 16 TON", "TAURUS 18 TON",
+                    "TAURUS 21 TON", "TAURUS 25 TON", "TAURUS 30 TON", "Tata 407",
+                    "TRUCK/LORRY", "SFBT40", "TATA/EICHER 709", "TATA ACE",
                   ].map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
-                    </SelectItem>
+                    <SelectItem key={type} value={type}>{type}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
               <p className="text-xs text-gray-600 dark:text-gray-400">
-                <strong>Note:</strong> The vehicle will be created for the above company and branch. 
-                You can add more details later from the Vehicles page.
+                <strong>Note:</strong>{" "}
+                {newVehicleData.ownerType === "vendor"
+                  ? "The vehicle will be added to the selected vendor for the chosen company/branch(es)."
+                  : "The vehicle will be created in Dellcube vehicle master for the chosen company/branch(es). You can add more details later from the Vehicles page."}
               </p>
             </div>
           </div>
@@ -2511,7 +2712,8 @@ const CreateInvoice = () => {
               variant="outline"
               onClick={() => {
                 setShowAddVehicleDialog(false);
-                setNewVehicleData({ vehicleNumber: "", type: "14 Feet" });
+                setNewVehicleData({ vehicleNumber: "", type: "14 Feet", ownerType: "dellcube", vendor: "", companies: [], branches: [] });
+                setVehicleModalBranchesByCompany({});
               }}
               className="flex-1"
             >
@@ -2519,10 +2721,17 @@ const CreateInvoice = () => {
             </Button>
             <Button
               onClick={handleCreateVehicle}
-              disabled={isCreatingVehicle || !companyId || !branchId}
+              disabled={
+                isCreatingVehicle ||
+                isAddingVendorVehicle ||
+                !newVehicleData.vehicleNumber ||
+                !newVehicleData.type ||
+                getCompanyBranchAssignments().length === 0 ||
+                (newVehicleData.ownerType === "vendor" && !newVehicleData.vendor)
+              }
               className="flex-1 bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020]"
             >
-              {isCreatingVehicle ? (
+              {isCreatingVehicle || isAddingVendorVehicle ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
                   Creating...

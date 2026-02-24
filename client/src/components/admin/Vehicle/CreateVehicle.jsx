@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useGetAllDriversQuery } from "@/features/api/authApi.js";
 import { getTokenData } from "@/utils/getTokenData";
@@ -70,11 +71,14 @@ const CreateVehicle = () => {
     currentDriver: "",
     company: "",
     branch: "",
+    companies: [],
+    branches: [],
     vehicleInsuranceNo: "",
     fitnessNo: "",
   });
 
   const [branches, setBranches] = useState([]);
+  const [branchesByCompany, setBranchesByCompany] = useState({});
   const { data: companies = [] } = useGetAllCompaniesQuery({ status: "true" });
   const [getBranchesByCompany] = useGetBranchesByCompanyMutation();
   const [createVehicle, { isLoading, isSuccess, isError, error, data }] =
@@ -139,24 +143,41 @@ const CreateVehicle = () => {
   }, [user, shouldHideCompanyBranch, companies]);
 
   const handleCompanyChange = async (companyId) => {
-    // Don't allow changing company for operation, branchAdmin, vendor
-    if (shouldHideCompanyBranch) {
-      return;
-    }
+    if (shouldHideCompanyBranch) return;
+    setFormData((prev) => ({ ...prev, company: companyId, branch: "" }));
+    const res = await getBranchesByCompany(companyId);
+    setBranches(res?.data?.branches || []);
+  };
 
+  const handleVehicleCompanyToggle = async (cid) => {
+    const isSelected = formData.companies.includes(cid);
+    if (isSelected) {
+      const newCompanies = formData.companies.filter((id) => id !== cid);
+      const branchIdsFromCompany = (branchesByCompany[cid] || []).map((b) => b._id);
+      const newBranches = formData.branches.filter((id) => !branchIdsFromCompany.includes(id));
+      setBranchesByCompany((prev) => {
+        const next = { ...prev };
+        delete next[cid];
+        return next;
+      });
+      setFormData((prev) => ({ ...prev, companies: newCompanies, branches: newBranches }));
+    } else {
+      setFormData((prev) => ({ ...prev, companies: [...prev.companies, cid] }));
+      try {
+        const res = await getBranchesByCompany(cid);
+        if (res?.data?.branches) setBranchesByCompany((prev) => ({ ...prev, [cid]: res.data.branches }));
+      } catch {
+        toast.error("Failed to load branches for company");
+      }
+    }
+  };
+
+  const handleVehicleBranchToggle = (bid) => {
+    const isSelected = formData.branches.includes(bid);
     setFormData((prev) => ({
       ...prev,
-      company: companyId,
-      branch: "",
+      branches: isSelected ? prev.branches.filter((id) => id !== bid) : [...prev.branches, bid],
     }));
-
-    const res = await getBranchesByCompany(companyId);
-
-    if (res?.data?.branches) {
-      setBranches(res?.data?.branches);
-    } else {
-      setBranches([]);
-    }
   };
 
   useEffect(() => {
@@ -179,37 +200,59 @@ const CreateVehicle = () => {
     setCertificateFiles((prev) => ({ ...prev, [name]: files[0] }));
   };
 
+  const getCompanyBranchAssignments = () => {
+    const assignments = [];
+    formData.branches.forEach((branchId) => {
+      for (const [cid, branchList] of Object.entries(branchesByCompany)) {
+        if (branchList.some((b) => b._id === branchId)) {
+          assignments.push({ company: cid, branch: branchId });
+          break;
+        }
+      }
+    });
+    return assignments;
+  };
+
   const handleSubmit = async () => {
     const { vehicleNumber, type } = formData;
-
-    // Get companyId and branchId from token as fallback
     const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
-    
-    // For superAdmin, use form values; for others, use profile/token
+
     let finalCompany, finalBranch;
-    
+    let companyBranchAssignments = null;
+
     if (shouldHideCompanyBranch) {
-      // For operation, branchAdmin, vendor - use profile data
       finalCompany = getUserCompanyId() || tokenCompanyId || "";
       finalBranch = getUserBranchId() || tokenBranchId || "";
     } else {
-      // For superAdmin - use form values or token
-      finalCompany = formData.company || tokenCompanyId || "";
-      finalBranch = formData.branch || tokenBranchId || "";
+      if (formData.companies?.length > 0 && formData.branches?.length > 0) {
+        companyBranchAssignments = getCompanyBranchAssignments();
+        if (companyBranchAssignments.length === 0) {
+          toast.error("Please select at least one company and branch");
+          return;
+        }
+        finalCompany = companyBranchAssignments[0].company;
+        finalBranch = companyBranchAssignments[0].branch;
+      } else {
+        finalCompany = formData.company || tokenCompanyId || "";
+        finalBranch = formData.branch || tokenBranchId || "";
+      }
     }
 
     if (!vehicleNumber || !type || !finalCompany || !finalBranch) {
-      toast.error("Vehicle Number, Type, Company, and Branch are required");
+      toast.error("Vehicle Number, Type, and at least one Company-Branch are required");
       return;
     }
 
     const payload = new FormData();
     Object.entries(formData).forEach(([key, value]) => {
-      payload.append(key, value);
+      if (key === "companies" || key === "branches") return;
+      if (value !== "" && value !== undefined) payload.append(key, value);
     });
-    // Ensure company and branch are set (use token values if formData values are empty)
-    if (finalCompany) payload.set("company", finalCompany);
-    if (finalBranch) payload.set("branch", finalBranch);
+    payload.set("company", finalCompany);
+    payload.set("branch", finalBranch);
+    if (companyBranchAssignments && companyBranchAssignments.length > 0) {
+      payload.append("companyBranchAssignments", JSON.stringify(companyBranchAssignments));
+    }
     Object.entries(certificateFiles).forEach(([key, file]) => {
       if (file) payload.append(key, file);
     });
@@ -617,57 +660,92 @@ const CreateVehicle = () => {
               Company & Branch Information
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Company *
-                </Label>
-                {shouldHideCompanyBranch ? (
-                  <Input
-                    value={currentSessionCompanyName || "Loading..."}
-                    disabled
-                    className="bg-gray-100 cursor-not-allowed dark:bg-gray-800 mt-1.5"
-                  />
-                ) : (
-                  <SearchableSelect
-                    value={formData.company}
-                    onValueChange={handleCompanyChange}
-                    options={(companies?.companies || []).map((comp) => ({
-                      value: comp._id,
-                      label: comp.name,
-                    }))}
-                    placeholder="Select company"
-                    emptyMessage="No companies found"
-                    className="mt-1.5"
-                  />
-                )}
-              </div>
-
-              <div>
-                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Branch *
-                </Label>
-                {shouldHideCompanyBranch ? (
-                  <Input
-                    value={currentSessionBranchName || "Loading..."}
-                    disabled
-                    className="bg-gray-100 cursor-not-allowed dark:bg-gray-800 mt-1.5"
-                  />
-                ) : (
-                  <SearchableSelect
-                    value={formData.branch}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, branch: value })
-                    }
-                    options={branches?.map((branch) => ({
-                      value: branch._id,
-                      label: branch.name,
-                    })) || []}
-                    placeholder="Select branch"
-                    emptyMessage="No branches found"
-                    className="mt-1.5"
-                  />
-                )}
-              </div>
+              {shouldHideCompanyBranch ? (
+                <>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Company *</Label>
+                    <Input
+                      value={currentSessionCompanyName || "Loading..."}
+                      disabled
+                      className="bg-gray-100 cursor-not-allowed dark:bg-gray-800 mt-1.5"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Branch *</Label>
+                    <Input
+                      value={currentSessionBranchName || "Loading..."}
+                      disabled
+                      className="bg-gray-100 cursor-not-allowed dark:bg-gray-800 mt-1.5"
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="md:col-span-2">
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Companies *</Label>
+                    <div className="mt-2 space-y-2 max-h-48 overflow-y-auto border rounded-md p-3">
+                      {companies?.companies?.length > 0 ? (
+                        companies.companies.map((c) => (
+                          <div key={c._id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`cv-company-${c._id}`}
+                              checked={formData.companies.includes(c._id)}
+                              onCheckedChange={() => handleVehicleCompanyToggle(c._id)}
+                            />
+                            <label htmlFor={`cv-company-${c._id}`} className="text-sm font-medium leading-none cursor-pointer">
+                              {c.name} {c.companyCode ? `(${c.companyCode})` : ""}
+                            </label>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-500">No companies available</p>
+                      )}
+                    </div>
+                    {formData.companies.length > 0 && (
+                      <p className="text-xs text-gray-500 mt-1">{formData.companies.length} company(s) selected</p>
+                    )}
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Branches *</Label>
+                    <div className="mt-2 space-y-2 max-h-48 overflow-y-auto border rounded-md p-3">
+                      {formData.companies.length === 0 ? (
+                        <p className="text-sm text-gray-500">Please select at least one company first</p>
+                      ) : Object.keys(branchesByCompany).length === 0 ? (
+                        <p className="text-sm text-gray-500">Loading branches...</p>
+                      ) : (
+                        Object.entries(branchesByCompany).map(([cid, branchList]) => {
+                          if (!formData.companies.includes(cid)) return null;
+                          const company = companies?.companies?.find((c) => c._id === cid);
+                          return (
+                            <div key={cid} className="space-y-2">
+                              {company && (
+                                <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mt-2 first:mt-0">
+                                  {company.name}:
+                                </p>
+                              )}
+                              {branchList.map((b) => (
+                                <div key={b._id} className="flex items-center space-x-2 ml-4">
+                                  <Checkbox
+                                    id={`cv-branch-${b._id}`}
+                                    checked={formData.branches.includes(b._id)}
+                                    onCheckedChange={() => handleVehicleBranchToggle(b._id)}
+                                  />
+                                  <label htmlFor={`cv-branch-${b._id}`} className="text-sm font-medium leading-none cursor-pointer">
+                                    {b.name} {b.branchCode ? `(${b.branchCode})` : ""}
+                                  </label>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                    {formData.branches.length > 0 && (
+                      <p className="text-xs text-gray-500 mt-1">{formData.branches.length} branch(es) selected</p>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           </Card>
         </div>

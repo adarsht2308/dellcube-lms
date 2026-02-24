@@ -13,9 +13,11 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useGetAllCompaniesQuery } from "@/features/api/Company/companyApi";
 import { useGetAllBranchesQuery } from "@/features/api/Branch/branchApi";
+import { useGetBranchesByCompanyMutation } from "@/features/api/Branch/branchApi";
 import {
   useGetVehicleByIdMutation,
   useUpdateVehicleMutation,
@@ -70,6 +72,9 @@ const UpdateVehicle = () => {
     useState("");
   const [companyId, setCompanyId] = useState("");
   const [branchId, setBranchId] = useState("");
+  const [companies, setCompanies] = useState([]);
+  const [branches, setBranchesState] = useState([]);
+  const [branchesByCompany, setBranchesByCompany] = useState({});
   const [status, setStatus] = useState("active");
   const [currentDriver, setCurrentDriver] = useState("");
   const [vehicleInsuranceNo, setVehicleInsuranceNo] = useState("");
@@ -94,7 +99,7 @@ const UpdateVehicle = () => {
     insuranceImage: null,
   });
 
-  const [getVehicleById, { data: viewData, isSuccess }] =
+  const [getVehicleById, { data: viewData, isSuccess, isError: isViewError, error: viewError }] =
     useGetVehicleByIdMutation();
   const [updateVehicle, { isLoading, isSuccess: updated, error }] =
     useUpdateVehicleMutation();
@@ -104,6 +109,7 @@ const UpdateVehicle = () => {
     limit: 100,
   });
   const { data: branchData } = useGetAllBranchesQuery({ page: 1, limit: 100 });
+  const [getBranchesByCompany] = useGetBranchesByCompanyMutation();
   const { data: driversData, isLoading: isDriversLoading } = useGetAllDriversQuery({ page: 1, limit: 1000 });
 
   useEffect(() => {
@@ -115,6 +121,15 @@ const UpdateVehicle = () => {
       navigate("/admin/vendor-vehicles");
     }
   }, [vehicleId, isVendor, navigate, getVehicleById]);
+
+  // When view returns 404 (e.g. vendor vehicle id passed), redirect back
+  useEffect(() => {
+    if (isViewError && viewError) {
+      const msg = viewError?.data?.message || viewError?.message || "Vehicle not found";
+      toast.error(msg);
+      navigate("/admin/vehicles");
+    }
+  }, [isViewError, viewError, navigate]);
 
   useEffect(() => {
     if (isSuccess) {
@@ -165,8 +180,23 @@ const UpdateVehicle = () => {
       });
       setVehicleInsuranceNo(v.vehicleInsuranceNo || "");
       setFitnessNo(v.fitnessNo || "");
+
+      if (v.companyBranchAssignments?.length > 0 && !shouldHideCompanyBranch) {
+        const cids = [...new Set(v.companyBranchAssignments.map((a) => a.company?._id || a.company))];
+        const bids = v.companyBranchAssignments.map((a) => a.branch?._id || a.branch);
+        setCompanies(cids.filter(Boolean));
+        setBranchesState(bids.filter(Boolean));
+        cids.forEach((cid) => {
+          if (!cid) return;
+          getBranchesByCompany(cid).then((res) => {
+            if (res?.data?.branches) {
+              setBranchesByCompany((prev) => ({ ...prev, [cid]: res.data.branches }));
+            }
+          });
+        });
+      }
     }
-  }, [isSuccess, viewData]);
+  }, [isSuccess, viewData, shouldHideCompanyBranch, getBranchesByCompany]);
 
   const handleCertFileChange = (e) => {
     const { name, files } = e.target;
@@ -174,6 +204,48 @@ const UpdateVehicle = () => {
       setCertFiles((prev) => ({ ...prev, [name]: files[0] }));
       setCertPreviews((prev) => ({ ...prev, [name]: URL.createObjectURL(files[0]) }));
     }
+  };
+
+  const handleVehicleCompanyToggle = async (cid) => {
+    const isSelected = companies.includes(cid);
+    if (isSelected) {
+      const branchIdsFromCompany = (branchesByCompany[cid] || []).map((b) => b._id);
+      setCompanies((prev) => prev.filter((id) => id !== cid));
+      setBranchesState((prev) => prev.filter((id) => !branchIdsFromCompany.includes(id)));
+      setBranchesByCompany((prev) => {
+        const next = { ...prev };
+        delete next[cid];
+        return next;
+      });
+    } else {
+      setCompanies((prev) => [...prev, cid]);
+      try {
+        const res = await getBranchesByCompany(cid);
+        if (res?.data?.branches) setBranchesByCompany((prev) => ({ ...prev, [cid]: res.data.branches }));
+      } catch {
+        toast.error("Failed to load branches for company");
+      }
+    }
+  };
+
+  const handleVehicleBranchToggle = (bid) => {
+    const isSelected = branches.includes(bid);
+    setBranchesState((prev) =>
+      isSelected ? prev.filter((id) => id !== bid) : [...prev, bid]
+    );
+  };
+
+  const getCompanyBranchAssignments = () => {
+    const assignments = [];
+    branches.forEach((branchId) => {
+      for (const [cid, branchList] of Object.entries(branchesByCompany)) {
+        if (branchList.some((b) => b._id === branchId)) {
+          assignments.push({ company: cid, branch: branchId });
+          break;
+        }
+      }
+    });
+    return assignments;
   };
 
   const handleUpdate = async () => {
@@ -211,20 +283,29 @@ const UpdateVehicle = () => {
       return;
     }
 
-    // Get companyId and branchId from token as fallback
     const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
-    
-    // For superAdmin, use form values; for others, use profile/token
     let finalCompanyId, finalBranchId;
-    
+    let companyBranchAssignments = null;
+
     if (shouldHideCompanyBranch) {
-      // For operation, branchAdmin, vendor - use profile data
       finalCompanyId = getUserCompanyId() || tokenCompanyId || "";
       finalBranchId = getUserBranchId() || tokenBranchId || "";
     } else {
-      // For superAdmin - use form values or token
-      finalCompanyId = companyId || tokenCompanyId || "";
-      finalBranchId = branchId || tokenBranchId || "";
+      if (companies.length > 0 && branches.length > 0) {
+        companyBranchAssignments = getCompanyBranchAssignments();
+        if (companyBranchAssignments.length === 0) {
+          toast.error("Please select at least one company and branch");
+          return;
+        }
+        finalCompanyId = companyBranchAssignments[0].company;
+        finalBranchId = companyBranchAssignments[0].branch;
+      } else {
+        finalCompanyId = companyId || tokenCompanyId || "";
+        finalBranchId = branchId || tokenBranchId || "";
+        if (finalCompanyId && finalBranchId) {
+          companyBranchAssignments = [{ company: finalCompanyId, branch: finalBranchId }];
+        }
+      }
     }
 
     if (!finalCompanyId || !finalBranchId) {
@@ -236,7 +317,6 @@ const UpdateVehicle = () => {
     payload.append("vehicleNumber", vehicleNumber.trim());
     payload.append("type", type);
     payload.append("cargoType", cargoType);
-    // Only append optional fields if they have values
     if (brand && brand.trim()) payload.append("brand", brand);
     if (model && model.trim()) payload.append("model", model);
     if (yearOfManufacture) payload.append("yearOfManufacture", yearOfManufacture);
@@ -248,6 +328,9 @@ const UpdateVehicle = () => {
     payload.append("currentDriver", currentDriver);
     payload.append("company", finalCompanyId);
     payload.append("branch", finalBranchId);
+    if (companyBranchAssignments && companyBranchAssignments.length > 0) {
+      payload.append("companyBranchAssignments", JSON.stringify(companyBranchAssignments));
+    }
     if (vehicleInsuranceNo && vehicleInsuranceNo.trim()) {
       payload.append("vehicleInsuranceNo", vehicleInsuranceNo);
     }
@@ -489,55 +572,84 @@ const UpdateVehicle = () => {
                 />
               </div>
 
-              <div>
-                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Company *
-                </Label>
-                {shouldHideCompanyBranch ? (
-                  <Input
-                    value={user?.company?.name || (Array.isArray(user?.company) && user.company.length > 0 ? user.company[0].name : "")}
-                    disabled
-                    className="bg-gray-100 cursor-not-allowed dark:bg-gray-800 mt-1.5"
-                  />
-                ) : (
-                  <SearchableSelect
-                    value={companyId}
-                    onValueChange={setCompanyId}
-                    options={companyData?.companies?.map((comp) => ({
-                      value: comp._id,
-                      label: comp.name,
-                    })) || []}
-                    placeholder="Select company"
-                    emptyMessage="No companies found"
-                    className="mt-1.5"
-                  />
-                )}
-              </div>
-
-              <div>
-                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Branch *
-                </Label>
-                {shouldHideCompanyBranch ? (
-                  <Input
-                    value={user?.branch?.name || (Array.isArray(user?.branch) && user.branch.length > 0 ? user.branch[0].name : "")}
-                    disabled
-                    className="bg-gray-100 cursor-not-allowed dark:bg-gray-800 mt-1.5"
-                  />
-                ) : (
-                  <SearchableSelect
-                    value={branchId}
-                    onValueChange={setBranchId}
-                    options={branchData?.branches?.map((br) => ({
-                      value: br._id,
-                      label: br.name,
-                    })) || []}
-                    placeholder="Select branch"
-                    emptyMessage="No branches found"
-                    className="mt-1.5"
-                  />
-                )}
-              </div>
+              {shouldHideCompanyBranch ? (
+                <>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Company *</Label>
+                    <Input
+                      value={user?.company?.name || (Array.isArray(user?.company) && user.company.length > 0 ? user.company[0].name : "")}
+                      disabled
+                      className="bg-gray-100 cursor-not-allowed dark:bg-gray-800 mt-1.5"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Branch *</Label>
+                    <Input
+                      value={user?.branch?.name || (Array.isArray(user?.branch) && user.branch.length > 0 ? user.branch[0].name : "")}
+                      disabled
+                      className="bg-gray-100 cursor-not-allowed dark:bg-gray-800 mt-1.5"
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="md:col-span-2">
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Companies *</Label>
+                    <div className="mt-2 space-y-2 max-h-48 overflow-y-auto border rounded-md p-3">
+                      {companyData?.companies?.length > 0 ? (
+                        companyData.companies.map((c) => (
+                          <div key={c._id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`uv-company-${c._id}`}
+                              checked={companies.includes(c._id)}
+                              onCheckedChange={() => handleVehicleCompanyToggle(c._id)}
+                            />
+                            <label htmlFor={`uv-company-${c._id}`} className="text-sm font-medium leading-none cursor-pointer">
+                              {c.name} {c.companyCode ? `(${c.companyCode})` : ""}
+                            </label>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-500">No companies available</p>
+                      )}
+                    </div>
+                    {companies.length > 0 && <p className="text-xs text-gray-500 mt-1">{companies.length} company(s) selected</p>}
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Branches *</Label>
+                    <div className="mt-2 space-y-2 max-h-48 overflow-y-auto border rounded-md p-3">
+                      {companies.length === 0 ? (
+                        <p className="text-sm text-gray-500">Please select at least one company first</p>
+                      ) : Object.keys(branchesByCompany).length === 0 ? (
+                        <p className="text-sm text-gray-500">Loading branches...</p>
+                      ) : (
+                        Object.entries(branchesByCompany).map(([cid, branchList]) => {
+                          if (!companies.includes(cid)) return null;
+                          const company = companyData?.companies?.find((c) => c._id === cid);
+                          return (
+                            <div key={cid} className="space-y-2">
+                              {company && <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mt-2 first:mt-0">{company.name}:</p>}
+                              {branchList.map((b) => (
+                                <div key={b._id} className="flex items-center space-x-2 ml-4">
+                                  <Checkbox
+                                    id={`uv-branch-${b._id}`}
+                                    checked={branches.includes(b._id)}
+                                    onCheckedChange={() => handleVehicleBranchToggle(b._id)}
+                                  />
+                                  <label htmlFor={`uv-branch-${b._id}`} className="text-sm font-medium leading-none cursor-pointer">
+                                    {b.name} {b.branchCode ? `(${b.branchCode})` : ""}
+                                  </label>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                    {branches.length > 0 && <p className="text-xs text-gray-500 mt-1">{branches.length} branch(es) selected</p>}
+                  </div>
+                </>
+              )}
             </div>
           </Card>
 

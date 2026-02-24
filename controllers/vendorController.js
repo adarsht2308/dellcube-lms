@@ -671,7 +671,7 @@ export const addVehicleController = async (req, res) => {
   console.log("Files:", req.files);
   console.log("Content-Type:", req.get("Content-Type"));
 
-  const { vendorId } = req.body;
+  const { vendorId, companyBranchAssignments: rawAssignments } = req.body;
 
   if (!vendorId) {
     return res.status(400).json({
@@ -688,6 +688,16 @@ export const addVehicleController = async (req, res) => {
         success: false,
         message: "Vendor not found",
       });
+    }
+
+    // Parse companyBranchAssignments if sent as JSON string (e.g. from FormData)
+    let companyBranchAssignments = rawAssignments;
+    if (typeof rawAssignments === "string") {
+      try {
+        companyBranchAssignments = JSON.parse(rawAssignments);
+      } catch {
+        companyBranchAssignments = null;
+      }
     }
 
     // Extract vehicle data from form fields
@@ -774,16 +784,21 @@ export const addVehicleController = async (req, res) => {
       JSON.stringify(vehicleData, null, 2)
     );
 
-    // Get company and branch from token (logged-in company/branch)
-    const companyId = req.companyId || req.body.company;
-    const branchId = req.branchId || req.body.branch;
-
-    if (!companyId || !branchId) {
-      return res.status(400).json({
-        success: false,
-        message: "Company and Branch are required. Please ensure you are logged into a specific company and branch.",
-      });
+    // Resolve company-branch assignments: from body or token
+    let assignments = companyBranchAssignments;
+    if (!Array.isArray(assignments) || assignments.length === 0) {
+      const companyId = req.companyId || req.body.company;
+      const branchId = req.branchId || req.body.branch;
+      if (!companyId || !branchId) {
+        return res.status(400).json({
+          success: false,
+          message: "Company and Branch are required. Please ensure you are logged into a specific company and branch.",
+        });
+      }
+      assignments = [{ company: companyId, branch: branchId }];
     }
+    const companyId = assignments[0].company;
+    const branchId = assignments[0].branch;
 
     // Create a new vehicle document using the schema
     const newVehicle = {
@@ -804,6 +819,7 @@ export const addVehicleController = async (req, res) => {
       registrationCertificateImage: vehicleData.registrationCertificateImage,
       insuranceImage: vehicleData.insuranceImage,
       maintenanceHistory: vehicleData.maintenanceHistory,
+      companyBranchAssignments: assignments,
       company: companyId,
       branch: branchId,
     };

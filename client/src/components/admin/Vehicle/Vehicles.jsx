@@ -247,14 +247,18 @@ const Vehicles = () => {
     setOpenMaintenance(true);
   };
 
-  const handleView = async (id) => {
+  const handleView = async (id, vendorVehicleFromList = null) => {
     setOpen(true);
+    if (vendorVehicleFromList) {
+      setSelectedVehicle(vendorVehicleFromList);
+      return;
+    }
     try {
       const { data } = await getVehicleById(id);
-
       if (data?.success) setSelectedVehicle(data.vehicle);
     } catch (err) {
       console.error("Error fetching vehicle:", err);
+      setSelectedVehicle(null);
     }
   };
 
@@ -833,58 +837,74 @@ const Vehicles = () => {
                       <td className="p-3 flex gap-2 items-center justify-center">
                         <Button
                           className="p-2 rounded-full bg-[#FFD249]/30 text-[#202020] hover:bg-[#FFD249]/60 dark:text-[#FFD249]"
-                          onClick={() => handleView(veh._id)}
+                          onClick={() => handleView(veh._id, veh.ownerType === "Vendor" ? veh : null)}
                         >
                           <EyeIcon className="w-4 h-4" />
                         </Button>
                         <Button
                           className="p-2 rounded-full bg-[#FFD249]/30 text-[#202020] hover:bg-[#FFD249]/60 dark:text-[#FFD249]"
                           onClick={() => {
-                            // If it's a vendor vehicle, redirect to vendor-vehicles page
-                            // Otherwise, use the regular update-vehicle route
-                            if (veh.ownerType === "Vendor" && isVendor) {
-                              navigate("/admin/vendor-vehicles");
-                              toast.info("Please edit vendor vehicles from the Vendor Vehicles page");
-                            } else {
-                              navigate("/admin/update-vehicle", {
-                                state: { vehicleId: veh._id },
-                              });
+                            // Vendor vehicles live in User.availableVehicles, not Vehicle collection.
+                            // Edit them from Vendors page; update-vehicle only works for Dellcube vehicles.
+                            if (veh.ownerType === "Vendor") {
+                              if (isVendor) {
+                                navigate("/admin/vendor-vehicles");
+                              } else {
+                                navigate("/admin/vendors");
+                                toast.info("Vendor vehicles must be edited from the Vendors page (open vendor → edit vehicle).");
+                              }
+                              return;
                             }
+                            navigate("/admin/update-vehicle", {
+                              state: { vehicleId: veh._id },
+                            });
                           }}
                         >
                           <MdOutlineEdit className="w-4 h-4" />
                         </Button>
                         <Button
                           className="p-2 rounded-full bg-[#FFD249]/30 text-[#202020] hover:bg-[#FFD249]/60 dark:text-[#FFD249]"
-                          onClick={() => handleOpenMaintenance(veh._id)}
+                          onClick={() => veh.ownerType !== "Vendor" && handleOpenMaintenance(veh._id)}
+                          disabled={veh.ownerType === "Vendor"}
+                          title={veh.ownerType === "Vendor" ? "Maintenance from Vendors page" : undefined}
                         >
                           + Maint
                         </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button className="p-2 rounded-full bg-[#FFD249]/30 text-[#202020] hover:bg-[#FFD249]/60 dark:text-[#FFD249]">
-                              <FaRegTrashCan />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>
-                                Delete Vehicle?
-                              </AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDelete(veh._id)}
-                              >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                        {veh.ownerType === "Vendor" ? (
+                          <Button
+                            className="p-2 rounded-full bg-[#FFD249]/30 text-[#202020] opacity-50 cursor-not-allowed"
+                            disabled
+                            title="Delete from Vendors page"
+                          >
+                            <FaRegTrashCan className="w-4 h-4" />
+                          </Button>
+                        ) : (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button className="p-2 rounded-full bg-[#FFD249]/30 text-[#202020] hover:bg-[#FFD249]/60 dark:text-[#FFD249]">
+                                <FaRegTrashCan />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>
+                                  Delete Vehicle?
+                                </AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDelete(veh._id)}
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
                       </td>
                     </tr>
                   ))

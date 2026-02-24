@@ -88,15 +88,32 @@ const vehicleSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: User,
     },
+    // Owner: dellcube (in Vehicle collection) or vendor (stored in User.availableVehicles)
+    ownerType: {
+      type: String,
+      enum: ["dellcube", "vendor"],
+      default: "dellcube",
+    },
+    // When ownerType is vendor, reference the vendor (User with role vendor)
+    vendor: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    // One vehicle can operate for multiple company-branch pairs
+    companyBranchAssignments: [
+      {
+        company: { type: mongoose.Schema.Types.ObjectId, ref: "Company" },
+        branch: { type: mongoose.Schema.Types.ObjectId, ref: "Branch" },
+      },
+    ],
+    // Kept for backward compatibility; set from companyBranchAssignments[0]
     branch: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Branch",
-      required: true,
     },
     company: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Company",
-      required: true,
     },
     maintenanceHistory: [
       {
@@ -145,8 +162,10 @@ const vehicleSchema = new mongoose.Schema(
 
 // Add indexes for better query performance
 vehicleSchema.index({ company: 1, branch: 1 }); // Compound index for common query pattern
+vehicleSchema.index({ "companyBranchAssignments.company": 1, "companyBranchAssignments.branch": 1 });
 vehicleSchema.index({ status: 1 }); // Index for status filtering
 vehicleSchema.index({ createdBy: 1 }); // Index for vendor filtering
+vehicleSchema.index({ vendor: 1 }); // Index for vendor vehicles
 vehicleSchema.index({ createdAt: -1 }); // Index for sorting by creation date
 
 export const Vehicle = mongoose.model("Vehicle", vehicleSchema);
