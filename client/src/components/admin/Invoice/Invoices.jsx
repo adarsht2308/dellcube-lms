@@ -94,7 +94,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { PDFDownloadLink, PDFViewer, pdf } from "@react-pdf/renderer";
-import InvoicePDFDocument from "./InvoicePDFDocument";
+import InvoicePDFDocument, {
+  InvoicePDFDocumentLandscape,
+} from "./InvoicePDFDocument";
 import logoUrl from "/images/dellcube_logo-og.png";
 import { imageUrlToBase64 } from "@/utils/imageUrlToBase64.js";
 import { Input } from "@/components/ui/input";
@@ -256,6 +258,24 @@ function useReverseGeocode(updates) {
   return locations;
 }
 
+// Helper to resolve a single companyId from user object
+const getUserCompanyId = (user) => {
+  if (user?.company?._id) return user.company._id;
+  if (Array.isArray(user?.company) && user.company.length > 0) {
+    return user.company[0]?._id || user.company[0];
+  }
+  return null;
+};
+
+// Helper to resolve a single branchId from user object
+const getUserBranchId = (user) => {
+  if (user?.branch?._id) return user.branch._id;
+  if (Array.isArray(user?.branch) && user.branch.length > 0) {
+    return user.branch[0]?._id || user.branch[0];
+  }
+  return null;
+};
+
 const Invoices = () => {
   const navigate = useNavigate();
   const user = useSelector((state) => state.auth.user);
@@ -293,6 +313,7 @@ const Invoices = () => {
   const [logoBase64, setLogoBase64] = useState("");
   const [invoiceForPdf, setInvoiceForPdf] = useState(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(null);
+  const [pdfPreviewMode, setPdfPreviewMode] = useState("portrait"); // 'portrait' | 'landscape'
 
   // CSV Export Modal State
   const [csvModalOpen, setCsvModalOpen] = useState(false);
@@ -439,6 +460,22 @@ const Invoices = () => {
   const MAX_QUERY_LIMIT = 100;
   const safeLimit = Math.min(limit, MAX_QUERY_LIMIT);
 
+  // Resolve company/branch for the current session:
+  // - For superAdmin, prefer selected dropdowns, fall back to user/token
+  // - For other roles, always lock to the logged-in company/branch (user or token)
+  const { companyId: tokenCompanyId, branchId: tokenBranchId } = getTokenData();
+
+  // For superAdmin: allow selecting company/branch from filters, with sensible fallbacks.
+  // For all other roles (branchAdmin, vendor, etc): lock to current session (token)
+  // so they cannot see/export other companies/branches.
+  const resolvedCompanyId = isSuperAdmin
+    ? companyId || getUserCompanyId(user) || tokenCompanyId || ""
+    : tokenCompanyId || getUserCompanyId(user) || "";
+
+  const resolvedBranchId = isSuperAdmin
+    ? branchId || getUserBranchId(user) || tokenBranchId || ""
+    : tokenBranchId || getUserBranchId(user) || "";
+
   const filters = {
     page,
     limit: safeLimit,
@@ -446,10 +483,14 @@ const Invoices = () => {
   };
 
   if (status) filters.status = status;
-  if (isBranchAdmin || companyId)
-    filters.companyId = isBranchAdmin ? user?.company?._id : companyId;
-  if (isBranchAdmin || branchId)
-    filters.branchId = isBranchAdmin ? user?.branch?._id : branchId;
+
+  // Always enforce company/branch based on resolved values
+  if (resolvedCompanyId) {
+    filters.companyId = resolvedCompanyId;
+  }
+  if (resolvedBranchId) {
+    filters.branchId = resolvedBranchId;
+  }
   // If vendor, force assigned customer's invoices
   // If vendor has assigned clients, filter by them
   if (isVendor && user?.assignedClients?.length > 0) {
@@ -993,6 +1034,125 @@ const Invoices = () => {
     }
   };
 
+  const handleDownloadLandscapePdf = async (invoice) => {
+    setIsGeneratingPdf({ id: invoice._id, type: "download-landscape" });
+    try {
+      if (!logoBase64) {
+        toast.error("Logo not loaded yet. Please wait a moment.");
+        throw new Error("Logo not loaded");
+      }
+
+      let processedInvoice = JSON.parse(JSON.stringify(invoice));
+
+      const computePostOffice = async (pincode) => {
+        if (!pincode || String(pincode).length !== 6) return null;
+        try {
+          const resp = await fetch(
+            `https://api.postalpincode.in/pincode/${pincode}`
+          );
+          const data = await resp.json();
+          const entry = Array.isArray(data) ? data[0] : data;
+          const po = entry?.PostOffice?.[0];
+          if (!po) return null;
+          return {
+            name: po.Name,
+            taluk: po.Block || po.Taluk,
+            district: po.District,
+            division: po.Division,
+            region: po.Region,
+            state: po.State,
+            country: po.Country,
+          };
+        } catch (e) {
+          return null;
+        }
+      };
+
+      try {
+        const [fromPO, toPO] = await Promise.all([
+          computePostOffice(
+            processedInvoice?.fromAddress?.pincode ||
+              processedInvoice?.fromAddress?.pincode?.code
+          ),
+          computePostOffice(
+            processedInvoice?.toAddress?.pincode ||
+              processedInvoice?.toAddress?.pincode?.code
+          ),
+        ]);
+        if (fromPO) processedInvoice.fromPostOfficeComputed = fromPO;
+        if (toPO) processedInvoice.toPostOfficeComputed = toPO;
+      } catch (_) {}
+
+      if (processedInvoice.deliveryProof?.signature) {
+        try {
+          const signatureValue = processedInvoice.deliveryProof.signature;
+
+          if (
+            typeof signatureValue === "string" &&
+            signatureValue.startsWith("data:image/")
+          ) {
+            // already base64
+          } else if (
+            typeof signatureValue === "string" &&
+            signatureValue.trim() !== ""
+          ) {
+            try {
+              const signatureBase64 = await Promise.race([
+                imageUrlToBase64(signatureValue),
+                new Promise((_, reject) =>
+                  setTimeout(
+                    () => reject(new Error("Signature conversion timeout")),
+                    10000
+                  )
+                ),
+              ]);
+
+              if (
+                signatureBase64 &&
+                signatureBase64.startsWith("data:image/")
+              ) {
+                processedInvoice.deliveryProof.signature = signatureBase64;
+              }
+            } catch {
+              // keep original
+            }
+          } else {
+            processedInvoice.deliveryProof.signature = null;
+          }
+        } catch {
+          // ignore signature errors
+        }
+      }
+
+      await ensureCompanySignature(processedInvoice);
+
+      const doc = (
+        <InvoicePDFDocumentLandscape
+          invoice={processedInvoice}
+          logoBase64={logoBase64}
+        />
+      );
+      const blob = await pdf(doc).toBlob();
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute(
+        "download",
+        `invoice_${invoice.docketNumber}_landscape.pdf`
+      );
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Failed to generate landscape PDF for download:", error);
+      toast.error("An error occurred while generating the landscape PDF.");
+    } finally {
+      setIsGeneratingPdf(null);
+    }
+  };
+
   useEffect(() => {
     // When invoiceForPdf is updated and the type was 'download', we can reset the state
     // The actual download will be handled by the PDFDownloadLink component
@@ -1301,8 +1461,9 @@ const Invoices = () => {
       // Build export filters from current filters
       const exportFilters = {
         search: debouncedSearch || "",
-        companyId: isBranchAdmin ? user?.company?._id : companyId || "",
-        branchId: isBranchAdmin ? user?.branch?._id : branchId || "",
+        // Use the same resolved company/branch that drive the on-screen data
+        companyId: resolvedCompanyId || "",
+        branchId: resolvedBranchId || "",
         customerId: customerId || "",
         status: status || "",
         paymentType: paymentType || "",
@@ -2255,7 +2416,8 @@ const Invoices = () => {
                       )}
 
                       {isGeneratingPdf?.id === inv._id &&
-                      isGeneratingPdf?.type === "download" ? (
+                      (isGeneratingPdf?.type === "download" ||
+                        isGeneratingPdf?.type === "download-landscape") ? (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -2266,16 +2428,28 @@ const Invoices = () => {
                           <Loader2 className="h-4 w-4 animate-spin" />
                         </Button>
                       ) : (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDownloadPdf(inv)}
-                          className="text-[#202020] hover:text-[#FFD249] rounded-full p-2 border border-[#FFD249]/40 hover:bg-[#FFD249]/20"
-                          title="Download PDF"
-                          disabled={!logoBase64}
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDownloadPdf(inv)}
+                            className="text-[#202020] hover:text-[#FFD249] rounded-full p-2 border border-[#FFD249]/40 hover:bg-[#FFD249]/20"
+                            title="Download A4 PDF"
+                            disabled={!logoBase64}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDownloadLandscapePdf(inv)}
+                            className="ml-1 text-[#202020] hover:text-[#FFD249] rounded-full p-2 border border-[#FFD249]/40 hover:bg-[#FFD249]/20"
+                            title="Download Landscape PDF"
+                            disabled={!logoBase64}
+                          >
+                            <Download className="h-4 w-4 rotate-90" />
+                          </Button>
+                        </>
                       )}
 
                       {inv.status === "Delivered" && (
@@ -2871,7 +3045,10 @@ const Invoices = () => {
               className="bg-white border-t border-gray-200 p-4 flex flex-col gap-3 shadow-lg"
             >
               <Button
-                onClick={() => handleViewPDF(selectedInvoice)}
+                onClick={() => {
+                  setPdfPreviewMode("portrait");
+                  handleViewPDF(selectedInvoice);
+                }}
                 className="w-full bg-[#FFD249] hover:bg-[#FFD249]/80 text-[#202020] font-semibold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center gap-3 group border border-[#FFD249] dark:bg-[#FFD249] dark:text-[#202020] dark:hover:bg-[#FFD249]/80"
                 size="lg"
               >
@@ -2883,6 +3060,23 @@ const Invoices = () => {
                   →
                 </div>
               </Button>
+              <Button
+                onClick={() => {
+                  setPdfPreviewMode("landscape");
+                  handleViewPDF(selectedInvoice);
+                }}
+                className="w-full bg-white hover:bg-gray-50 text-[#202020] font-semibold py-3 px-6 rounded-xl shadow border border-[#FFD249] flex items-center justify-center gap-3 group"
+                size="lg"
+              >
+                <div className="p-1 bg-[#FFD249]/10 rounded-lg group-hover:bg-[#FFD249]/20 transition-colors">
+                  <EyeIcon className="w-5 h-5 rotate-90" />
+                </div>
+                <span className="text-base">View Landscape PDF</span>
+                <div className="ml-auto opacity-70 group-hover:opacity-100 transition-opacity">
+                  →
+                </div>
+              </Button>
+
               <Button
                 onClick={() => window.open(`/track?docket=${selectedInvoice.docketNumber}`, '_blank')}
                 variant="outline"
@@ -2923,16 +3117,25 @@ const Invoices = () => {
               <div className="flex-1 flex justify-center items-start overflow-auto">
                 <PDFViewer
                   style={{
-                    width: "210mm",
-                    height: "297mm",
+                    width:
+                      pdfPreviewMode === "landscape" ? "297mm" : "210mm",
+                    height:
+                      pdfPreviewMode === "landscape" ? "210mm" : "297mm",
                     border: "none",
                   }}
                   className="shadow-lg"
                 >
-                  <InvoicePDFDocument
-                    invoice={invoiceForPdf}
-                    logoBase64={logoBase64}
-                  />
+                  {pdfPreviewMode === "landscape" ? (
+                    <InvoicePDFDocumentLandscape
+                      invoice={invoiceForPdf}
+                      logoBase64={logoBase64}
+                    />
+                  ) : (
+                    <InvoicePDFDocument
+                      invoice={invoiceForPdf}
+                      logoBase64={logoBase64}
+                    />
+                  )}
                 </PDFViewer>
               </div>
             ) : (

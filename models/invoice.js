@@ -144,6 +144,7 @@ const invoiceSchema = new mongoose.Schema(
         "Undelivered",
         "Cancelled",
         "Returned",
+        "Inward Done"
       ],
       default: "Created",
     },
@@ -152,7 +153,7 @@ const invoiceSchema = new mongoose.Schema(
         {
           status: {
             type: String,
-            enum: ["Undelivered", "Delivered"],
+            enum: ["Undelivered", "Delivered", "Inward Done"],
           },
           reason: { type: String, trim: true },
           attemptedAt: { type: Date, default: Date.now },

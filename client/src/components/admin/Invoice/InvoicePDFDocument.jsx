@@ -61,6 +61,15 @@ const styles = StyleSheet.create({
     padding: 0,
     justifyContent: "space-evenly",
   },
+  // Variants for landscape pages – reduce top/bottom whitespace and let content grow
+  landscapePage: {
+    paddingTop: "4mm",
+    paddingBottom: "2mm",
+  },
+  landscapePageContainer: {
+    justifyContent: "flex-start",
+    alignItems: "stretch",
+  },
   docketCopy: {
     backgroundColor: "#fff",
     border: "2px solid #000",
@@ -77,6 +86,11 @@ const styles = StyleSheet.create({
     fontSize: 8,
     justifyContent: "flex-start",
     flexShrink: 1,
+  },
+  // Make the single docket copy fill more of the landscape page height
+  landscapeDocketCopy: {
+    flex: 1,
+    marginBottom: 0,
   },
 
   // Header Section
@@ -391,7 +405,7 @@ const styles = StyleSheet.create({
   receiverTableContainer: {
     flexDirection: "row",
     border: "1px solid #000",
-    minHeight: "16mm",
+    minHeight: "20mm",
   },
   receiverTableLeft: {
     width: "55%",
@@ -459,7 +473,7 @@ const styles = StyleSheet.create({
   },
   signatureBox: {
     width: "100%",
-    height: "10mm",
+    height: "15mm",
     border: "1px solid #000",
     display: "flex",
     alignItems: "center",
@@ -471,7 +485,7 @@ const styles = StyleSheet.create({
   signatureImg: {
     width: "auto",
     maxWidth: "100%",
-    maxHeight: "9mm",
+    maxHeight: "13mm",
     height: "auto",
   },
    companySignatureBox: {
@@ -515,7 +529,7 @@ const styles = StyleSheet.create({
   },
 });
 
-function InvoiceCopy({ invoice, logoBase64, copyType }) {
+function InvoiceCopy({ invoice, logoBase64, copyType, containerStyle, variant }) {
   // Debug: Log invoice object at the start
   console.log("=== InvoiceCopy Component - Invoice Received ===");
   console.log("Invoice object:", invoice);
@@ -710,8 +724,10 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
     { label: "T.B.B.", value: invoice?.tbb },
   ];
 
+  const isLandscape = variant === "landscape";
+
   return (
-    <View style={styles.docketCopy}>
+    <View style={[styles.docketCopy, containerStyle]}>
       {/* Header Section */}
       <View style={styles.headerSection}>
         <View style={styles.logoSection}>
@@ -723,7 +739,12 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
         </View>
 
         <View style={styles.companySection}>
-          <Text style={styles.companyName}>
+          <Text
+            style={[
+              styles.companyName,
+              isLandscape && { fontSize: 13 },
+            ]}
+          >
             {invoice?.company?.name ||
               "DELLCUBE INTEGRATED SOLUTIONS PVT. LTD."}
           </Text>
@@ -742,13 +763,23 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
               </>
             );
           })()}
-          <Text style={styles.companyContact}>
+          <Text
+            style={[
+              styles.companyContact,
+              isLandscape && { fontSize: 8 },
+            ]}
+          >
             Ph: {invoice?.company?.contactPhone || "02522-280222"} | Website:{" "}
             {invoice?.company?.website || "www.dellcube.com"} | Email:{" "}
             {invoice?.company?.email || "info@dellcube.com"}
           </Text>
           
-          <Text style={styles.companyContact}>
+          <Text
+            style={[
+              styles.companyContact,
+              isLandscape && { fontSize: 8 },
+            ]}
+          >
           GSTIN: {invoice?.company?.gstNumber || ""} | PAN: {invoice?.company?.pan || ""}
           </Text>
         </View>
@@ -874,7 +905,7 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
                   value={renderCurrency(
                     invoice?.invoiceBill ||
                       invoice?.total ||
-                      invoice?.freightCharges
+                      invoice?.invoiceValue
                   )}
                 />
               </View>
@@ -970,7 +1001,7 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
                     { fontWeight: "bold" },
                   ]}
                 >
-                  {renderCurrency(invoice?.total)}
+                  {renderCurrency(invoice?.freightCharges)}
                 </Text>
               </View>
             </View>
@@ -1018,6 +1049,7 @@ function InvoiceCopy({ invoice, logoBase64, copyType }) {
                 </Text>
               </View>
             </View>
+            
             {/* Right column - Remark and Signature */}
             <View style={styles.receiverTableRight}>
               <View style={[styles.receiverRow, { alignItems: "flex-start", minHeight: "4mm", paddingVertical: "0.4mm", borderBottom: "1px solid #000" }]}>
@@ -1091,11 +1123,13 @@ export default function InvoicePDFDocument({ invoice, logoBase64 }) {
             invoice={invoice}
             logoBase64={logoBase64}
             copyType="CONSIGNOR COPY"
+            variant="portrait"
           />
           <InvoiceCopy
             invoice={invoice}
             logoBase64={logoBase64}
             copyType="CONSIGNEE COPY"
+            variant="portrait"
           />
         </View>
       </Page>
@@ -1106,11 +1140,99 @@ export default function InvoicePDFDocument({ invoice, logoBase64 }) {
             invoice={invoice}
             logoBase64={logoBase64}
             copyType="DRIVER COPY"
+            variant="portrait"
           />
           <InvoiceCopy
             invoice={invoice}
             logoBase64={logoBase64}
             copyType="OFFICE COPY"
+            variant="portrait"
+          />
+        </View>
+      </Page>
+    </Document>
+  );
+}
+
+// Landscape version: one docket per page, 4 copies
+export function InvoicePDFDocumentLandscape({ invoice, logoBase64 }) {
+  if (!invoice) {
+    return (
+      <Document>
+        <Page orientation="landscape">
+          <Text>No invoice data provided.</Text>
+        </Page>
+      </Document>
+    );
+  }
+
+  return (
+    <Document>
+      <Page
+        size="A4"
+        orientation="landscape"
+        style={[styles.page, styles.landscapePage]}
+      >
+        <View
+          style={[styles.pageContainer, styles.landscapePageContainer]}
+        >
+          <InvoiceCopy
+            invoice={invoice}
+            logoBase64={logoBase64}
+            copyType="CONSIGNOR COPY"
+            containerStyle={styles.landscapeDocketCopy}
+            variant="landscape"
+          />
+        </View>
+      </Page>
+      <Page
+        size="A4"
+        orientation="landscape"
+        style={[styles.page, styles.landscapePage]}
+      >
+        <View
+          style={[styles.pageContainer, styles.landscapePageContainer]}
+        >
+          <InvoiceCopy
+            invoice={invoice}
+            logoBase64={logoBase64}
+            copyType="CONSIGNEE COPY"
+            containerStyle={styles.landscapeDocketCopy}
+            variant="landscape"
+          />
+        </View>
+      </Page>
+      <Page
+        size="A4"
+        orientation="landscape"
+        style={[styles.page, styles.landscapePage]}
+      >
+        <View
+          style={[styles.pageContainer, styles.landscapePageContainer]}
+        >
+          <InvoiceCopy
+            invoice={invoice}
+            logoBase64={logoBase64}
+            copyType="DRIVER COPY"
+            containerStyle={styles.landscapeDocketCopy}
+            variant="landscape"
+          />
+        </View>
+      </Page>
+      <Page
+        size="A4"
+        orientation="landscape"
+        style={[styles.page, styles.landscapePage]}
+      >
+        <View
+          style={[styles.pageContainer, styles.landscapePageContainer]}
+        >
+          <InvoiceCopy
+            invoice={invoice}
+            logoBase64={logoBase64}
+            copyType="OFFICE COPY"
+            containerStyle={styles.landscapeDocketCopy}
+            variant="landscape"
           />
         </View>
       </Page>

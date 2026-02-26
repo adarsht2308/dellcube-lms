@@ -40,7 +40,7 @@ router.post("/reserve", isAuthenticated, createReservedInvoices);
 
 router.get("/:invoiceId/pdf", generateInvoicePDF);
 
-// Export invoices as CSV
-router.get('/export-csv', exportInvoicesCSV);
+// Export invoices as CSV (must be authenticated so we can enforce company/branch from token)
+router.get("/export-csv", isAuthenticated, exportInvoicesCSV);
 
 export default router;

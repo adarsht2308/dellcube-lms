@@ -976,9 +976,12 @@ export const getAllInvoices = async (req, res) => {
 
     const query = {};
     if (search) query.docketNumber = { $regex: search, $options: "i" };
-    // Use companyId/branchId from token if not provided in query (for non-superAdmin users)
-    const finalCompanyId = companyId || (req.user?.role !== "superAdmin" ? req.companyId : null);
-    const finalBranchId = branchId || (req.user?.role !== "superAdmin" ? req.branchId : null);
+
+    // For non-superAdmin users, ALWAYS enforce company/branch from token (current session),
+    // and ignore any companyId/branchId passed from the client.
+    const isSuperAdmin = req.user?.role === "superAdmin";
+    const finalCompanyId = isSuperAdmin ? companyId : req.companyId || null;
+    const finalBranchId = isSuperAdmin ? branchId : req.branchId || null;
     if (finalCompanyId) query.company = finalCompanyId;
     if (finalBranchId) query.branch = finalBranchId;
     if (customerId) query.customer = customerId;
@@ -1605,8 +1608,15 @@ export const exportInvoicesCSV = async (req, res) => {
       query._id = { $in: idArr };
     } else {
       if (search) query.docketNumber = { $regex: search, $options: "i" };
-      if (companyId) query.company = companyId;
-      if (branchId) query.branch = branchId;
+
+      // For non-superAdmin users, ALWAYS enforce company/branch from token (current session),
+      // and ignore any companyId/branchId passed from the client.
+      const isSuperAdmin = req.user?.role === "superAdmin";
+      const finalCompanyId = isSuperAdmin ? companyId : req.companyId || null;
+      const finalBranchId = isSuperAdmin ? branchId : req.branchId || null;
+
+      if (finalCompanyId) query.company = finalCompanyId;
+      if (finalBranchId) query.branch = finalBranchId;
       if (customerId) query.customer = customerId;
       if (paymentType) query.paymentType = paymentType;
       if (vehicleType) query.vehicleType = vehicleType;
@@ -1897,84 +1907,37 @@ export const exportInvoicesCSV = async (req, res) => {
       SiteId: inv.siteId || "",
       SealNo: inv.sealNo || "",
       SiteType: inv.siteType?.name || "",
-      SiteTypeDescription: inv.siteType?.desc || "",
       TransportMode: inv.transportMode?.name || "",
-      TransportModeDescription: inv.transportMode?.desc || "",
       InvoiceNumbers: formatMultiValueField(inv.invoiceNumber),
       InvoiceBill: inv.invoiceBill || "",
       EwayBillNumbers: formatMultiValueField(inv.ewayBillNo),
       AttemptStatus: attempt?.status || inv.status,
-      AttemptReason: attempt?.reason || "",
-      AttemptedAt: formatDateForExcel(attempt?.attemptedAt),
       Company: inv.company?.name || "",
       CompanyCode: inv.company?.companyCode || "",
-      CompanyAddress: inv.company?.address || "",
-      CompanyContactPhone: inv.company?.contactPhone || "",
-      CompanyEmail: inv.company?.emailId || "",
-      CompanyWebsite: inv.company?.website || "",
-      CompanyGST: inv.company?.gstNumber || "",
-      CompanyGSTValue: inv.company?.gstValue || "",
-      CompanyPAN: inv.company?.pan || "",
-      CompanySACHSNCode: inv.company?.sacHsnCode || "",
-      CompanyType: inv.company?.companyType || "",
       Branch: inv.branch?.name || "",
-      BranchCode: inv.branch?.branchCode || "",
-      BranchAddress: inv.branch?.address || "",
-      BranchGST: inv.branch?.gstNo || "",
-      BranchNumber: inv.branch?.branchNo || "",
       Customer: inv.customer?.name || "",
-      CustomerPhone: inv.customer?.phone || "",
-      CustomerEmail: inv.customer?.email || "",
-      CustomerGST: inv.customer?.gstNumber || "",
-      CustomerAddress: inv.customer?.address || "",
-      CustomerCompanyName: inv.customer?.companyName || "",
-      CustomerCompanyContactName: inv.customer?.companyContactName || "",
-      CustomerCompanyContactInfo: inv.customer?.companyContactInfo || "",
-      CustomerTaxType: inv.customer?.taxType || "",
-      CustomerTaxValue: inv.customer?.taxValue || "",
       GoodsType: inv.goodsType?.name || "",
-      GoodsItems: inv.goodsType?.items?.join("; ") || "",
-      GoodItems: inv.goodItems?.map(item => item.name).join("; ") || "",
       VehicleType: inv.vehicleType || "",
-      VehicleNumber: inv.vehicle?.vehicleNumber || inv.vendorVehicle?.vehicleNumber || "",
+      VehicleNumber:
+        inv.vehicle?.vehicleNumber || inv.vendorVehicle?.vehicleNumber || "",
       VehicleModel: inv.vehicle?.model || "",
-      VehicleBrand: inv.vehicle?.brand || "",
       VehicleSize: inv.vehicle?.type || inv.vehicleSize || "",
       VehicleCargoType: inv.vehicle?.cargoType || "",
-      VehicleYearOfManufacture: inv.vehicle?.yearOfManufacture || "",
-      Vendor: inv.vendor?.name || "",
       VendorPhone: inv.vendor?.phone || "",
       VendorEmail: inv.vendor?.email || "",
-      VendorVehicle: inv.vendorVehicle?.vehicleNumber || "",
       Driver: inv.driver?.name || "",
       DriverPhone: inv.driverContactNumber || inv.driver?.mobile || "",
-      DriverEmail: inv.driver?.email || "",
-      DriverContactNumber: inv.driverContactNumber || inv.driver?.mobile || "",
       Status: inv.status || "",
-      InvoiceDate: formatDateForExcel(inv.invoiceDate),
       DispatchDateTime: formatDateForExcel(inv.dispatchDateTime),
-      FromPincode: inv.fromAddress?.pincode || "",
-      FromPostOffice: inv.fromAddress?.postOfficeName || "",
-      FromDistrict: inv.fromAddress?.district || "",
-      FromTaluk: inv.fromAddress?.taluk || "",
-      FromFullAddress: buildFullAddress(inv.fromAddress) || inv.pickupAddress || "",
-      ToPincode: inv?.toAddress?.pincode || "",
-      ToPostOffice: inv.toAddress?.postOfficeName || "",
-      ToDistrict: inv.toAddress?.district || "",
-      ToTaluk: inv.toAddress?.taluk || "",
-      ToFullAddress: buildFullAddress(inv.toAddress) || inv.deliveryAddress || "",
       TotalWeight: inv?.totalWeight || "",
       NumberOfPackages: inv?.numberOfPackages || "",
       FreightCharges: inv?.freightCharges || "",
       PaymentType: inv?.paymentType || "",
       Remarks: inv?.remarks || "",
-      PickupAddress: inv.pickupAddress || buildFullAddress(inv.fromAddress) || "",
-      DeliveryAddress: inv.deliveryAddress || buildFullAddress(inv.toAddress) || "",
       Consignor: inv.consignor || "",
-      ConsignorAddress: getConsignorAddress(inv) || buildFullAddress(inv.fromAddress) || "",
       ConsignorSiteId: getConsignorSiteId(inv) || "",
       Consignee: inv.consignee || "",
-      ConsigneeAddress: getConsigneeAddress(inv) || buildFullAddress(inv.toAddress) || "",
+      ConsigneeAddress: getConsigneeAddress(inv) || "",
       ConsigneeSiteId: getConsigneeSiteId(inv) || "",
       Address: inv.address || "",
       LoadingContactName: inv.loadingContact?.name || "",
@@ -1989,8 +1952,6 @@ export const exportInvoicesCSV = async (req, res) => {
       "Date & Time": formatDateForExcel(inv.deliveredAt),
       Remark: inv.deliveryProof?.remarks || "",
       DeliveryProofSignature: inv.deliveryProof?.signature ? "Yes" : "",
-      DeliveryAttempts: JSON.stringify(inv.deliveryAttempts || []),
-      DriverUpdates: JSON.stringify(inv.driverUpdates || []),
       CreatedAt: formatDateForExcel(inv.createdAt),
       UpdatedAt: formatDateForExcel(inv.updatedAt),
     });
@@ -2050,23 +2011,58 @@ export const exportInvoicesCSV = async (req, res) => {
 
     // STEP 2: Build field list (base fields + MIS fields)
     const baseFields = [
-      "DocketNumber", "DocketPrefix", "OrderNumber", "SiteId", "SealNo", "SiteType", "SiteTypeDescription",
-      "TransportMode", "TransportModeDescription", "InvoiceNumbers", "InvoiceBill", "EwayBillNumbers",
-      "AttemptStatus", "AttemptReason", "AttemptedAt", "Company", "CompanyCode", "CompanyAddress",
-      "CompanyContactPhone", "CompanyEmail", "CompanyWebsite", "CompanyGST", "CompanyGSTValue", "CompanyPAN",
-      "CompanySACHSNCode", "CompanyType", "Branch", "BranchCode", "BranchAddress", "BranchGST", "BranchNumber",
-      "Customer", "CustomerPhone", "CustomerEmail", "CustomerGST", "CustomerAddress", "CustomerCompanyName",
-      "CustomerCompanyContactName", "CustomerCompanyContactInfo", "CustomerTaxType", "CustomerTaxValue",
-      "GoodsType", "GoodsItems", "GoodItems", "VehicleType", "VehicleNumber", "VehicleModel", "VehicleBrand",
-      "VehicleSize", "VehicleCargoType", "VehicleYearOfManufacture", "Vendor", "VendorPhone", "VendorEmail",
-      "VendorVehicle", "Driver", "DriverPhone", "DriverEmail", "DriverContactNumber", "Status", "InvoiceDate",
-      "DispatchDateTime", "FromPincode", "FromPostOffice", "FromDistrict", "FromTaluk", "FromFullAddress",
-      "ToPincode", "ToPostOffice", "ToDistrict", "ToTaluk", "ToFullAddress", "TotalWeight", "NumberOfPackages",
-      "FreightCharges", "PaymentType", "Remarks", "PickupAddress", "DeliveryAddress", "Consignor",
-      "ConsignorAddress", "ConsignorSiteId", "Consignee", "ConsigneeAddress", "ConsigneeSiteId", "Address",
-      "LoadingContactName", "LoadingContactMobile", "UnloadingContactName", "UnloadingContactMobile",
-      "UndeliveredReason", "DeliveredAt", "Receiver Name", "Mobile No", "Floor", "Date & Time", "Remark",
-      "DeliveryProofSignature", "DeliveryAttempts", "DriverUpdates", "CreatedAt", "UpdatedAt"
+      "DocketNumber",
+      "DispatchDateTime",
+      "DocketPrefix",
+      "OrderNumber",
+      "SiteId",
+      "SealNo",
+      "SiteType",
+      "TransportMode",
+      "InvoiceNumbers",
+      "InvoiceBill",
+      "EwayBillNumbers",
+      "AttemptStatus",
+      "Company",
+      "CompanyCode",
+      "Branch",
+      "Customer",
+      "GoodsType",
+      "VehicleType",
+      "VehicleNumber",
+      "VehicleModel",
+      "VehicleSize",
+      "VehicleCargoType",
+      "VendorPhone",
+      "VendorEmail",
+      "Driver",
+      "DriverPhone",
+      "Status",
+      "TotalWeight",
+      "NumberOfPackages",
+      "FreightCharges",
+      "PaymentType",
+      "Remarks",
+      "Consignor",
+      "ConsignorSiteId",
+      "Consignee",
+      "ConsigneeAddress",
+      "ConsigneeSiteId",
+      "Address",
+      "LoadingContactName",
+      "LoadingContactMobile",
+      "UnloadingContactName",
+      "UnloadingContactMobile",
+      "UndeliveredReason",
+      "DeliveredAt",
+      "Receiver Name",
+      "Mobile No",
+      "Floor",
+      "Date & Time",
+      "Remark",
+      "DeliveryProofSignature",
+      "CreatedAt",
+      "UpdatedAt",
     ];
     
     const misFieldLabels = Array.from(allMisFields.values()).sort();
