@@ -26,7 +26,7 @@ const FieldInputView = ({ value, style }) => (
       style,
     ]}
   >
-    <Text style={{ fontSize: 8, textAlign: "center", width: "100%", lineHeight: 1.2 }}>
+    <Text style={{ fontSize: 9, textAlign: "center", width: "100%", lineHeight: 1.25 }}>
       {value}
     </Text>
   </View>
@@ -265,21 +265,31 @@ const styles = StyleSheet.create({
     marginBottom: "0.8mm",
     marginTop: "0.1mm",
     flexShrink: 1,
+    flexGrow: 1,
+    minHeight: 0,
   },
   leftColumn: {
     width: "82%",
     flexDirection: "column",
     gap: "0.3mm",
+    flexGrow: 1,
+    minHeight: 0,
   },
   rightColumn: {
     width: "18%",
     flexDirection: "column",
+    flexGrow: 1,
+    minHeight: 0,
   },
 
   // Vehicle and Goods Table - Updated structure
   mainTable: {
     border: "1px solid #000",
     fontSize: 8.5,
+  },
+  // Landscape variant: make the main table larger to better fill the page
+  mainTableLandscape: {
+    fontSize: 9.5,
   },
   tableHeader: {
     flexDirection: "row",
@@ -293,13 +303,19 @@ const styles = StyleSheet.create({
     textAlign: "center",
     borderRight: "1px solid #000",
   },
+  tableHeaderCellLandscape: {
+    padding: "0.9mm",
+    fontSize: 9.5,
+  },
   tableRow: {
     flexDirection: "row",
     borderBottom: "1px solid #000",
     alignItems: "center",
     justifyContent: "center",
-    // Increased height to better match freight table
     minHeight: 32,
+  },
+  tableRowLandscape: {
+    minHeight: 40,
   },
   tableCell: {
     padding: "0.9mm",
@@ -308,6 +324,11 @@ const styles = StyleSheet.create({
     minHeight: "5mm",
     alignItems: "center",
     justifyContent: "center",
+  },
+  tableCellLandscape: {
+    padding: "1.1mm",
+    fontSize: 9.5,
+    minHeight: "6mm",
   },
   tableCellCenter: {
     textAlign: "center",
@@ -319,8 +340,14 @@ const styles = StyleSheet.create({
     textAlign: "center",
     width: "100%",
   },
+  fieldLabelLandscape: {
+    fontSize: 8,
+  },
   fieldValue: {
     fontSize: 8,
+  },
+  fieldValueLandscape: {
+    fontSize: 9,
   },
 
   // Freight Chart Section (Right Column)
@@ -836,24 +863,58 @@ function InvoiceCopy({ invoice, logoBase64, copyType, containerStyle, variant })
       <View style={styles.contentArea}>
         {/* Left Column - Vehicle and Goods Table */}
         <View style={styles.leftColumn}>
-          <View style={styles.mainTable}>
+          <View
+            style={[
+              styles.mainTable,
+              isLandscape && styles.mainTableLandscape,
+            ]}
+          >
             <View style={styles.tableHeader}>
-              <Text style={[styles.tableHeaderCell, { width: "30%" }]}>
+              <Text
+                style={[
+                  styles.tableHeaderCell,
+                  isLandscape && styles.tableHeaderCellLandscape,
+                  { width: "30%" },
+                ]}
+              >
                 VEHICLE DETAILS
               </Text>
-              <Text style={[styles.tableHeaderCell, { width: "20%" }]}>
+              <Text
+                style={[
+                  styles.tableHeaderCell,
+                  isLandscape && styles.tableHeaderCellLandscape,
+                  { width: "20%" },
+                ]}
+              >
                 QTY
               </Text>
-              <Text style={[styles.tableHeaderCell, { width: "30%" }]}>
+              <Text
+                style={[
+                  styles.tableHeaderCell,
+                  isLandscape && styles.tableHeaderCellLandscape,
+                  { width: "30%" },
+                ]}
+              >
                 GOODS DESCRIPTION
               </Text>
-              <Text style={[styles.tableHeaderCell, { width: "20%", borderRight: "none" }]}>
+              <Text
+                style={[
+                  styles.tableHeaderCell,
+                  isLandscape && styles.tableHeaderCellLandscape,
+                  { width: "20%", borderRight: "none" },
+                ]}
+              >
                 WEIGHT
               </Text>
             </View>
 
             {/* Vehicle Number Row */}
-            <View style={styles.tableRow}>
+            <View
+              style={[
+                styles.tableRow,
+                isLandscape && styles.tableRowLandscape,
+              ]}
+            >
               <View style={[styles.tableCell, { width: "30%" }]}>
                 <Text style={styles.fieldLabel}>VEHICLE NUMBER:</Text>
                 <FieldInputView
@@ -890,17 +951,43 @@ function InvoiceCopy({ invoice, logoBase64, copyType, containerStyle, variant })
             </View>
 
             {/* Vehicle Type Row */}
-            <View style={styles.tableRow}>
+            <View
+              style={[
+                styles.tableRow,
+                isLandscape && styles.tableRowLandscape,
+              ]}
+            >
               <View style={[styles.tableCell, { width: "30%" }]}>
-                <Text style={styles.fieldLabel}>VEHICLE TYPE:</Text>
+                <Text
+                  style={[
+                    styles.fieldLabel,
+                    isLandscape && styles.fieldLabelLandscape,
+                  ]}
+                >
+                  VEHICLE TYPE:
+                </Text>
                 <FieldInputView value={invoice?.vehicleSize || ""} />
               </View>
               <View style={[styles.tableCell, { width: "20%" }]}>
-                <Text style={styles.fieldLabel}>INV NO:</Text>
+                <Text
+                  style={[
+                    styles.fieldLabel,
+                    isLandscape && styles.fieldLabelLandscape,
+                  ]}
+                >
+                  INV NO:
+                </Text>
                 <FieldInputView value={renderMultiValue(invoice?.invoiceNumber)} />
               </View>
               <View style={[styles.tableCell, { width: "30%" }]}>
-                <Text style={styles.fieldLabel}>INVOICE VALUE:</Text>
+                <Text
+                  style={[
+                    styles.fieldLabel,
+                    isLandscape && styles.fieldLabelLandscape,
+                  ]}
+                >
+                  INVOICE VALUE:
+                </Text>
                 <FieldInputView
                   value={renderCurrency(
                     invoice?.invoiceBill ||
@@ -915,7 +1002,14 @@ function InvoiceCopy({ invoice, logoBase64, copyType, containerStyle, variant })
                   { width: "20%", borderRight: "none" },
                 ]}
               >
-                <Text style={styles.fieldLabel}>E-WAY BILL:</Text>
+                <Text
+                  style={[
+                    styles.fieldLabel,
+                    isLandscape && styles.fieldLabelLandscape,
+                  ]}
+                >
+                  E-WAY BILL:
+                </Text>
                 <FieldInputView
                   value={renderMultiValue(
                     invoice?.ewayBillNo || invoice?.wayBillNo
@@ -925,17 +1019,43 @@ function InvoiceCopy({ invoice, logoBase64, copyType, containerStyle, variant })
             </View>
 
             {/* Driver Row */}
-            <View style={styles.tableRow}>
+            <View
+              style={[
+                styles.tableRow,
+                isLandscape && styles.tableRowLandscape,
+              ]}
+            >
               <View style={[styles.tableCell, { width: "30%" }]}>
-                <Text style={styles.fieldLabel}>DRIVER NAME:</Text>
+                <Text
+                  style={[
+                    styles.fieldLabel,
+                    isLandscape && styles.fieldLabelLandscape,
+                  ]}
+                >
+                  DRIVER NAME:
+                </Text>
                 <FieldInputView value={invoice?.driver?.name || ""} />
               </View>
               <View style={[styles.tableCell, { width: "20%" }]}>
-                <Text style={styles.fieldLabel}>SITE ID:</Text>
+                <Text
+                  style={[
+                    styles.fieldLabel,
+                    isLandscape && styles.fieldLabelLandscape,
+                  ]}
+                >
+                  SITE ID:
+                </Text>
                 <FieldInputView value={invoice?.siteId || ""} />
               </View>
               <View style={[styles.tableCell, { width: "30%" }]}>
-                <Text style={styles.fieldLabel}>SITE TYPE:</Text>
+                <Text
+                  style={[
+                    styles.fieldLabel,
+                    isLandscape && styles.fieldLabelLandscape,
+                  ]}
+                >
+                  SITE TYPE:
+                </Text>
                 <FieldInputView value={invoice?.siteType?.name || ""} />
               </View>
               <View
@@ -944,23 +1064,56 @@ function InvoiceCopy({ invoice, logoBase64, copyType, containerStyle, variant })
                   { width: "20%", borderRight: "none" },
                 ]}
               >
-                <Text style={styles.fieldLabel}>ORDER:</Text>
+                <Text
+                  style={[
+                    styles.fieldLabel,
+                    isLandscape && styles.fieldLabelLandscape,
+                  ]}
+                >
+                  ORDER:
+                </Text>
                 <FieldInputView value={invoice?.orderNumber || ""} />
               </View>
             </View>
 
             {/* Driver Contact Row */}
-            <View style={styles.tableRow}>
+            <View
+              style={[
+                styles.tableRow,
+                isLandscape && styles.tableRowLandscape,
+              ]}
+            >
               <View style={[styles.tableCell, { width: "30%" }]}>
-                <Text style={styles.fieldLabel}>DRIVER PHONE:</Text>
+                <Text
+                  style={[
+                    styles.fieldLabel,
+                    isLandscape && styles.fieldLabelLandscape,
+                  ]}
+                >
+                  DRIVER PHONE:
+                </Text>
                 <FieldInputView value={invoice?.driverContactNumber || ""} />
               </View>
               <View style={[styles.tableCell, { width: "20%" }]}>
-                <Text style={styles.fieldLabel}>SEAL NO:</Text>
+                <Text
+                  style={[
+                    styles.fieldLabel,
+                    isLandscape && styles.fieldLabelLandscape,
+                  ]}
+                >
+                  SEAL NO:
+                </Text>
                 <FieldInputView value={invoice?.sealNo || ""} />
               </View>
               <View style={[styles.tableCell, { width: "30%" }]}>
-                <Text style={styles.fieldLabel}>TRANSPORT MODE:</Text>
+                <Text
+                  style={[
+                    styles.fieldLabel,
+                    isLandscape && styles.fieldLabelLandscape,
+                  ]}
+                >
+                  TRANSPORT MODE:
+                </Text>
                 <FieldInputView value={invoice?.transportMode?.name || ""} />
               </View>
               <View
@@ -1001,7 +1154,7 @@ function InvoiceCopy({ invoice, logoBase64, copyType, containerStyle, variant })
                     { fontWeight: "bold" },
                   ]}
                 >
-                  {renderCurrency(invoice?.freightCharges)}
+                  {/* {renderCurrency(invoice?)} */}
                 </Text>
               </View>
             </View>

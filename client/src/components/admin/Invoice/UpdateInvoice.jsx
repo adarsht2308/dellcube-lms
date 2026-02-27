@@ -1552,7 +1552,16 @@ const UpdateInvoice = () => {
       );
       if (consignorObj) {
         setConsignor(consignorObj.consignor);
-        setConsignorAddress(consignorObj.address || "");
+        if (consignorObj.city || consignorObj.state || consignorObj.postCode) {
+          const parts = [
+            consignorObj.city,
+            consignorObj.state,
+            consignorObj.postCode,
+          ].filter(Boolean);
+          setConsignorAddress(parts.join(", "));
+        } else {
+          setConsignorAddress(consignorObj.address || "");
+        }
         if (consignorObj.siteId) {
           setSiteId(consignorObj.siteId);
         }
@@ -1567,7 +1576,16 @@ const UpdateInvoice = () => {
       );
       if (consigneeObj) {
         setConsignee(consigneeObj.consignee);
-        setConsigneeAddress(consigneeObj.address || "");
+        if (consigneeObj.city || consigneeObj.state || consigneeObj.postCode) {
+          const parts = [
+            consigneeObj.city,
+            consigneeObj.state,
+            consigneeObj.postCode,
+          ].filter(Boolean);
+          setConsigneeAddress(parts.join(", "));
+        } else {
+          setConsigneeAddress(consigneeObj.address || "");
+        }
         setSiteId(consigneeObj.siteId || "");
       }
     }

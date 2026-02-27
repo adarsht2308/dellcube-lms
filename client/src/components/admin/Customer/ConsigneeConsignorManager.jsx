@@ -62,12 +62,24 @@ const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [
     siteId: "",
     name: "",
     address: "",
+    state: "",
+    city: "",
+    postCode: "",
+    siteCategory: "",
   });
 
   const [csvData, setCsvData] = useState([]);
 
   const handleAddNew = () => {
-    setFormData({ siteId: "", name: "", address: "" });
+    setFormData({
+      siteId: "",
+      name: "",
+      address: "",
+      state: "",
+      city: "",
+      postCode: "",
+      siteCategory: "",
+    });
     setIsAddModalOpen(true);
   };
 
@@ -77,12 +89,20 @@ const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [
         siteId: item.siteId || "",
         name: item.consignee || "",
         address: item.address || "",
+        state: item.state || "",
+        city: item.city || "",
+        postCode: item.postCode || "",
+        siteCategory: item.siteCategory || "",
       });
     } else {
       setFormData({
         siteId: item.siteId || "",
         name: item.consignor || "",
         address: item.address || "",
+        state: item.state || "",
+        city: item.city || "",
+        postCode: item.postCode || "",
+        siteCategory: item.siteCategory || "",
       });
     }
     setEditingItem(item);
@@ -148,6 +168,10 @@ const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [
             siteId: formData.siteId,
             consignee: formData.name,
             address: formData.address,
+            state: (formData.state || "").toUpperCase(),
+            city: (formData.city || "").toUpperCase(),
+            postCode: formData.postCode || "",
+            siteCategory: (formData.siteCategory || "").toUpperCase(),
           },
         ];
         await updateCustomer({
@@ -167,6 +191,10 @@ const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [
             siteId: formData.siteId,
             consignor: formData.name,
             address: formData.address,
+            state: (formData.state || "").toUpperCase(),
+            city: (formData.city || "").toUpperCase(),
+            postCode: formData.postCode || "",
+            siteCategory: (formData.siteCategory || "").toUpperCase(),
           },
         ];
         await updateCustomer({
@@ -177,7 +205,15 @@ const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [
         toast.success("Consignor added successfully");
       }
       setIsAddModalOpen(false);
-      setFormData({ siteId: "", name: "", address: "" });
+      setFormData({
+        siteId: "",
+        name: "",
+        address: "",
+        state: "",
+        city: "",
+        postCode: "",
+        siteCategory: "",
+      });
     } catch (error) {
       toast.error(error?.data?.message || "Failed to add entry");
       console.error(error);
@@ -206,6 +242,10 @@ const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [
           siteId: formData.siteId,
           consignee: formData.name,
           address: formData.address,
+          state: (formData.state || "").toUpperCase(),
+          city: (formData.city || "").toUpperCase(),
+          postCode: formData.postCode || "",
+          siteCategory: (formData.siteCategory || "").toUpperCase(),
         };
         await updateCustomer({
           ...basePayload,
@@ -223,6 +263,10 @@ const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [
           siteId: formData.siteId,
           consignor: formData.name,
           address: formData.address,
+          state: (formData.state || "").toUpperCase(),
+          city: (formData.city || "").toUpperCase(),
+          postCode: formData.postCode || "",
+          siteCategory: (formData.siteCategory || "").toUpperCase(),
         };
         await updateCustomer({
           ...basePayload,
@@ -234,14 +278,22 @@ const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [
       setIsEditModalOpen(false);
       setEditingItem(null);
       setEditingIndex(null);
-      setFormData({ siteId: "", name: "", address: "" });
+      setFormData({
+        siteId: "",
+        name: "",
+        address: "",
+        state: "",
+        city: "",
+        postCode: "",
+        siteCategory: "",
+      });
     } catch (error) {
       toast.error(error?.data?.message || "Failed to update entry");
       console.error(error);
     }
   };
 
-  const handleExport = async () => {
+      const handleExport = async () => {
     try {
       let data;
       if (activeTab === "consignees") {
@@ -258,12 +310,24 @@ const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [
       }
 
       // Create CSV content
-      const headers = ["Site ID", "Name", "Address"];
+      const headers = [
+        "Site ID",
+        "Name",
+        "Address",
+        "State",
+        "City",
+        "PostCode",
+        "Site / Warehouse",
+      ];
       const csvContent = [
         headers.join(","),
         ...data.map((item) => {
           const name = activeTab === "consignees" ? item.consignee : item.consignor;
-          return `"${item.siteId || ""}","${name || ""}","${item.address || ""}"`;
+          return `"${item.siteId || ""}","${name || ""}","${
+            item.address || ""
+          }","${item.state || ""}","${item.city || ""}","${
+            item.postCode || ""
+          }","${item.siteCategory || ""}"`;
         }),
       ].join("\n");
 
@@ -316,10 +380,16 @@ const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [
           }
           values.push(currentValue.trim());
 
+          const get = (idx) => (values[idx] || "").trim();
+
           return {
-            siteId: values[0] || "",
-            name: values[1] || "",
-            address: values[2] || "",
+            siteId: get(0),
+            name: get(1),
+            address: get(2),
+            state: get(3).toUpperCase(),
+            city: get(4).toUpperCase(),
+            postCode: get(5),
+            siteCategory: get(6).toUpperCase(),
           };
         }).filter((item) => item.name); // Filter out empty rows
 
@@ -345,6 +415,10 @@ const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [
           siteId: item.siteId,
           consignee: item.name,
           address: item.address,
+          state: (item.state || "").toUpperCase(),
+          city: (item.city || "").toUpperCase(),
+          postCode: item.postCode || "",
+          siteCategory: (item.siteCategory || "").toUpperCase(),
         }));
         const response = await bulkUploadConsignees({
           customerId,
@@ -357,6 +431,10 @@ const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [
           siteId: item.siteId,
           consignor: item.name,
           address: item.address,
+          state: (item.state || "").toUpperCase(),
+          city: (item.city || "").toUpperCase(),
+          postCode: item.postCode || "",
+          siteCategory: (item.siteCategory || "").toUpperCase(),
         }));
         const response = await bulkUploadConsignors({
           customerId,
@@ -378,9 +456,9 @@ const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [
 
   const downloadSampleCSV = () => {
     const csvContent = [
-      "Site ID,Name,Address",
-      '"MB5979","WNS CENTAURUS","123 Main Street, City"',
-      '"3628","Sadhana Towers","456 Park Avenue, Town"',
+      "Site ID,Name,Address,State,City,PostCode,Site / Warehouse",
+      '"MB5979","WNS CENTAURUS","123 MAIN STREET","MAHARASHTRA","MUMBAI","400001","SITE"',
+      '"3628","SADHANA TOWERS","456 PARK AVENUE","KARNATAKA","BENGALURU","560001","WAREHOUSE"',
     ].join("\n");
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -512,14 +590,18 @@ const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [
           </div>
 
           {/* Desktop View - Table */}
-          <div className="hidden md:block rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto">
-            <Table>
+          <div className="hidden md:block w-full rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto">
+            <Table className="w-full">
               <TableHeader>
                 <TableRow className="bg-gray-100 dark:bg-gray-800">
                   <TableHead className="font-semibold">#</TableHead>
                   <TableHead className="font-semibold">Site ID</TableHead>
                   <TableHead className="font-semibold">Consignee Name</TableHead>
                   <TableHead className="font-semibold">Address</TableHead>
+                  <TableHead className="font-semibold">State</TableHead>
+                  <TableHead className="font-semibold">City</TableHead>
+                  <TableHead className="font-semibold">PostCode</TableHead>
+                  <TableHead className="font-semibold">Site / Warehouse</TableHead>
                   <TableHead className="text-right font-semibold">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -539,6 +621,10 @@ const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [
                       <TableCell className="max-w-xs truncate">
                         {item.address || <span className="text-gray-400">—</span>}
                       </TableCell>
+                      <TableCell>{item.state || <span className="text-gray-400">—</span>}</TableCell>
+                      <TableCell>{item.city || <span className="text-gray-400">—</span>}</TableCell>
+                      <TableCell>{item.postCode || <span className="text-gray-400">—</span>}</TableCell>
+                      <TableCell>{item.siteCategory || <span className="text-gray-400">—</span>}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex gap-2 justify-end">
                           <Button
@@ -622,14 +708,18 @@ const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [
           </div>
 
           {/* Desktop View - Table */}
-          <div className="hidden md:block rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto">
-            <Table>
+          <div className="hidden md:block w-full rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto">
+            <Table className="w-full">
               <TableHeader>
                 <TableRow className="bg-gray-100 dark:bg-gray-800">
                   <TableHead className="font-semibold">#</TableHead>
                   <TableHead className="font-semibold">Site ID</TableHead>
                   <TableHead className="font-semibold">Consignor Name</TableHead>
                   <TableHead className="font-semibold">Address</TableHead>
+                  <TableHead className="font-semibold">State</TableHead>
+                  <TableHead className="font-semibold">City</TableHead>
+                  <TableHead className="font-semibold">PostCode</TableHead>
+                  <TableHead className="font-semibold">Site / Warehouse</TableHead>
                   <TableHead className="text-right font-semibold">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -651,6 +741,10 @@ const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [
                       <TableCell className="max-w-xs truncate">
                         {item.address || <span className="text-gray-400">—</span>}
                       </TableCell>
+                      <TableCell>{item.state || <span className="text-gray-400">—</span>}</TableCell>
+                      <TableCell>{item.city || <span className="text-gray-400">—</span>}</TableCell>
+                      <TableCell>{item.postCode || <span className="text-gray-400">—</span>}</TableCell>
+                      <TableCell>{item.siteCategory || <span className="text-gray-400">—</span>}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex gap-2 justify-end">
                           <Button
@@ -731,6 +825,57 @@ const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [
                 className="mt-1.5"
               />
             </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <Label htmlFor="state">State</Label>
+                <Input
+                  id="state"
+                  placeholder="e.g., MAHARASHTRA"
+                  value={formData.state}
+                  onChange={(e) =>
+                    setFormData({ ...formData, state: e.target.value.toUpperCase() })
+                  }
+                  className="mt-1.5"
+                />
+              </div>
+              <div>
+                <Label htmlFor="city">City</Label>
+                <Input
+                  id="city"
+                  placeholder="e.g., MUMBAI"
+                  value={formData.city}
+                  onChange={(e) =>
+                    setFormData({ ...formData, city: e.target.value.toUpperCase() })
+                  }
+                  className="mt-1.5"
+                />
+              </div>
+              <div>
+                <Label htmlFor="postCode">PostCode / Pincode</Label>
+                <Input
+                  id="postCode"
+                  placeholder="e.g., 400001"
+                  value={formData.postCode}
+                  onChange={(e) => setFormData({ ...formData, postCode: e.target.value })}
+                  className="mt-1.5"
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="siteCategory">SITE / WAREHOUSE</Label>
+              <Input
+                id="siteCategory"
+                placeholder="e.g., SITE or WAREHOUSE"
+                value={formData.siteCategory}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    siteCategory: e.target.value.toUpperCase(),
+                  })
+                }
+                className="mt-1.5"
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button 
@@ -799,6 +944,59 @@ const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [
                 className="mt-1.5"
               />
             </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <Label htmlFor="edit-state">State</Label>
+                <Input
+                  id="edit-state"
+                  placeholder="e.g., MAHARASHTRA"
+                  value={formData.state}
+                  onChange={(e) =>
+                    setFormData({ ...formData, state: e.target.value.toUpperCase() })
+                  }
+                  className="mt-1.5"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-city">City</Label>
+                <Input
+                  id="edit-city"
+                  placeholder="e.g., MUMBAI"
+                  value={formData.city}
+                  onChange={(e) =>
+                    setFormData({ ...formData, city: e.target.value.toUpperCase() })
+                  }
+                  className="mt-1.5"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-postCode">PostCode / Pincode</Label>
+                <Input
+                  id="edit-postCode"
+                  placeholder="e.g., 400001"
+                  value={formData.postCode}
+                  onChange={(e) =>
+                    setFormData({ ...formData, postCode: e.target.value })
+                  }
+                  className="mt-1.5"
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="edit-siteCategory">SITE / WAREHOUSE</Label>
+              <Input
+                id="edit-siteCategory"
+                placeholder="e.g., SITE or WAREHOUSE"
+                value={formData.siteCategory}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    siteCategory: e.target.value.toUpperCase(),
+                  })
+                }
+                className="mt-1.5"
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button 
@@ -841,7 +1039,14 @@ const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [
                 >
                   <div className="font-medium mb-1">#{index + 1} - {item.siteId}</div>
                   <div className="font-medium">{item.name}</div>
-                  <div className="text-gray-600 dark:text-gray-400 line-clamp-1">{item.address}</div>
+                  <div className="text-gray-600 dark:text-gray-400 line-clamp-1">
+                    {item.address}
+                  </div>
+                  <div className="text-gray-500 dark:text-gray-400">
+                    {[item.state, item.city, item.postCode, item.siteCategory]
+                      .filter(Boolean)
+                      .join(" • ")}
+                  </div>
                 </div>
               ))}
             </div>
@@ -855,6 +1060,10 @@ const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [
                     <TableHead>Site ID</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Address</TableHead>
+                    <TableHead>State</TableHead>
+                    <TableHead>City</TableHead>
+                    <TableHead>PostCode</TableHead>
+                    <TableHead>Site / Warehouse</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -864,6 +1073,10 @@ const ConsigneeConsignorManager = ({ customerId, consignees = [], consignors = [
                       <TableCell className="font-mono text-sm">{item.siteId}</TableCell>
                       <TableCell>{item.name}</TableCell>
                       <TableCell className="max-w-xs truncate">{item.address}</TableCell>
+                      <TableCell>{item.state}</TableCell>
+                      <TableCell>{item.city}</TableCell>
+                      <TableCell>{item.postCode}</TableCell>
+                      <TableCell>{item.siteCategory}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

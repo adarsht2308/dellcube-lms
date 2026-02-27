@@ -1104,7 +1104,18 @@ export const getAllInvoices = async (req, res) => {
         if (!consignor && inv.siteId) {
           consignor = inv.customer.consignors.find(c => c.siteId === inv.siteId);
         }
-        if (consignor?.address) return consignor.address;
+        if (consignor) {
+          // Prefer CITY, STATE, PINCODE if available; otherwise use address
+          if (consignor.city || consignor.state || consignor.postCode) {
+            const parts = [
+              consignor.city,
+              consignor.state,
+              consignor.postCode,
+            ].filter(Boolean);
+            if (parts.length) return parts.join(", ");
+          }
+          if (consignor.address) return consignor.address;
+        }
       }
       return buildFullAddress(inv.fromAddress);
     };
@@ -1116,7 +1127,17 @@ export const getAllInvoices = async (req, res) => {
         if (!consignee && inv.siteId) {
           consignee = inv.customer.consignees.find(c => c.siteId === inv.siteId);
         }
-        if (consignee?.address) return consignee.address;
+        if (consignee) {
+          if (consignee.city || consignee.state || consignee.postCode) {
+            const parts = [
+              consignee.city,
+              consignee.state,
+              consignee.postCode,
+            ].filter(Boolean);
+            if (parts.length) return parts.join(", ");
+          }
+          if (consignee.address) return consignee.address;
+        }
       }
       return buildFullAddress(inv.toAddress);
     };
@@ -1856,7 +1877,18 @@ export const exportInvoicesCSV = async (req, res) => {
         if (!consignor && inv.siteId) {
           consignor = inv.customer.consignors.find(c => c.siteId === inv.siteId);
         }
-        if (consignor?.address) return consignor.address;
+        if (consignor) {
+          // Prefer CITY, STATE, PINCODE if available; otherwise use address
+          if (consignor.city || consignor.state || consignor.postCode) {
+            const parts = [
+              consignor.city,
+              consignor.state,
+              consignor.postCode,
+            ].filter(Boolean);
+            if (parts.length) return parts.join(", ");
+          }
+          if (consignor.address) return consignor.address;
+        }
       }
       return "";
     };
@@ -1868,7 +1900,17 @@ export const exportInvoicesCSV = async (req, res) => {
         if (!consignee && inv.siteId) {
           consignee = inv.customer.consignees.find(c => c.siteId === inv.siteId);
         }
-        if (consignee?.address) return consignee.address;
+        if (consignee) {
+          if (consignee.city || consignee.state || consignee.postCode) {
+            const parts = [
+              consignee.city,
+              consignee.state,
+              consignee.postCode,
+            ].filter(Boolean);
+            if (parts.length) return parts.join(", ");
+          }
+          if (consignee.address) return consignee.address;
+        }
       }
       return "";
     };

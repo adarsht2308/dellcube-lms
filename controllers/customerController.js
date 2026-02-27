@@ -361,8 +361,12 @@ export const bulkUploadConsignees = async (req, res) => {
     let updated = 0;
     let errors = [];
 
+    const toUpper = (val) =>
+      typeof val === "string" ? val.trim().toUpperCase() : "";
+
     for (const item of consignees) {
-      const { siteId, consignee, address } = item;
+      const { siteId, consignee, address, state, city, postCode, siteCategory } =
+        item;
 
       if (!siteId || !consignee) {
         errors.push({ siteId, error: "Site ID and Consignee name are required" });
@@ -374,11 +378,24 @@ export const bulkUploadConsignees = async (req, res) => {
       );
 
       if (existingIndex !== -1) {
-        customer.consignees[existingIndex].consignee = consignee;
-        customer.consignees[existingIndex].address = address || "";
+        const existing = customer.consignees[existingIndex];
+        existing.consignee = consignee;
+        existing.address = address || existing.address || "";
+        if (state) existing.state = toUpper(state);
+        if (city) existing.city = toUpper(city);
+        if (postCode) existing.postCode = postCode;
+        if (siteCategory) existing.siteCategory = toUpper(siteCategory);
         updated++;
       } else {
-        customer.consignees.push({ siteId, consignee, address: address || "" });
+        customer.consignees.push({
+          siteId,
+          consignee,
+          address: address || "",
+          state: toUpper(state),
+          city: toUpper(city),
+          postCode: postCode || "",
+          siteCategory: toUpper(siteCategory),
+        });
         added++;
       }
     }
@@ -443,8 +460,12 @@ export const bulkUploadConsignors = async (req, res) => {
     let updated = 0;
     let errors = [];
 
+    const toUpper = (val) =>
+      typeof val === "string" ? val.trim().toUpperCase() : "";
+
     for (const item of consignors) {
-      const { siteId, consignor, address } = item;
+      const { siteId, consignor, address, state, city, postCode, siteCategory } =
+        item;
 
       if (!consignor) {
         errors.push({ siteId, error: "Consignor name is required" });
@@ -457,15 +478,36 @@ export const bulkUploadConsignors = async (req, res) => {
         );
 
         if (existingIndex !== -1) {
-          customer.consignors[existingIndex].consignor = consignor;
-          customer.consignors[existingIndex].address = address || "";
+          const existing = customer.consignors[existingIndex];
+          existing.consignor = consignor;
+          existing.address = address || existing.address || "";
+          if (state) existing.state = toUpper(state);
+          if (city) existing.city = toUpper(city);
+          if (postCode) existing.postCode = postCode;
+          if (siteCategory) existing.siteCategory = toUpper(siteCategory);
           updated++;
         } else {
-          customer.consignors.push({ siteId, consignor, address: address || "" });
+          customer.consignors.push({
+            siteId,
+            consignor,
+            address: address || "",
+            state: toUpper(state),
+            city: toUpper(city),
+            postCode: postCode || "",
+            siteCategory: toUpper(siteCategory),
+          });
           added++;
         }
       } else {
-        customer.consignors.push({ siteId: "", consignor, address: address || "" });
+        customer.consignors.push({
+          siteId: "",
+          consignor,
+          address: address || "",
+          state: toUpper(state),
+          city: toUpper(city),
+          postCode: postCode || "",
+          siteCategory: toUpper(siteCategory),
+        });
         added++;
       }
     }

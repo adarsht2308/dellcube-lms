@@ -3110,19 +3110,6 @@ export const sendPasswordResetOTPController = async (req, res) => {
       });
     }
 
-    // Check if OTP was already sent recently (within 1 minute)
-    if (passwordResetOTPs.has(email)) {
-      const existingOTP = passwordResetOTPs.get(email);
-      const timeSinceLastOTP = Date.now() - existingOTP.sentAt;
-      if (timeSinceLastOTP < 60000) {
-        // 1 minute cooldown
-        return res.status(429).json({
-          success: false,
-          message: "Please wait before requesting another OTP",
-        });
-      }
-    }
-
     // Generate OTP
     const otp = generateOTP();
 

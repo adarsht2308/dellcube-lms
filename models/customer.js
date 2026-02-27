@@ -64,17 +64,40 @@ const customerSchema = new mongoose.Schema(
     // New Consignee and Consignor Fields
     consignees: [
       {
+        // Site ID (Only if Exist | Otherwise keep it Blank)
         siteId: {
           type: String,
           required: true,
           trim: true,
         },
+        // ConsigneeName
         consignee: {
           type: String,
           required: true,
           trim: true,
         },
+        // Address (Keep it short)
         address: {
+          type: String,
+          trim: true,
+        },
+        // State (stored in uppercase from UI/backend)
+        state: {
+          type: String,
+          trim: true,
+        },
+        // City (stored in uppercase from UI/backend)
+        city: {
+          type: String,
+          trim: true,
+        },
+        // PostCode | Pincode
+        postCode: {
+          type: String,
+          trim: true,
+        },
+        // SITE / WAREHOUSE label
+        siteCategory: {
           type: String,
           trim: true,
         },
@@ -93,6 +116,22 @@ const customerSchema = new mongoose.Schema(
           trim: true,
         },
         address: {
+          type: String,
+          trim: true,
+        },
+        state: {
+          type: String,
+          trim: true,
+        },
+        city: {
+          type: String,
+          trim: true,
+        },
+        postCode: {
+          type: String,
+          trim: true,
+        },
+        siteCategory: {
           type: String,
           trim: true,
         },
