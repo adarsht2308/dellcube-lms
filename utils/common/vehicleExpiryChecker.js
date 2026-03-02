@@ -1,6 +1,34 @@
+import mongoose from "mongoose";
 import { Vehicle } from "../../models/vehicle.js";
 import { User } from "../../models/user.js";
 import { sendVehicleExpiryNotification } from "./sendMail.js";
+
+/** Wait for MongoDB to be connected, with a timeout. Avoids buffering timeout when DB isn't ready yet. */
+const waitForConnection = (timeoutMs = 15000) =>
+  new Promise((resolve, reject) => {
+    if (mongoose.connection.readyState === 1) {
+      return resolve();
+    }
+    const onConnected = () => {
+      cleanup();
+      resolve();
+    };
+    const onError = (err) => {
+      cleanup();
+      reject(err);
+    };
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error("Database connection timeout"));
+    }, timeoutMs);
+    const cleanup = () => {
+      clearTimeout(timer);
+      mongoose.connection.removeListener("connected", onConnected);
+      mongoose.connection.removeListener("error", onError);
+    };
+    mongoose.connection.once("connected", onConnected);
+    mongoose.connection.once("error", onError);
+  });
 
 // Function to get recipients for vehicle notifications
 const getVehicleNotificationRecipients = async (vehicle) => {
@@ -55,7 +83,7 @@ const getVehicleNotificationRecipients = async (vehicle) => {
 export const checkAllVehiclesForExpiry = async () => {
   try {
     console.log("Starting vehicle document expiry check...");
-    
+    await waitForConnection();
     const today = new Date();
     const thirtyDaysFromNow = new Date(today.getTime() + (30 * 24 * 60 * 60 * 1000));
     
@@ -127,7 +155,8 @@ export const checkAllVehiclesForExpiry = async () => {
     console.error("Error in vehicle expiry check:", error);
     return {
       success: false,
-      error: error.message
+      error: error.message,
+      message: error.message || "Vehicle expiry check failed",
     };
   }
 };

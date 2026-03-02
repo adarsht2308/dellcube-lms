@@ -2531,6 +2531,17 @@ const UpdateInvoice = () => {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label className="text-sm font-medium">Seal No.</Label>
+                  <Input
+                    type="text"
+                    value={sealNo}
+                    onChange={(e) => setSealNo(e.target.value)}
+                    placeholder="Enter seal number"
+                    className="w-full"
+                    disabled={isFormDisabled}
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label className="text-sm font-medium">Freight Charges</Label>
                   <Input
                     type="number"

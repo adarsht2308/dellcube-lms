@@ -84,14 +84,11 @@ export function SearchableSelect({
         portalled={portalled}
         className="w-[var(--radix-popover-trigger-width)] p-0 z-[60]"
         align="start"
-        onOpenAutoFocus={(e) => {
-          // Prevent focus fighting (especially inside Dialog)
-          e.preventDefault();
-        }}
       >
         <div className="flex items-center border-b px-3">
           <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
           <Input
+            autoFocus
             placeholder="Search..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}

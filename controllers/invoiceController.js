@@ -1476,6 +1476,10 @@ export const updateInvoice = async (req, res) => {
       invoice.transportMode = updates.transportMode;
     }
 
+    if (updates.sealNo !== undefined) {
+      invoice.sealNo = updates.sealNo;
+    }
+
     if (
       updates.status &&
       attemptStatuses.includes(updates.status) &&

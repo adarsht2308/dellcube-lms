@@ -9,7 +9,6 @@ import fs from "fs";
 import { activityLogger } from "./middlewares/activityLogger.js";
 
 dotenv.config();
-connectDB();
 
 const app = express();
 
@@ -92,17 +91,24 @@ app.get("*", (req, res) => {
 
 const PORT = process.env.PORT || 8080;
 
-app.listen(PORT, () => {
-  console.log(`Server is running at ${PORT}`);
-  
-  // Initialize scheduled tasks (vehicle expiry checks, etc.)
-  import("./utils/common/scheduler.js").then(async ({ initializeScheduler }) => {
-    try {
-      await initializeScheduler();
-    } catch (error) {
-      console.error("Failed to initialize scheduler:", error);
-    }
-  }).catch(error => {
-    console.error("Failed to load scheduler:", error);
-  });
-});
+(async () => {
+  try {
+    await connectDB();
+    app.listen(PORT, () => {
+      console.log(`Server is running at ${PORT}`);
+      // Initialize scheduled tasks (vehicle expiry checks, etc.) after DB is ready
+      import("./utils/common/scheduler.js").then(async ({ initializeScheduler }) => {
+        try {
+          await initializeScheduler();
+        } catch (error) {
+          console.error("Failed to initialize scheduler:", error);
+        }
+      }).catch(error => {
+        console.error("Failed to load scheduler:", error);
+      });
+    });
+  } catch (error) {
+    console.error("Failed to start server:", error);
+    process.exit(1);
+  }
+})();
