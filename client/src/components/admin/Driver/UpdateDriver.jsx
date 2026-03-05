@@ -674,6 +674,7 @@ const UpdateDriver = () => {
                       onValueChange={(val) =>
                         setFormData((prev) => ({ ...prev, vendor: val }))
                       }
+                      portalled={false}
                       options={vendorsData?.vendors?.map((v) => ({
                         value: v._id,
                         label: `${v.name}${v.email ? ` (${v.email})` : ""}`,

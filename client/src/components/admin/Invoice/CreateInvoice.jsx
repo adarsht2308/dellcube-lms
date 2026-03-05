@@ -2596,6 +2596,7 @@ const CreateInvoice = () => {
                   onValueChange={(value) =>
                     setNewVehicleData((prev) => ({ ...prev, vendor: value }))
                   }
+                  portalled={false}
                   options={
                     vendorData?.vendors?.map((v) => ({
                       value: v._id,
