@@ -376,6 +376,7 @@ const CreateInvoice = () => {
   const [isLoadingToPincode, setIsLoadingToPincode] = useState(false);
 
   const [selectedTransportMode, setSelectedTransportMode] = useState("");
+  const [vehicleRequirement, setVehicleRequirement] = useState("");
 
   // Function to fetch address details from pincode
   const fetchAddressFromPincode = async (pincode, type) => {
@@ -1051,6 +1052,7 @@ const CreateInvoice = () => {
       ...(vehicleSize && { vehicleSize }),
       ...(orderNumber && { orderNumber }),
       ...(selectedTransportMode && { transportMode: selectedTransportMode }),
+      ...(vehicleRequirement && { vehicleRequirement }),
     };
 
     // Assign driver to payload
@@ -2263,6 +2265,21 @@ const CreateInvoice = () => {
                     placeholder="Enter seal number"
                     className="w-full"
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Vehicle Requirement</Label>
+                  <Select
+                    value={vehicleRequirement}
+                    onValueChange={setVehicleRequirement}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select vehicle requirement" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="FIXED">FIXED</SelectItem>
+                      <SelectItem value="AD-HOC">AD-HOC</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Freight Charges</Label>

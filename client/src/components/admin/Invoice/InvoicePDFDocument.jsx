@@ -575,6 +575,15 @@ function InvoiceCopy({ invoice, logoBase64, copyType, containerStyle, variant })
     return `${day}${getOrdinalSuffix(day)} ${month} ${year}`;
   };
 
+  const firstNonEmpty = (...values) => {
+    for (const value of values) {
+      if (value === undefined || value === null) continue;
+      const text = String(value).trim();
+      if (text) return text;
+    }
+    return "";
+  };
+
   const formatAddressTwoLines = (address) => {
     if (!address) {
       return {
@@ -867,9 +876,11 @@ function InvoiceCopy({ invoice, logoBase64, copyType, containerStyle, variant })
                 <Text style={styles.fieldLabel}>VEHICLE NUMBER:</Text>
                 <FieldInputView
                   value={
-                    invoice?.vehicle?.vehicleNumber ||
-                    invoice?.vendorVehicle?.vehicleNumber ||
-                    ""
+                    firstNonEmpty(
+                      invoice?.vehicle?.vehicleNumber,
+                      invoice?.vendorVehicle?.vehicleNumber,
+                      invoice?.vehicleNumber
+                    )
                   }
                 />
               </View>
@@ -902,7 +913,13 @@ function InvoiceCopy({ invoice, logoBase64, copyType, containerStyle, variant })
             <View style={styles.tableRow}>
               <View style={[styles.tableCell, { width: "30%" }]}>
                 <Text style={styles.fieldLabel}>VEHICLE TYPE:</Text>
-                <FieldInputView value={invoice?.vehicleSize || ""} />
+                <FieldInputView
+                  value={firstNonEmpty(
+                    invoice?.vehicleSize,
+                    invoice?.vehicle?.type,
+                    invoice?.vendorVehicle?.type
+                  )}
+                />
               </View>
               <View style={[styles.tableCell, { width: "20%" }]}>
                 <Text style={styles.fieldLabel}>INV NO:</Text>
@@ -937,7 +954,13 @@ function InvoiceCopy({ invoice, logoBase64, copyType, containerStyle, variant })
             <View style={styles.tableRow}>
               <View style={[styles.tableCell, { width: "30%" }]}>
                 <Text style={styles.fieldLabel}>DRIVER NAME:</Text>
-                <FieldInputView value={invoice?.driver?.name || ""} />
+                <FieldInputView
+                  value={firstNonEmpty(
+                    invoice?.driver?.name,
+                    invoice?.vendor?.name,
+                    invoice?.vendorVehicle?.driverName
+                  )}
+                />
               </View>
               <View style={[styles.tableCell, { width: "20%" }]}>
                 <Text style={styles.fieldLabel}>SITE ID:</Text>
@@ -962,7 +985,14 @@ function InvoiceCopy({ invoice, logoBase64, copyType, containerStyle, variant })
             <View style={styles.tableRow}>
               <View style={[styles.tableCell, { width: "30%" }]}>
                 <Text style={styles.fieldLabel}>DRIVER PHONE:</Text>
-                <FieldInputView value={invoice?.driverContactNumber || ""} />
+                <FieldInputView
+                  value={firstNonEmpty(
+                    invoice?.driverContactNumber,
+                    invoice?.driver?.mobile,
+                    invoice?.vendor?.phone,
+                    invoice?.vendorVehicle?.driverContactNumber
+                  )}
+                />
               </View>
               <View style={[styles.tableCell, { width: "20%" }]}>
                 <Text style={styles.fieldLabel}>SEAL NO:</Text>
@@ -978,7 +1008,8 @@ function InvoiceCopy({ invoice, logoBase64, copyType, containerStyle, variant })
                   { width: "20%", borderRight: "none" },
                 ]}
               >
-                {/* Intentionally left blank to keep grid alignment after removing PAYMENT column */}
+                <Text style={styles.fieldLabel}>VEHICLE REQ:</Text>
+                <FieldInputView value={invoice?.vehicleRequirement || ""} />
               </View>
             </View>
           </View>

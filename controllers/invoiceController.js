@@ -450,7 +450,7 @@ export const createInvoice = async (req, res) => {
       }
     }
 
-    // The following fields are now supported: pickupAddress, deliveryAddress, consignor, consignee, address, invoiceNumber, invoiceBill, ewayBillNo, driverContactNumber, siteId, sealNo, vehicleSize, orderNumber, transportMode
+    // The following fields are now supported: pickupAddress, deliveryAddress, consignor, consignee, address, invoiceNumber, invoiceBill, ewayBillNo, driverContactNumber, siteId, sealNo, vehicleSize, orderNumber, transportMode, vehicleRequirement
     const invoicePayload = {
       ...req.body,
       company: companyId,
@@ -1952,6 +1952,7 @@ export const exportInvoicesCSV = async (req, res) => {
       OrderNumber: inv.orderNumber || "",
       SiteId: inv.siteId || "",
       SealNo: inv.sealNo || "",
+      VehicleRequirement: inv.vehicleRequirement || "",
       SiteType: inv.siteType?.name || "",
       TransportMode: inv.transportMode?.name || "",
       InvoiceNumbers: formatMultiValueField(inv.invoiceNumber),
@@ -2077,6 +2078,7 @@ export const exportInvoicesCSV = async (req, res) => {
       "VehicleType",
       "VehicleNumber",
       "VehicleModel",
+      "VehicleRequirement",
       "VehicleSize",
       "VehicleCargoType",
       "VendorPhone",

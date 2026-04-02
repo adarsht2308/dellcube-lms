@@ -42,6 +42,12 @@ const invoiceSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "TransportMode",
     },
+    vehicleRequirement: {
+      type: String,
+      enum: ["FIXED", "AD-HOC"],
+      trim: true,
+      default: "",
+    },
 
     company: {
       type: mongoose.Schema.Types.ObjectId,

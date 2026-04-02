@@ -373,6 +373,7 @@ const UpdateInvoice = () => {
   const [orderNumber, setOrderNumber] = useState("");
   const [selectedSiteType, setSelectedSiteType] = useState("");
   const [selectedTransportMode, setSelectedTransportMode] = useState("");
+  const [vehicleRequirement, setVehicleRequirement] = useState("");
   const [status, setStatus] = useState("");
   const [undeliveredReason, setUndeliveredReason] = useState("");
   const [deliveredAt, setDeliveredAt] = useState("");
@@ -926,6 +927,7 @@ const UpdateInvoice = () => {
       setCurrentDriverContact(invoice.driver?.mobile || "");
       setOrderNumber(invoice.orderNumber || "");
       setSelectedTransportMode(invoice.transportMode?._id || "");
+      setVehicleRequirement(invoice.vehicleRequirement || "");
       setStatus(invoice.status || "Created");
       setUndeliveredReason(invoice.undeliveredReason || "");
       setDeliveredAt(
@@ -1352,6 +1354,7 @@ const UpdateInvoice = () => {
       ...(selectedSiteType && { siteType: selectedSiteType }),
       ...(orderNumber && { orderNumber }),
       ...(selectedTransportMode && { transportMode: selectedTransportMode }),
+      ...(vehicleRequirement && { vehicleRequirement }),
       ...(status && { status }),
       ...(status === "Undelivered" && undeliveredReason.trim() && {
         undeliveredReason: undeliveredReason.trim(),
@@ -2540,6 +2543,22 @@ const UpdateInvoice = () => {
                     className="w-full"
                     disabled={isFormDisabled}
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Vehicle Requirement</Label>
+                  <Select
+                    value={vehicleRequirement}
+                    onValueChange={setVehicleRequirement}
+                    disabled={isFormDisabled}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select vehicle requirement" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="FIXED">FIXED</SelectItem>
+                      <SelectItem value="AD-HOC">AD-HOC</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Freight Charges</Label>

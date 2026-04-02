@@ -2757,6 +2757,19 @@ const Invoices = () => {
                     icon={Truck}
                   />
                   <InfoRow
+                    label="Vehicle Requirement"
+                    value={selectedInvoice?.vehicleRequirement}
+                    icon={Truck}
+                    badge={true}
+                    badgeColor={
+                      selectedInvoice?.vehicleRequirement === "FIXED"
+                        ? "green"
+                        : selectedInvoice?.vehicleRequirement === "AD-HOC"
+                        ? "yellow"
+                        : "gray"
+                    }
+                  />
+                  <InfoRow
                     label="Driver"
                     value={selectedInvoice?.driver?.name}
                     icon={User}
