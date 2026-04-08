@@ -44,7 +44,7 @@ const invoiceSchema = new mongoose.Schema(
     },
     vehicleRequirement: {
       type: String,
-      enum: ["FIXED", "AD-HOC"],
+      enum: ["", "FIXED", "AD-HOC"],
       trim: true,
       default: "",
     },
