@@ -18,6 +18,7 @@ import { siteTypeApi } from "@/features/api/SiteType/siteTypeApi.js";
 import { transportModeApi } from "@/features/api/TransportMode/transportModeApi.js";
 import { trackingApi } from "@/features/api/Tracking/trackingApi.js";
 import { activityApi } from "@/features/api/activityApi.js";
+import { billingApi } from "@/features/api/Billing/billingApi.js";
 
 export const appStore = configureStore({
   reducer: rootReducer,
@@ -40,7 +41,8 @@ export const appStore = configureStore({
       siteTypeApi.middleware,
       transportModeApi.middleware,
       trackingApi.middleware,
-      activityApi.middleware
+      activityApi.middleware,
+      billingApi.middleware
     ),
 });
 

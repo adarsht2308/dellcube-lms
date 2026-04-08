@@ -18,6 +18,7 @@ import { siteTypeApi } from "@/features/api/SiteType/siteTypeApi.js";
 import { transportModeApi } from "@/features/api/TransportMode/transportModeApi.js";
 import { trackingApi } from "@/features/api/Tracking/trackingApi.js";
 import { activityApi } from "@/features/api/activityApi.js";
+import { billingApi } from "@/features/api/Billing/billingApi.js";
 
 const rootReducer = combineReducers({
   [authApi.reducerPath]: authApi.reducer,
@@ -38,6 +39,7 @@ const rootReducer = combineReducers({
   [transportModeApi.reducerPath]: transportModeApi.reducer,
   [trackingApi.reducerPath]: trackingApi.reducer,
   [activityApi.reducerPath]: activityApi.reducer,
+  [billingApi.reducerPath]: billingApi.reducer,
 
   auth: authReducer,
 });

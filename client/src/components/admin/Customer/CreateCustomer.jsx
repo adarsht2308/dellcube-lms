@@ -70,44 +70,6 @@ const CreateCustomer = () => {
     consignors: [],
   });
 
-  useEffect(() => {
-    // For all users, use token data (current session selected company/branch)
-    const companyId = getUserCompanyId();
-    const branchId = getUserBranchId();
-    
-    if (companyId && branchId) {
-      setFormData((prev) => ({
-        ...prev,
-        company: String(companyId),
-        branch: String(branchId),
-      }));
-      
-      // Fetch branches and set display names
-      getBranchesByCompany(companyId).then((res) => {
-        if (res?.data?.branches) {
-          if (shouldHideCompanyBranch) {
-            setBranches([{ _id: branchId, name: res.data.branches.find(b => b._id === branchId)?.name || "Branch" }]);
-          } else {
-            setBranches(res.data.branches);
-          }
-          // Find and set current branch name
-          const currentBranch = res.data.branches.find(b => b._id === branchId);
-          if (currentBranch) {
-            setCurrentSessionBranchName(currentBranch.name);
-          }
-        }
-      });
-      
-      // Find and set current company name
-      if (companies?.companies) {
-        const currentCompany = companies.companies.find(c => c._id === companyId);
-        if (currentCompany) {
-          setCurrentSessionCompanyName(currentCompany.name);
-        }
-      }
-    }
-  }, [user, shouldHideCompanyBranch, tokenCompanyId, tokenBranchId, companies]);
-
   const [branches, setBranches] = useState([]);
   const { data: companies = [] } = useGetAllCompaniesQuery({ status: "true" });
   const [getBranchesByCompany] = useGetBranchesByCompanyMutation();
@@ -117,6 +79,49 @@ const CreateCustomer = () => {
   // State to store current session's company and branch names for display
   const [currentSessionCompanyName, setCurrentSessionCompanyName] = useState("");
   const [currentSessionBranchName, setCurrentSessionBranchName] = useState("");
+
+  useEffect(() => {
+    // For all users, use token data (current session selected company/branch)
+    const companyId = getUserCompanyId();
+    const branchId = getUserBranchId();
+
+    if (companyId && branchId) {
+      setFormData((prev) => ({
+        ...prev,
+        company: String(companyId),
+        branch: String(branchId),
+      }));
+
+      // Fetch branches and set display names
+      getBranchesByCompany(companyId).then((res) => {
+        if (res?.data?.branches) {
+          if (shouldHideCompanyBranch) {
+            setBranches([
+              {
+                _id: branchId,
+                name: res.data.branches.find((b) => b._id === branchId)?.name || "Branch",
+              },
+            ]);
+          } else {
+            setBranches(res.data.branches);
+          }
+          // Find and set current branch name
+          const currentBranch = res.data.branches.find((b) => b._id === branchId);
+          if (currentBranch) {
+            setCurrentSessionBranchName(currentBranch.name);
+          }
+        }
+      });
+
+      // Find and set current company name
+      if (companies?.companies) {
+        const currentCompany = companies.companies.find((c) => c._id === companyId);
+        if (currentCompany) {
+          setCurrentSessionCompanyName(currentCompany.name);
+        }
+      }
+    }
+  }, [shouldHideCompanyBranch, tokenCompanyId, tokenBranchId, companies, user]);
 
   const handleCompanyChange = async (companyId) => {
     // Don't allow changing company for operation, branchAdmin, vendor

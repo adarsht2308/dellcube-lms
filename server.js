@@ -62,6 +62,7 @@ import transportModeRoutes from "./routes/transportMode.js";
 import imageProxyRoutes from './routes/imageProxyRoutes.js';
 import trackingRoutes from './routes/trackingRoutes.js';
 import activityRoutes from './routes/activityRoutes.js';
+import billingRoutes from "./routes/billingRoutes.js";
 
 // Register all API routes BEFORE static file serving
 app.use("/api/user", userRoutes);
@@ -79,6 +80,7 @@ app.use("/api/transport-modes", transportModeRoutes);
 app.use('/api/v1/image-proxy', imageProxyRoutes);
 app.use('/api/tracking', trackingRoutes);
 app.use('/api/activities', activityRoutes);
+app.use("/api/billing", billingRoutes);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

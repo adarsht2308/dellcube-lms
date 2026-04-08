@@ -1946,6 +1946,15 @@ export const exportInvoicesCSV = async (req, res) => {
       return `${dd}-${mm}-${yyyy}`;
     };
 
+    const pickFirst = (...values) => {
+      for (const value of values) {
+        if (value === undefined || value === null) continue;
+        const text = String(value).trim();
+        if (text) return text;
+      }
+      return "";
+    };
+
     const buildBaseRow = (inv, attempt) => ({
       DocketNumber: inv.docketNumber || "",
       DocketPrefix: inv.docketPrefix || "",
@@ -1965,11 +1974,25 @@ export const exportInvoicesCSV = async (req, res) => {
       Customer: inv.customer?.name || "",
       GoodsType: inv.goodsType?.name || "",
       VehicleType: inv.vehicleType || "",
-      VehicleNumber:
-        inv.vehicle?.vehicleNumber || inv.vendorVehicle?.vehicleNumber || "",
-      VehicleModel: inv.vehicle?.model || "",
-      VehicleSize: inv.vehicle?.type || inv.vehicleSize || "",
-      VehicleCargoType: inv.vehicle?.cargoType || "",
+      VehicleNumber: pickFirst(
+        inv.vehicle?.vehicleNumber,
+        inv.vendorVehicle?.vehicleNumber,
+        inv.vehicleNumber
+      ),
+      VehicleModel: pickFirst(
+        inv.vehicle?.model,
+        inv.vendorVehicle?.model,
+        inv.vehicleModel
+      ),
+      VehicleSize: pickFirst(
+        inv.vehicle?.type,
+        inv.vendorVehicle?.type,
+        inv.vehicleSize
+      ),
+      VehicleCargoType: pickFirst(
+        inv.vehicle?.cargoType,
+        inv.vendorVehicle?.cargoType
+      ),
       VendorPhone: inv.vendor?.phone || "",
       VendorEmail: inv.vendor?.email || "",
       Driver: inv.driver?.name || "",

@@ -1052,7 +1052,7 @@ const CreateInvoice = () => {
       ...(vehicleSize && { vehicleSize }),
       ...(orderNumber && { orderNumber }),
       ...(selectedTransportMode && { transportMode: selectedTransportMode }),
-      ...(vehicleRequirement && { vehicleRequirement }),
+      vehicleRequirement: vehicleRequirement || "",
     };
 
     // Assign driver to payload
@@ -2269,13 +2269,16 @@ const CreateInvoice = () => {
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Vehicle Requirement</Label>
                   <Select
-                    value={vehicleRequirement}
-                    onValueChange={setVehicleRequirement}
+                    value={vehicleRequirement || "NOT_SPECIFIED"}
+                    onValueChange={(value) =>
+                      setVehicleRequirement(value === "NOT_SPECIFIED" ? "" : value)
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select vehicle requirement" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="NOT_SPECIFIED">Not Specified (Optional)</SelectItem>
                       <SelectItem value="FIXED">FIXED</SelectItem>
                       <SelectItem value="AD-HOC">AD-HOC</SelectItem>
                     </SelectContent>

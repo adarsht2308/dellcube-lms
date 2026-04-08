@@ -212,6 +212,27 @@ const Sidebar = () => {
       ],
     },
     {
+      id: "billing",
+      title: "Billing",
+      icon: ReceiptIndianRupee,
+      roles: ["superAdmin", "branchAdmin", "operation"],
+      subItems: [
+        ...(user?.role === "superAdmin" || user?.role === "branchAdmin"
+          ? [{ title: "Rate Card", icon: Receipt, path: "/admin/billing-rate-card" }]
+          : []),
+        {
+          title: "Invoice Generation",
+          icon: FilePlus,
+          path: "/admin/billing-generate-invoice",
+        },
+        {
+          title: "Invoice Management",
+          icon: ReceiptText,
+          path: "/admin/billing-invoices",
+        },
+      ],
+    },
+    {
       id: "activities",
       title: "Activity Log",
       icon: Activity,

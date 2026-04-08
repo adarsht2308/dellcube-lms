@@ -1354,7 +1354,7 @@ const UpdateInvoice = () => {
       ...(selectedSiteType && { siteType: selectedSiteType }),
       ...(orderNumber && { orderNumber }),
       ...(selectedTransportMode && { transportMode: selectedTransportMode }),
-      ...(vehicleRequirement && { vehicleRequirement }),
+      vehicleRequirement: vehicleRequirement || "",
       ...(status && { status }),
       ...(status === "Undelivered" && undeliveredReason.trim() && {
         undeliveredReason: undeliveredReason.trim(),
@@ -2547,14 +2547,17 @@ const UpdateInvoice = () => {
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Vehicle Requirement</Label>
                   <Select
-                    value={vehicleRequirement}
-                    onValueChange={setVehicleRequirement}
+                    value={vehicleRequirement || "NOT_SPECIFIED"}
+                    onValueChange={(value) =>
+                      setVehicleRequirement(value === "NOT_SPECIFIED" ? "" : value)
+                    }
                     disabled={isFormDisabled}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select vehicle requirement" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="NOT_SPECIFIED">Not Specified (Optional)</SelectItem>
                       <SelectItem value="FIXED">FIXED</SelectItem>
                       <SelectItem value="AD-HOC">AD-HOC</SelectItem>
                     </SelectContent>

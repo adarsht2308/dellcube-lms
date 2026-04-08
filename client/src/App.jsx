@@ -77,6 +77,10 @@ import VendorProfile from "./components/admin/Vendor/VendorProfile.jsx";
 import TrackOrder from "./components/TrackOrder.jsx";
 import ForgotPassword from "./components/ForgotPassword.jsx";
 import ActivityLog from "./components/admin/Activity/ActivityLog.jsx";
+import RateCard from "./components/admin/Billing/RateCard.jsx";
+import GenerateBillingInvoice from "./components/admin/Billing/GenerateBillingInvoice.jsx";
+import BillingInvoices from "./components/admin/Billing/BillingInvoices.jsx";
+import BillingInvoiceDetail from "./components/admin/Billing/BillingInvoiceDetail.jsx";
 
 const appRouter = createBrowserRouter([
   //Public Routes
@@ -759,6 +763,38 @@ const appRouter = createBrowserRouter([
         element: (
           <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin"]}>
             <ActivityLog />
+          </RoleProtectedRoute>
+        ),
+      },
+      {
+        path: "billing-rate-card",
+        element: (
+          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin"]}>
+            <RateCard />
+          </RoleProtectedRoute>
+        ),
+      },
+      {
+        path: "billing-generate-invoice",
+        element: (
+          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
+            <GenerateBillingInvoice />
+          </RoleProtectedRoute>
+        ),
+      },
+      {
+        path: "billing-invoices",
+        element: (
+          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
+            <BillingInvoices />
+          </RoleProtectedRoute>
+        ),
+      },
+      {
+        path: "billing-invoice-detail",
+        element: (
+          <RoleProtectedRoute allowedRoles={["superAdmin", "branchAdmin", "operation"]}>
+            <BillingInvoiceDetail />
           </RoleProtectedRoute>
         ),
       },

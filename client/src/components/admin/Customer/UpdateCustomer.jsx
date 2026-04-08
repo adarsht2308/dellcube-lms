@@ -27,6 +27,7 @@ import {
 import { getTokenData } from "@/utils/getTokenData";
 import ConsigneeConsignorManager from "./ConsigneeConsignorManager";
 import MisFieldsManager from "./MisFieldsManager";
+import BillingFieldsManager from "./BillingFieldsManager";
 
 const UpdateCustomer = () => {
   const location = useLocation();
@@ -94,6 +95,7 @@ const UpdateCustomer = () => {
     consignees: [],
     consignors: [],
     misFields: [],
+    billingFields: [],
     status: true,
   });
 
@@ -131,6 +133,7 @@ const UpdateCustomer = () => {
         consignees: c.consignees || [],
         consignors: c.consignors || [],
         misFields: c.misFields || [],
+        billingFields: c.billingFields || [],
         status: c.status === true || c.status === "active",
       });
 
@@ -232,6 +235,7 @@ const UpdateCustomer = () => {
       consignees: formData.consignees || [],
       consignors: formData.consignors || [],
       misFields: formData.misFields || [],
+      billingFields: formData.billingFields || [],
       status: formData.status ? true : false,
     };
 
@@ -570,6 +574,16 @@ const UpdateCustomer = () => {
               onUpdate={(updates) => {
                 if (updates.misFields) {
                   setFormData({ ...formData, misFields: updates.misFields });
+                  getCustomerById(customerId);
+                }
+              }}
+            />
+            <BillingFieldsManager
+              customerId={customerId}
+              billingFields={formData.billingFields}
+              onUpdate={(updates) => {
+                if (updates.billingFields) {
+                  setFormData({ ...formData, billingFields: updates.billingFields });
                   getCustomerById(customerId);
                 }
               }}

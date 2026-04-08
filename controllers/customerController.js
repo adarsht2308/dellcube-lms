@@ -178,6 +178,7 @@ export const updateCustomer = async (req, res) => {
       consignees,
       consignors,
       misFields,
+      billingFields,
     } = req.body;
 
     const customer = await Customer.findById(customerId);
@@ -211,6 +212,7 @@ export const updateCustomer = async (req, res) => {
     if (consignees !== undefined) customer.consignees = consignees;
     if (consignors !== undefined) customer.consignors = consignors;
     if (misFields !== undefined) customer.misFields = misFields;
+    if (billingFields !== undefined) customer.billingFields = billingFields;
 
     await customer.save();
 
@@ -715,6 +717,135 @@ export const manageMisFields = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Something went wrong while managing MIS fields",
+      error: error.message,
+    });
+  }
+};
+
+export const manageBillingFields = async (req, res) => {
+  try {
+    const { customerId, action, field } = req.body;
+
+    if (!customerId || !action) {
+      return res.status(400).json({
+        success: false,
+        message: "customerId and action are required",
+      });
+    }
+
+    const customer = await Customer.findById(customerId);
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: "Customer not found",
+      });
+    }
+
+    if (req.user?.role !== "superAdmin") {
+      if (req.companyId && customer.company.toString() !== req.companyId) {
+        return res.status(403).json({
+          success: false,
+          message: "Customer does not belong to your company",
+        });
+      }
+      if (req.branchId && customer.branch.toString() !== req.branchId) {
+        return res.status(403).json({
+          success: false,
+          message: "Customer does not belong to your branch",
+        });
+      }
+    }
+
+    if (action === "add") {
+      if (!field || !field.fieldName || !field.fieldLabel) {
+        return res.status(400).json({
+          success: false,
+          message: "field with fieldName and fieldLabel is required",
+        });
+      }
+
+      const maxOrder =
+        customer.billingFields.length > 0
+          ? Math.max(...customer.billingFields.map((f) => f.order || 0))
+          : -1;
+
+      customer.billingFields.push({
+        fieldName: field.fieldName,
+        fieldType: field.fieldType || "text",
+        fieldLabel: field.fieldLabel,
+        isRequired: field.isRequired || false,
+        options: field.options || [],
+        order: maxOrder + 1,
+      });
+
+      await customer.save();
+      return res.status(200).json({
+        success: true,
+        message: "Billing field added successfully",
+        billingFields: customer.billingFields,
+      });
+    } else if (action === "update") {
+      if (!field || !field._id) {
+        return res.status(400).json({
+          success: false,
+          message: "field with _id is required",
+        });
+      }
+
+      const fieldIndex = customer.billingFields.findIndex(
+        (f) => f._id.toString() === field._id
+      );
+      if (fieldIndex === -1) {
+        return res.status(404).json({
+          success: false,
+          message: "Billing field not found",
+        });
+      }
+
+      if (field.fieldName) customer.billingFields[fieldIndex].fieldName = field.fieldName;
+      if (field.fieldType) customer.billingFields[fieldIndex].fieldType = field.fieldType;
+      if (field.fieldLabel) customer.billingFields[fieldIndex].fieldLabel = field.fieldLabel;
+      if (field.isRequired !== undefined)
+        customer.billingFields[fieldIndex].isRequired = field.isRequired;
+      if (field.options !== undefined)
+        customer.billingFields[fieldIndex].options = field.options;
+      if (field.order !== undefined) customer.billingFields[fieldIndex].order = field.order;
+
+      await customer.save();
+      return res.status(200).json({
+        success: true,
+        message: "Billing field updated successfully",
+        billingFields: customer.billingFields,
+      });
+    } else if (action === "delete") {
+      if (!field || !field._id) {
+        return res.status(400).json({
+          success: false,
+          message: "field with _id is required",
+        });
+      }
+
+      customer.billingFields = customer.billingFields.filter(
+        (f) => f._id.toString() !== field._id
+      );
+
+      await customer.save();
+      return res.status(200).json({
+        success: true,
+        message: "Billing field deleted successfully",
+        billingFields: customer.billingFields,
+      });
+    }
+
+    return res.status(400).json({
+      success: false,
+      message: "Invalid action. Use 'add', 'update', or 'delete'",
+    });
+  } catch (error) {
+    console.error("Error managing Billing fields:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong while managing Billing fields",
       error: error.message,
     });
   }

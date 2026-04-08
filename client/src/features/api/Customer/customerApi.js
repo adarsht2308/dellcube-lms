@@ -111,6 +111,14 @@ export const customerApi = createApi({
       }),
       invalidatesTags: ["Customer"],
     }),
+    manageBillingFields: builder.mutation({
+      query: (payload) => ({
+        url: "/billing-fields/manage",
+        method: "POST",
+        body: payload,
+      }),
+      invalidatesTags: ["Customer"],
+    }),
   }),
 });
 
@@ -125,4 +133,5 @@ export const {
   useLazyExportConsigneesQuery,
   useLazyExportConsignorsQuery,
   useManageMisFieldsMutation,
+  useManageBillingFieldsMutation,
 } = customerApi;
