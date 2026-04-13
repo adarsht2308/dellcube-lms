@@ -76,6 +76,7 @@ import { useDebounce } from "@/hooks/Debounce.jsx";
 import { getTokenData } from "@/utils/getTokenData";
 
 const IST = "Asia/Kolkata";
+const CREATE_DOCKET_DRAFT_KEY = "create-docket-draft";
 
 /** Current date in IST as YYYY-MM-DD (for date inputs) */
 function getISTDateString() {
@@ -101,6 +102,18 @@ function getISTDateTimeString() {
   const hour = get("hour");
   const minute = get("minute");
   return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}T${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`;
+}
+
+function getCreateDocketDraft() {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const savedDraft = window.localStorage.getItem(CREATE_DOCKET_DRAFT_KEY);
+    return savedDraft ? JSON.parse(savedDraft) : null;
+  } catch (error) {
+    console.error("Failed to read create docket draft:", error);
+    return null;
+  }
 }
 
 // AddressFields Component (extracted to prevent re-creation on every render)
@@ -314,48 +327,78 @@ const CreateInvoice = () => {
     return user?.branch?._id ? String(user.branch._id) : "";
   };
 
+  const savedDraft = getCreateDocketDraft();
+  const lastCustomerIdRef = React.useRef(savedDraft?.customerId || "");
+  const [isDraftHydrated, setIsDraftHydrated] = useState(false);
+
   // Initialize with user's company/branch for branch admins, or token values
   const [companyId, setCompanyId] = useState(
-    isBranchAdmin || isVendor ? getUserCompanyId() : tokenCompanyId || ""
+    savedDraft?.companyId ??
+      (isBranchAdmin || isVendor ? getUserCompanyId() : tokenCompanyId || "")
   );
   const [branchId, setBranchId] = useState(
-    isBranchAdmin || isVendor ? getUserBranchId() : tokenBranchId || ""
+    savedDraft?.branchId ??
+      (isBranchAdmin || isVendor ? getUserBranchId() : tokenBranchId || "")
   );
-  const [customerId, setCustomerId] = useState("");
-  const [invoiceDate, setInvoiceDate] = useState(getISTDateString);
-  const [dispatchDateTime, setDispatchDateTime] = useState(getISTDateTimeString);
-  const [paymentType, setPaymentType] = useState("");
-  const [remarks, setRemarks] = useState("");
+  const [customerId, setCustomerId] = useState(savedDraft?.customerId || "");
+  const [invoiceDate, setInvoiceDate] = useState(
+    savedDraft?.invoiceDate || getISTDateString
+  );
+  const [dispatchDateTime, setDispatchDateTime] = useState(
+    savedDraft?.dispatchDateTime || getISTDateTimeString
+  );
+  const [paymentType, setPaymentType] = useState(savedDraft?.paymentType || "");
+  const [remarks, setRemarks] = useState(savedDraft?.remarks || "");
 
-  const [totalWeight, setTotalWeight] = useState("");
-  const [freightCharges, setFreightCharges] = useState("");
-  const [numberOfPackages, setNumberOfPackages] = useState("");
+  const [totalWeight, setTotalWeight] = useState(savedDraft?.totalWeight || "");
+  const [freightCharges, setFreightCharges] = useState(
+    savedDraft?.freightCharges || ""
+  );
+  const [numberOfPackages, setNumberOfPackages] = useState(
+    savedDraft?.numberOfPackages || ""
+  );
   const [branches, setBranches] = useState([]);
-  const [selectedGood, setSelectedGood] = useState("");
-  const [selectedItems, setselectedItems] = useState([]);
-  const [vehicleType, setVehicleType] = useState("");
-  const [selectedVehicle, setSelectedVehicle] = useState("");
-  const [selectedVendor, setSelectedVendor] = useState("");
-  const [selectedVendorVehicle, setSelectedVendorVehicle] = useState("");
-  const [selectedDriver, setSelectedDriver] = useState("");
-  const [driverContactNumber, setDriverContactNumber] = useState("");
+  const [selectedGood, setSelectedGood] = useState(savedDraft?.selectedGood || "");
+  const [selectedItems, setselectedItems] = useState(savedDraft?.selectedItems || []);
+  const [vehicleType, setVehicleType] = useState(savedDraft?.vehicleType || "");
+  const [selectedVehicle, setSelectedVehicle] = useState(
+    savedDraft?.selectedVehicle || ""
+  );
+  const [selectedVendor, setSelectedVendor] = useState(
+    savedDraft?.selectedVendor || ""
+  );
+  const [selectedVendorVehicle, setSelectedVendorVehicle] = useState(
+    savedDraft?.selectedVendorVehicle || ""
+  );
+  const [selectedDriver, setSelectedDriver] = useState(
+    savedDraft?.selectedDriver || ""
+  );
+  const [driverContactNumber, setDriverContactNumber] = useState(
+    savedDraft?.driverContactNumber || ""
+  );
 
   // Add new state variables for the new fields
-  const [pickupAddress, setPickupAddress] = useState("");
-  const [deliveryAddress, setDeliveryAddress] = useState("");
-  const [consignor, setConsignor] = useState("");
-  const [consignee, setConsignee] = useState("");
-  const [address, setAddress] = useState("");
-  const [invoiceNumbers, setInvoiceNumbers] = useState([]);
-  const [invoiceBill, setInvoiceBill] = useState("");
-  const [ewayBillNumbers, setEwayBillNumbers] = useState([]);
-  const [siteId, setSiteId] = useState("");
-  const [sealNo, setSealNo] = useState("");
-  const [vehicleModel, setVehicleModel] = useState("");
-  const [selectedSiteType, setSelectedSiteType] = useState("");
-  const [orderNumber, setOrderNumber] = useState("");
-  const [vehicleNumber, setVehicleNumber] = useState("");
-  const [searchedVehicle, setSearchedVehicle] = useState(null);
+  const [pickupAddress, setPickupAddress] = useState(savedDraft?.pickupAddress || "");
+  const [deliveryAddress, setDeliveryAddress] = useState(
+    savedDraft?.deliveryAddress || ""
+  );
+  const [consignor, setConsignor] = useState(savedDraft?.consignor || "");
+  const [consignee, setConsignee] = useState(savedDraft?.consignee || "");
+  const [address, setAddress] = useState(savedDraft?.address || "");
+  const [invoiceNumbers, setInvoiceNumbers] = useState(savedDraft?.invoiceNumbers || []);
+  const [invoiceBill, setInvoiceBill] = useState(savedDraft?.invoiceBill || "");
+  const [ewayBillNumbers, setEwayBillNumbers] = useState(
+    savedDraft?.ewayBillNumbers || []
+  );
+  const [siteId, setSiteId] = useState(savedDraft?.siteId || "");
+  const [sealNo, setSealNo] = useState(savedDraft?.sealNo || "");
+  const [vehicleModel, setVehicleModel] = useState(savedDraft?.vehicleModel || "");
+  const [selectedSiteType, setSelectedSiteType] = useState(
+    savedDraft?.selectedSiteType || ""
+  );
+  const [orderNumber, setOrderNumber] = useState(savedDraft?.orderNumber || "");
+  const [vehicleNumber, setVehicleNumber] = useState(savedDraft?.vehicleNumber || "");
+  const [searchedVehicle, setSearchedVehicle] = useState(savedDraft?.searchedVehicle || null);
   const [vehicleSearchError, setVehicleSearchError] = useState("");
   const [vehicleSuggestions, setVehicleSuggestions] = useState([]);
   const debouncedSearchTerm = useDebounce(vehicleNumber, 500);
@@ -363,20 +406,28 @@ const CreateInvoice = () => {
   const [suggestionsPosition, setSuggestionsPosition] = useState("top");
 
   // Add state for vehicle size
-  const [vehicleSize, setVehicleSize] = useState("");
+  const [vehicleSize, setVehicleSize] = useState(savedDraft?.vehicleSize || "");
 
   // Replace with simple pincode-based address fields
 
   // Replace with simple pincode-based address fields
-  const [fromPincode, setFromPincode] = useState("");
-  const [fromAddressDetails, setFromAddressDetails] = useState(null);
-  const [toPincode, setToPincode] = useState("");
-  const [toAddressDetails, setToAddressDetails] = useState(null);
+  const [fromPincode, setFromPincode] = useState(savedDraft?.fromPincode || "");
+  const [fromAddressDetails, setFromAddressDetails] = useState(
+    savedDraft?.fromAddressDetails || null
+  );
+  const [toPincode, setToPincode] = useState(savedDraft?.toPincode || "");
+  const [toAddressDetails, setToAddressDetails] = useState(
+    savedDraft?.toAddressDetails || null
+  );
   const [isLoadingFromPincode, setIsLoadingFromPincode] = useState(false);
   const [isLoadingToPincode, setIsLoadingToPincode] = useState(false);
 
-  const [selectedTransportMode, setSelectedTransportMode] = useState("");
-  const [vehicleRequirement, setVehicleRequirement] = useState("");
+  const [selectedTransportMode, setSelectedTransportMode] = useState(
+    savedDraft?.selectedTransportMode || ""
+  );
+  const [vehicleRequirement, setVehicleRequirement] = useState(
+    savedDraft?.vehicleRequirement || ""
+  );
 
   // Function to fetch address details from pincode
   const fetchAddressFromPincode = async (pincode, type) => {
@@ -655,12 +706,20 @@ const CreateInvoice = () => {
   const [addVendorVehicle, { isLoading: isAddingVendorVehicle }] = useAddVendorVehicleMutation();
 
   // Add new state for consignor/consignee dropdowns
-  const [selectedConsignor, setSelectedConsignor] = useState("");
-  const [selectedConsignee, setSelectedConsignee] = useState("");
+  const [selectedConsignor, setSelectedConsignor] = useState(
+    savedDraft?.selectedConsignor || ""
+  );
+  const [selectedConsignee, setSelectedConsignee] = useState(
+    savedDraft?.selectedConsignee || ""
+  );
   const [availableConsignors, setAvailableConsignors] = useState([]);
   const [availableConsignees, setAvailableConsignees] = useState([]);
-  const [consignorAddress, setConsignorAddress] = useState("");
-  const [consigneeAddress, setConsigneeAddress] = useState("");
+  const [consignorAddress, setConsignorAddress] = useState(
+    savedDraft?.consignorAddress || ""
+  );
+  const [consigneeAddress, setConsigneeAddress] = useState(
+    savedDraft?.consigneeAddress || ""
+  );
   
   // Add modal states for adding new consignee/consignor
   const [showAddConsigneeModal, setShowAddConsigneeModal] = useState(false);
@@ -698,6 +757,116 @@ const CreateInvoice = () => {
   // Add driver creation mutation
   const [createDriver, { isLoading: isCreatingDriver }] =
     useCreateDriverMutation();
+
+  useEffect(() => {
+    setIsDraftHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isDraftHydrated || typeof window === "undefined") return;
+
+    const draftData = {
+      companyId,
+      branchId,
+      customerId,
+      invoiceDate,
+      dispatchDateTime,
+      paymentType,
+      remarks,
+      totalWeight,
+      freightCharges,
+      numberOfPackages,
+      selectedGood,
+      selectedItems,
+      vehicleType,
+      selectedVehicle,
+      selectedVendor,
+      selectedVendorVehicle,
+      selectedDriver,
+      driverContactNumber,
+      pickupAddress,
+      deliveryAddress,
+      consignor,
+      consignee,
+      address,
+      invoiceNumbers,
+      invoiceBill,
+      ewayBillNumbers,
+      siteId,
+      sealNo,
+      vehicleModel,
+      selectedSiteType,
+      orderNumber,
+      vehicleNumber,
+      searchedVehicle,
+      vehicleSize,
+      fromPincode,
+      fromAddressDetails,
+      toPincode,
+      toAddressDetails,
+      selectedTransportMode,
+      vehicleRequirement,
+      selectedConsignor,
+      selectedConsignee,
+      consignorAddress,
+      consigneeAddress,
+    };
+
+    try {
+      window.localStorage.setItem(
+        CREATE_DOCKET_DRAFT_KEY,
+        JSON.stringify(draftData)
+      );
+    } catch (error) {
+      console.error("Failed to save create docket draft:", error);
+    }
+  }, [
+    isDraftHydrated,
+    companyId,
+    branchId,
+    customerId,
+    invoiceDate,
+    dispatchDateTime,
+    paymentType,
+    remarks,
+    totalWeight,
+    freightCharges,
+    numberOfPackages,
+    selectedGood,
+    selectedItems,
+    vehicleType,
+    selectedVehicle,
+    selectedVendor,
+    selectedVendorVehicle,
+    selectedDriver,
+    driverContactNumber,
+    pickupAddress,
+    deliveryAddress,
+    consignor,
+    consignee,
+    address,
+    invoiceNumbers,
+    invoiceBill,
+    ewayBillNumbers,
+    siteId,
+    sealNo,
+    vehicleModel,
+    selectedSiteType,
+    orderNumber,
+    vehicleNumber,
+    searchedVehicle,
+    vehicleSize,
+    fromPincode,
+    fromAddressDetails,
+    toPincode,
+    toAddressDetails,
+    selectedTransportMode,
+    vehicleRequirement,
+    selectedConsignor,
+    selectedConsignee,
+    consignorAddress,
+    consigneeAddress,
+  ]);
 
   // If vendor, auto-select assigned customer if only one is assigned
   useEffect(() => {
@@ -1072,6 +1241,9 @@ const CreateInvoice = () => {
     try {
       const res = await createInvoice(payload).unwrap();
       if (res?.success) {
+        if (typeof window !== "undefined") {
+          window.localStorage.removeItem(CREATE_DOCKET_DRAFT_KEY);
+        }
         toast.success("Invoice created successfully");
         navigate(isVendor ? "/admin/vendor-invoices" : "/admin/invoices");
       } else {
@@ -1149,16 +1321,46 @@ const CreateInvoice = () => {
         (c) => c._id === customerId
       );
       if (selectedCustomer) {
-        setAvailableConsignors(selectedCustomer.consignors || []);
-        setAvailableConsignees(selectedCustomer.consignees || []);
-        // Reset selections
-        setSelectedConsignor("");
-        setSelectedConsignee("");
-        setConsignor("");
-        setConsignee("");
+        const nextConsignors = selectedCustomer.consignors || [];
+        const nextConsignees = selectedCustomer.consignees || [];
+        const hasCustomerChanged =
+          !!lastCustomerIdRef.current && lastCustomerIdRef.current !== customerId;
+
+        setAvailableConsignors(nextConsignors);
+        setAvailableConsignees(nextConsignees);
+
+        if (hasCustomerChanged) {
+          setSelectedConsignor("");
+          setSelectedConsignee("");
+          setConsignor("");
+          setConsignee("");
+          setConsignorAddress("");
+          setConsigneeAddress("");
+          setSiteId("");
+        } else {
+          if (
+            selectedConsignor &&
+            !nextConsignors.some((item) => item._id === selectedConsignor)
+          ) {
+            setSelectedConsignor("");
+            setConsignor("");
+            setConsignorAddress("");
+          }
+
+          if (
+            selectedConsignee &&
+            !nextConsignees.some((item) => item._id === selectedConsignee)
+          ) {
+            setSelectedConsignee("");
+            setConsignee("");
+            setConsigneeAddress("");
+          }
+        }
+
+        lastCustomerIdRef.current = customerId;
       }
     }
-  }, [customerId, customersData]);
+  }, [customerId, customersData, selectedConsignor, selectedConsignee]);
 
   // Effect to auto-fill consignee when site ID changes
   useEffect(() => {
