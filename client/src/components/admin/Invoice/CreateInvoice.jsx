@@ -1151,6 +1151,18 @@ const CreateInvoice = () => {
       return;
     }
 
+    const resolvedDriverName =
+      driversData?.drivers?.find((d) => d._id === selectedDriver)?.name ||
+      searchedVehicle?.currentDriver?.name ||
+      "";
+    const resolvedDriverPhone =
+      driverContactNumber?.trim() || searchedVehicle?.currentDriver?.mobile || "";
+
+    if (!resolvedDriverName && !resolvedDriverPhone) {
+      toast.error("Driver name or driver phone number is required to generate LR");
+      return;
+    }
+
     // Derive consignor/consignee site IDs from current selections
     let consignorSiteId = "";
     let consigneeSiteId = "";
@@ -2302,6 +2314,7 @@ const CreateInvoice = () => {
                               "BYHAND",
                               "FLAT BED TRAILER 20FT",
                               "Pickup",
+                              "407",
                               "TAURUS 16 TON",
                               "Tata 407",
                               "TRUCK/LORRY",
@@ -2813,26 +2826,35 @@ const CreateInvoice = () => {
             {newVehicleData.ownerType === "vendor" && (
               <div className="space-y-2">
                 <Label>Select Vendor *</Label>
-                <SearchableSelect
+                <Select
                   value={newVehicleData.vendor}
                   onValueChange={(value) =>
                     setNewVehicleData((prev) => ({ ...prev, vendor: value }))
                   }
-                  portalled={false}
-                  options={
-                    vendorData?.vendors?.map((v) => ({
-                      value: v._id,
-                      label: `${v.name}${v.email ? ` (${v.email})` : ""}`,
-                    })) || []
+                  disabled={
+                    newVehicleData.companies.length === 0 &&
+                    newVehicleData.branches.length === 0
                   }
-                  placeholder={
-                    newVehicleData.companies.length === 0 && newVehicleData.branches.length === 0
-                      ? "Select company & branch first"
-                      : "Select a vendor"
-                  }
-                  disabled={newVehicleData.companies.length === 0 && newVehicleData.branches.length === 0}
-                  emptyMessage="No vendors available"
-                />
+                >
+                  <SelectTrigger>
+                    <SelectValue
+                      placeholder={
+                        newVehicleData.companies.length === 0 &&
+                        newVehicleData.branches.length === 0
+                          ? "Select company & branch first"
+                          : "Select a vendor"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(vendorData?.vendors || []).map((v) => (
+                      <SelectItem key={v._id} value={v._id}>
+                        {v.name}
+                        {v.email ? ` (${v.email})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
 
@@ -2941,7 +2963,7 @@ const CreateInvoice = () => {
                     "14 Feet", "17 Feet", "19 Feet", "20 Feet", "22 Feet", "24 Feet",
                     "32FTMXL-14MT", "32FTMXL-18MT", "32FTSXL-7MT", "32FTSXL-9MT",
                     "Biker", "BYHAND", "FLAT BED TRAILER 20FT", "FLAT BED TRAILER 40FT",
-                    "SEMI FLAT BED TRAILER 40FT", "Pickup", "TAURUS 16 TON", "TAURUS 18 TON",
+                    "SEMI FLAT BED TRAILER 40FT", "Pickup", "407", "TAURUS 16 TON", "TAURUS 18 TON",
                     "TAURUS 21 TON", "TAURUS 25 TON", "TAURUS 30 TON", "Tata 407",
                     "TRUCK/LORRY", "SFBT40", "TATA/EICHER 709", "TATA ACE",
                   ].map((type) => (
