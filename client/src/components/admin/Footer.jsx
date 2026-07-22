@@ -5,7 +5,7 @@ const Footer = () => {
     <footer className="bg-[#292928] py-4 w-full relative z-[60]">
       <div className="container mx-auto px-4 md:px-10 flex flex-col sm:flex-row justify-between items-center gap-2 lg:ml-[260px]">
         <p className="text-sm text-white text-center sm:text-left">
-          © 2025 Dellcube. All rights reserved.
+          © 2026 Dellcube. All rights reserved.
         </p>
         <p className="text-sm text-white text-center sm:text-right">
           Designed and developed by{" "}
